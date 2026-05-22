@@ -8,6 +8,10 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- **SECURITY_MODEL.md** — Pentest-Briefing-Dokument mit Trust-Boundaries,
+  Crypto-Primitiven, Daten-/Datei-/HTTP-Layer-Review-Foki und expliziten
+  Non-Goals. Schließt den in `PRODUCTION_READINESS.md` Punkt 11 markierten
+  TODO und entkoppelt damit das Pentest-Onboarding vom Code-Lesen.
 - **GUI-Erst-Start-Wizard** (§9 Megaprompt, D-030): Drei-Seiten-`QWizard`
   beim allerersten Start (Willkommen → Profilanlage → Zusammenfassung).
   Wiederverwendet `GuiController.create_profile`, optionales

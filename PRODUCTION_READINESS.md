@@ -88,8 +88,9 @@ oder BSI IT-Grundschutz konform).
 
 **Kosten gesamt:** 8.000-20.000 € einmalig + jährliches Re-Audit.
 
-**Vor dem Pentest:** Lege dem Anbieter SECURITY_MODEL.md vor (TODO,
-siehe unten), damit das Audit fokussiert ist.
+**Vor dem Pentest:** Lege dem Anbieter [SECURITY_MODEL.md](SECURITY_MODEL.md)
+vor (Trust-Boundaries, Crypto-Primitive, Pentest-Scope-Empfehlung),
+damit das Audit fokussiert ist.
 
 ### Punkt 12 — Echter User-Test mit Berufsträgern
 

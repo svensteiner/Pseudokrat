@@ -1,0 +1,92 @@
+"""PII-Recognizer für DACH-spezifische Entitäten."""
+
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING
+
+from pseudokrat.recognizers.at_svnr import AustrianSVNRRecognizer
+from pseudokrat.recognizers.at_uid import AustrianUIDRecognizer
+from pseudokrat.recognizers.base import Recognizer, Span
+from pseudokrat.recognizers.ch_ahv import SwissAHVRecognizer
+from pseudokrat.recognizers.company import CompanyLegalFormRecognizer
+from pseudokrat.recognizers.de_steuer_id import GermanSteuerIdRecognizer
+from pseudokrat.recognizers.de_ust_id import GermanUStIdNrRecognizer
+from pseudokrat.recognizers.email import EmailRecognizer
+from pseudokrat.recognizers.iban import IBANDachRecognizer
+from pseudokrat.recognizers.mandanten_nr import MandantenNummerRecognizer
+from pseudokrat.recognizers.phone import PhoneRecognizer
+from pseudokrat.recognizers.secret import SecretRecognizer
+from pseudokrat.recognizers.url import UrlRecognizer
+
+if TYPE_CHECKING:  # pragma: no cover
+    from pseudokrat.store.mapping_store import MappingStore
+
+
+def default_recognizers() -> list[Recognizer]:
+    """Standard-Bundle aller eingebauten Recognizer (ohne MandantenNummer)."""
+    return [
+        IBANDachRecognizer(),
+        AustrianUIDRecognizer(),
+        AustrianSVNRRecognizer(),
+        GermanSteuerIdRecognizer(),
+        GermanUStIdNrRecognizer(),
+        SwissAHVRecognizer(),
+        EmailRecognizer(),
+        PhoneRecognizer(),
+        UrlRecognizer(),
+        SecretRecognizer(),
+        CompanyLegalFormRecognizer(),
+    ]
+
+
+class InvalidMandantenPatternError(ValueError):
+    """Ein konfigurierter Mandanten-Nr-Regex ist nicht kompilierbar."""
+
+
+def compile_mandanten_pattern(pattern: str) -> re.Pattern[str]:
+    """Kompiliere ein per-Profil-Mandanten-Pattern. Eigene Exception für CLI-Mapping."""
+    try:
+        return re.compile(pattern)
+    except re.error as exc:
+        raise InvalidMandantenPatternError(
+            f"Mandanten-Pattern ist kein gültiger Regex: {exc}"
+        ) from exc
+
+
+def recognizers_for_store(store: MappingStore) -> list[Recognizer]:
+    """Standard-Bundle plus profilspezifischer Mandanten-Nr-Recognizer.
+
+    Wenn das Profil in ``profile_metadata`` einen Eintrag unter
+    :data:`pseudokrat.store.profile.MANDANTEN_PATTERN_METADATA_KEY` hat, wird
+    ein :class:`MandantenNummerRecognizer` mit diesem Pattern angehängt.
+    """
+    from pseudokrat.store.profile import MANDANTEN_PATTERN_METADATA_KEY
+
+    bundle = default_recognizers()
+    pattern = store.get_metadata(MANDANTEN_PATTERN_METADATA_KEY)
+    if pattern:
+        bundle.append(MandantenNummerRecognizer(compile_mandanten_pattern(pattern)))
+    return bundle
+
+
+__all__ = [
+    "InvalidMandantenPatternError",
+    "Recognizer",
+    "Span",
+    "AustrianSVNRRecognizer",
+    "AustrianUIDRecognizer",
+    "CompanyLegalFormRecognizer",
+    "EmailRecognizer",
+    "GermanSteuerIdRecognizer",
+    "GermanUStIdNrRecognizer",
+    "IBANDachRecognizer",
+    "MandantenNummerRecognizer",
+    "PhoneRecognizer",
+    "SecretRecognizer",
+    "SwissAHVRecognizer",
+    "UrlRecognizer",
+    "compile_mandanten_pattern",
+    "default_recognizers",
+    "recognizers_for_store",
+]

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Pseudokrat Excel-Add-in — Office.js Manifest
+  Status: Scaffold (Phase 5 des Megaprompts).
+
+  Sideload-Anleitung (Windows Excel Desktop):
+    1. Backend starten:
+         pseudokrat server start --profile "Mandant Hofer" --port 31337
+    2. In Excel: Datei → Optionen → Trust Center → Sicherheits-Center-
+       Einstellungen → Vertrauenswürdige Add-In-Kataloge → Pfad zu diesem
+       Repo (addins/excel/) hinzufügen → Excel neu starten.
+    3. Add-Ins → Eigene Add-Ins → Freigegebener Ordner → "Pseudokrat".
+
+  Für AppSource-Publishing siehe addins/excel/README.md.
+-->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+           xsi:type="TaskPaneApp">
+
+  <Id>A3B7F0D8-1E2C-4A7F-9C1B-PSEUDOKRAT0002</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>Pseudokrat</ProviderName>
+  <DefaultLocale>de-DE</DefaultLocale>
+  <DisplayName DefaultValue="Pseudokrat" />
+  <Description DefaultValue="Lokale PII-Anonymisierung direkt in Excel — DACH-Fokus." />
+  <IconUrl DefaultValue="https://localhost:31337/static/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:31337/static/icon-80.png" />
+  <SupportUrl DefaultValue="https://pseudokrat.example.com/" />
+
+  <AppDomains>
+    <AppDomain>https://localhost:31337</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Workbook" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://localhost:31337/taskpane.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+                    xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="PseudokratGroup">
+                <Label resid="PseudokratGroup.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
+                <Control xsi:type="Button" id="TaskpaneButton">
+                  <Label resid="TaskpaneButton.Label" />
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label" />
+                    <Description resid="TaskpaneButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>Pseudokrat.Taskpane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:31337/static/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:31337/static/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:31337/static/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://pseudokrat.example.com/excel" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:31337/taskpane.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Pseudokrat — anonymisieren in Excel" />
+        <bt:String id="PseudokratGroup.Label" DefaultValue="Pseudokrat" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Anonymisieren" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Anonymisiert markierte Zellen lokal über die Pseudokrat-CLI auf 127.0.0.1." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Markierte Zellen via lokaler Pseudokrat-Instanz anonymisieren." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

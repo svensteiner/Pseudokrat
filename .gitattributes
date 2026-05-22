@@ -1,0 +1,22 @@
+# Konsistente Zeilenenden über Windows/macOS/Linux hinweg.
+* text=auto eol=lf
+
+# Windows-spezifische Build-Skripte behalten CRLF.
+*.ps1 text eol=crlf
+*.iss text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binärdaten (vorbeugend, falls je ein Fixture/Icon eincheckt).
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.xlsx binary
+*.docx binary
+*.sqlite binary
+
+# GitHub Linguist: src/pseudokrat ist die "echte" Codebase.
+*.md linguist-documentation
+tests/** linguist-detectable=true

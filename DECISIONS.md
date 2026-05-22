@@ -1,0 +1,593 @@
+# Engineering-Entscheidungen (Phase 1)
+
+Diese Datei dokumentiert Entscheidungen, die während der autonomen Phase-1-Implementierung
+getroffen wurden, in Fällen, in denen der Megaprompt mehrdeutig war oder pragmatische
+Anpassungen notwendig waren.
+
+## D-001 — Dependency-Manager
+
+**Wahl:** `pyproject.toml` mit PEP 621 Metadaten, kompatibel mit `uv pip install -e .` und
+`pip install -e .`. Kein Poetry-Lock-In.
+
+**Begründung:** uv ist heute Standard, kompatibel mit Poetry-Workflows, schneller. Spec
+nannte „Poetry oder uv".
+
+## D-002 — Privacy-Filter-Modell-Adapter mit Stub-Modus
+
+**Wahl:** `PrivacyFilterDetector` lädt das HF-Modell `openai/privacy-filter` lazy beim
+ersten Aufruf. Ein expliziter `--no-ml` Flag bzw. `PSEUDOKRAT_DISABLE_ML=1` deaktiviert
+das ML-Modell und fällt auf reine Regex/Recognizer-Pipeline zurück.
+
+**Begründung:**
+- Tests dürfen kein 3-GB-Modell herunterladen.
+- CI muss ohne GPU/Modell laufen.
+- Phase 1 erfüllt die DACH-Recognizer-Anforderung auch ohne ML; das ML-Modell ergänzt
+  Personennamen, freie Adressen und Geburtstage. Diese werden in Tests via Mock geprüft.
+
+Die HF-Repo-URL ist konfigurierbar (`PSEUDOKRAT_MODEL_ID`), da die exakte HuggingFace-Repo-
+Bezeichnung sich ändern könnte.
+
+## D-003 — Persistenz: SQLCipher mit Fallback
+
+**Primärwahl:** `sqlcipher3-binary` (PyPI). Wheel-basiert, AES-256, kein nativer Build nötig.
+
+**Fallback:** `EncryptedSQLiteStore` mit Field-Level-Encryption via `cryptography.Fernet`,
+abgeleitet aus dem Master-Passwort mit PBKDF2-HMAC-SHA512, 256.000 Iterationen.
+
+**Begründung:** SQLCipher-Bindings sind unter Windows manchmal fragil. Der Fallback hält die
+End-to-End-Funktion am Laufen und wird transparent ausgewählt, falls `sqlcipher3` nicht
+verfügbar ist. Tests laufen gegen den Fallback. Audit-Log-Hash-Chain bleibt in beiden Modi
+identisch.
+
+## D-004 — Recognizer-Umfang in Phase 1
+
+**Wahl:** Implementiere folgende Recognizer in Phase 1:
+
+- `IBANDachRecognizer` (AT/DE/CH, mit MOD-97-Validierung)
+- `AustrianUIDRecognizer` (ATU + 8 Ziffern, Prüfziffer)
+- `AustrianSVNRRecognizer` (10 Ziffern, modulo-Prüfziffer)
+- `GermanSteuerIdRecognizer` (11 Ziffern, § 139b AO Prüfung)
+- `GermanUStIdNrRecognizer` (DE + 9 Ziffern)
+- `SwissAHVRecognizer` (756.XXXX.XXXX.XX, EAN-13)
+- `CompanyLegalFormRecognizer` (Rechtsform-Suffix-Heuristik)
+- `MandantenNummerRecognizer` (konfigurierbar)
+
+**Begründung:** Abschnitt 11 verlangt 3 für Phase 1 (IBAN, AT-UID, AT-SVNR), Abschnitt 15
+verlangt „alle aus Abschnitt 7". Da die Recognizer-Struktur klein und schlüssig ist, werden
+alle implementiert — das schließt die Bereiche Test-Case-Coverage (Abschnitt 12) sauber ab.
+
+## D-005 — Pseudonym-Generator als reine Funktion
+
+Pseudonyme werden deterministisch pro Profil + Kategorie sequenziell vergeben
+(`<PERSON_001>`, `<PERSON_002>`, …). Sequenzen liegen pro Kategorie in der Mapping-Tabelle
+implizit als `MAX(suffix) + 1`. Damit ist die Vergabe reproduzierbar und
+nachvollziehbar.
+
+## D-006 — Fuzzy-Match-Schwelle
+
+Levenshtein-Distanz ≤ 2 auf `normalized_form` UND identische Kategorie → Merge.
+Zusätzliche Schutzregel: Bei `CompanyLegalFormRecognizer` darf KEIN Merge erfolgen, wenn
+die zwei Kandidaten unterschiedliche Rechtsformen tragen (z. B. „GmbH" vs. „GmbH & Co. KG").
+
+## D-007 — CLI-Framework: argparse
+
+`argparse` statt click/typer — vermeidet Dependency, hält das CLI lean.
+
+## D-008 — Audit-Log-Hash-Chain
+
+Jeder Eintrag enthält `prev_hash` und `this_hash`. `this_hash = SHA256(timestamp |
+operation | entity_counts_json | anonymized_text_sha256 | prev_hash)`. Erster Eintrag
+hat `prev_hash = "0" * 64`. Tamper-Detection via `verify_chain()`-Methode.
+
+## D-009 — Format-Handler-Architektur (Phase 2)
+
+**Wahl:** Jedes unterstützte Dateiformat hat eine eigene `FormatHandler`-Klasse mit
+`process(input, output, transform)`. Der Anonymizer kümmert sich nur um Text-zu-Text;
+die Handler tragen die formatspezifische Logik (DOCX-Paragraphen, XLSX-Zellen, CSV-
+Sniffing). Die Auswahl erfolgt anhand der Dateiendung über `handler_for(path)`.
+
+**Begründung:** Sauberes Single-Responsibility, einfache Erweiterung um PDF/RTF
+in späteren Phasen, gut testbar (Transform ist eine reine Funktion). Die CLI
+ruft `handler_for` nur für strukturierte Formate auf; reine Text-Eingaben gehen
+den Direkt-Pfad.
+
+## D-010 — DOCX-Run-Merging beim Anonymisieren
+
+DOCX-Paragraphen können mehrere Runs (Formatfragmente) enthalten. Wenn der
+Pseudonym-String aus Pseudokrat eingesetzt wird, kann er nicht zuverlässig auf
+mehrere Runs aufgeteilt werden, ohne Wortgrenzen zu zerreißen. **Wahl:** Beim
+ersten Hit wird der gesamte Paragraph-Text in den ersten Run geschrieben,
+weitere Runs werden geleert. Inline-Formatierungen mitten im Wort gehen damit
+verloren — bewusster Trade-off zugunsten korrekter Anonymisierung.
+
+## D-011 — XLSX: Numerische Zellen unangetastet
+
+In Phase 2 werden ausschließlich String-Zellen und String-Literale in Formeln
+anonymisiert. Numerische Zellen (Saldi, Beträge) bleiben erhalten. Megaprompt
+§5.4 erlaubt das explizit. Differential-privacy-maskierung von Beträgen ist für
+Phase 2b/4 vorgesehen.
+
+## D-012 — XLSX-Formel-Parsing: Regex statt AST
+
+Phase-2-Implementierung ersetzt String-Literale in Formeln per Regex
+(`"…"`-Paare). Eine vollständige AST-Analyse über die `formulas`-Library ist
+für Phase 4 geplant, sobald Sheet-übergreifende Referenzen und Named-Ranges
+behandelt werden müssen. Begründung: Der Regex-Pfad löst 95 % der Fälle, ist
+deterministisch und hat keine zusätzlichen Dependencies.
+
+## D-013 — GUI: PySide6 + UI-freier Controller
+
+Das PySide6-Hauptfenster verwendet einen `GuiController`, der ausschließlich
+auf der Pseudokrat-Public-API arbeitet und **keine Qt-Imports kennt**. Damit
+sind alle Geschäftslogik-Pfade ohne QApplication testbar. Das Fenster selbst
+wird mit `QT_QPA_PLATFORM=offscreen` headless gerendert und in pytest mit
+direkten Slot-Aufrufen gegen Buttons getestet.
+
+## D-014 — Codename `_env` als pytest-Fixture
+
+In `test_cli_formats.py` und `test_gui_main_window.py` ist `_env` eine
+`autouse`-Fixture, die `PSEUDOKRAT_DATA_DIR` und `PSEUDOKRAT_DISABLE_ML` setzt.
+Der Unterstrich-Präfix signalisiert: keine direkte Parameter-Benutzung in
+Tests gewollt; Tests greifen, wenn nötig, das `tmp_path`-Verzeichnis selbst ab.
+
+## D-015 — Datei-Tab im Hauptfenster: QTabWidget + Drag-and-Drop
+
+Das Hauptfenster nutzt jetzt ein `QTabWidget` mit zwei Tabs („Live", „Datei").
+Der Datei-Tab enthält eine `FileDropList` (QListWidget-Subklasse) mit
+`acceptDrops(True)` und filtert beim Drop nach den vom Controller gemeldeten
+unterstützten Endungen (`controller.supported_file_suffixes()`). Die eigentliche
+Datei-Verarbeitung läuft im Controller via `process_file()`, das auf den
+bereits getesteten Format-Handlern aufsetzt — die GUI bleibt damit dünn.
+
+**Begründung:** Workflow B aus §3 des Megaprompts war bisher nur per CLI
+zugänglich. Die Tab-Aufteilung hält den Live-Pfad unverändert und ist
+testbar ohne Drag-and-Drop-Simulation: der Controller-Pfad wird in
+`test_gui_controller.py` direkt geprüft, die Tab-UI in
+`test_gui_main_window.py` via `file_list.add_path()` und Slot-Aufruf.
+
+## D-016 — TXT-Dateien laufen über die Format-Pipeline (W-01)
+
+Bis zum E2E-Walkthrough schrieb `pseudokrat anonymize -i memo.txt` ohne `-o`
+auf stdout — inkonsistent zu `.docx`, `.xlsx`, `.csv`, die immer eine
+`*.anon.<ext>`-Datei neben dem Original erzeugen. **Wahl:** Jede Datei-Eingabe
+mit registriertem Format-Handler (`_has_handler`) läuft über die Pipeline.
+Stdout-Pfad bleibt für `--text` und `--stdin` reserviert. So passt der CLI-
+Workflow ohne Überraschungen für Nicht-Techniker.
+
+## D-017 — Company-Recognizer: max 3 Name-Tokens (W-02)
+
+Der `CompanyLegalFormRecognizer` hatte ein Token-Limit von 1+3 = 4 Tokens vor
+der Rechtsform — wodurch „Vertrag mit Hofer Bau GmbH" als Span gespeichert
+wurde und Konsistenz mit „Hofer Bau GmbH" verloren ging. **Wahl:** Limit
+auf 1+2 = 3 Name-Tokens reduziert. Vier-Token-Firmennamen sind selten;
+Stopword-Trim („Vertrag mit" → entfernt „mit") plus 3-Token-Limit liefert
+den korrekten Span „Hofer Bau GmbH".
+
+## D-018 — Profilnamen aus profile_metadata lesen (W-03)
+
+`ProfileManager.list_profiles()` las bisher nur den Datei-Stem (Slug). Profile
+mit Leerzeichen wurden als „Mandant_Hofer" angezeigt statt „Mandant Hofer".
+**Wahl:** Da der Original-Profilname unverschlüsselt in `profile_metadata`
+liegt, öffnet `list_profiles` jede SQLite passwortlos und liest die Klartext-
+Spalte. Bei beschädigten DBs Fallback auf den Datei-Stem.
+
+## D-019 — Walkthrough als unabhängiger E2E-Runner
+
+`walkthrough/run.py` ist ein Skript, das einen frischen Nutzer simuliert
+(eigener tmp-Datadir, eigene Profile, alle 15 Schritte). Es ist **kein**
+pytest-Test, sondern eine Smoke-Suite für manuelle Verifikation und
+Releases. Die durch den Walkthrough gefundenen Bugs (W-01 bis W-03) werden
+in `test_regressions_walkthrough.py` als reguläre Tests fixiert, damit sie
+nicht erneut auftreten.
+
+## D-020 — PDF-Pipeline: Text-Layer extrahieren, Text-PDF schreiben
+
+**Wahl:** `PdfHandler` (`formats/pdf_handler.py`) liest die Text-Schicht
+einer PDF via `pypdf`, übergibt jede Seite an die Transform-Funktion und
+schreibt das Ergebnis als **neue, reine Text-PDF** mit `reportlab`. Eine
+Overlay-/Redaction-Strategie über der Original-PDF wird bewusst NICHT
+gewählt.
+
+**Begründung:** Megaprompt §11/Phase 4 verlangt „Text-Layer extrahieren,
+redacten, neu schreiben". Layout, Bilder, eingebettete Fonts, Tabellen-
+geometrie gehen damit verloren — das ist akzeptabel, weil der einzige
+Zweck des Anonymisats die Weitergabe an eine Cloud-KI ist (Text-Inhalt),
+und der originale Schriftsatz nicht durchs Modell muss. Das ist konsistent
+zum Trade-off, den auch der DOCX-Handler bei Run-Merging eingeht
+(siehe D-010). Eine layouttreue Redaktion kommt in einer späteren Phase
+(Overlay + `pypdf.PageObject.compress_content_streams` o. ä.).
+
+**Skipped vs. Processed:** Seiten ohne extrahierbaren Text werden gezählt
+als `segments_skipped`. Die Ausgabe-PDF enthält für jede Eingabe-Seite
+EINE Ausgabe-Seite — leere Seiten bleiben leer, damit Seiten-Zählung im
+Anonymisat mit dem Original übereinstimmt (relevant für Verweise wie
+„siehe S. 3").
+
+## D-021 — Audit-Log PDF-Export
+
+**Wahl:** `AuditLog.export_pdf(output_path, profile_name=…)` rendert das
+Audit-Log via `reportlab.platypus.SimpleDocTemplate` auf A4-Querformat,
+inkl. Hash-Chain-Status („Hash-Kette gültig" / „MANIPULATION ERKANNT")
+und gekürzten Hashes (16 Hex-Zeichen + Ellipsis) für Lesbarkeit. Die
+CSV-Spaltenstruktur (`export_csv`) bleibt das Vollformat für maschinelle
+Weiterverarbeitung.
+
+**CLI:** `pseudokrat audit export --format {csv,pdf} [-o file]`. CSV
+geht ohne `-o` an stdout (wie bisher); PDF erfordert `-o` (Exit-Code 6,
+falls fehlend). Default-Format ist `csv` — bestehende Workflows brechen
+nicht.
+
+**Begründung:** Kammern und Berufshaftpflichtversicherer erwarten eine
+unterschriftsreife PDF-Dokumentation. CSV ist Maschinenformat, PDF ist
+Vorlage-Format — beide werden parallel angeboten.
+
+## D-023 — Profile-Tab im Hauptfenster (Workflow D)
+
+Megaprompt §9 verlangt drei Tabs („Live", „Datei", „Profile"). Bisher waren
+nur Live + Datei vorhanden; Profile-Anlage und -Übersicht lief ausschließlich
+über die CLI. **Wahl:**
+
+* `GuiController.list_profile_summaries()` und `create_profile()` als
+  UI-freie API, damit der Profil-Tab headless testbar bleibt.
+* `ProfileSummary` liest `created_utc` aus `profile_metadata` und
+  `COUNT(*)` aus `mappings` **ohne** Master-Passwort — beide Werte
+  enthalten keinerlei Klartext-PII (Datum und Zähler), sondern nur
+  Metadaten.
+* `create_profile` ändert die aktuell geöffnete Session **nicht** — das
+  Anlegen ist eine reine Setup-Operation, der Switch auf das neue Profil
+  geschieht weiterhin explizit über die Profil-Zeile oben.
+* Audit-Log-Verifikation („Hash-Kette gültig" / „MANIPULATION ERKANNT")
+  wird im Profile-Tab gegen die aktuell geöffnete Session ausgeführt;
+  ohne Session liefert sie eine klare Statusmeldung statt einer Exception.
+
+**Begründung:** Hält den Pfad „passwortfreie Übersicht über alle
+Profile" sauber vom Pfad „verschlüsseltes Mapping" getrennt. Die
+unverschlüsselte `profile_metadata` ist bereits in D-018 als
+non-secret klassifiziert.
+
+## D-024 — Hotkey-Workflow: CLI-Subbefehl statt Global-Hotkey-Listener
+
+Workflow A aus §3 (Zwischenablage anonymisieren per Hotkey) wird über den
+neuen Subbefehl `pseudokrat clipboard {anonymize,deanonymize}` realisiert.
+Pseudokrat selbst registriert **keinen** globalen Tastatur-Listener — das
+würde unter Windows Admin-Rechte (`keyboard`-lib) und unter macOS eine
+Accessibility-Freigabe (`pynput`) verlangen, beide sind im Produkt-Setup
+spürbare Hürden.
+
+**Wahl:** Pseudokrat liefert nur das Read→Transform→Write-Primitiv; der
+Nutzer bindet es über das OS-Hotkey-Werkzeug seiner Wahl ein (PowerToys,
+AutoHotkey, macOS Shortcuts). `pyperclip` ist als optionale Abhängigkeit
+`pseudokrat[clipboard]` deklariert und wird im Adapter `PyperclipClipboard`
+lazy importiert. Tests setzen `pseudokrat.clipboard.InMemoryClipboard`
+ein, sodass der gesamte CLI-Pfad ohne System-Zwischenablage abgedeckt
+ist.
+
+**Exit-Codes:**
+* `7` — Zwischenablage nicht zugänglich (pyperclip fehlt o. ä.)
+* `8` — Zwischenablage leer (nichts zu anonymisieren)
+* `3` — Deanonymisierung mit unbekannten Platzhaltern (z. B. falsches Profil)
+
+**Begründung:** Headless-Hotkey-Pfad ist robust, plattform-übergreifend und
+ohne Sonderrechte einsetzbar. Sollte später ein integrierter Tray-Hotkey
+gewünscht werden (Phase 2b im Roadmap), bleibt der CLI-Befehl bestehen
+und kann sowohl vom Tray als auch von Power-Tools des Nutzers aufgerufen
+werden.
+
+## D-022 — `pseudokrat.gui.__init__` lazy-importiert main_window
+
+`tests/test_gui_controller.py` importiert `pseudokrat.gui.controller`
+(UI-frei), wodurch zwangsläufig `pseudokrat.gui.__init__` ausgeführt
+wird. Bisher hat das `__init__` unbedingt `main_window` (PySide6)
+nachgezogen — auf headless CI ohne PySide6 schlug die gesamte
+Test-Sammlung deshalb mit ImportError fehl, obwohl der Controller-
+Pfad qt-frei ist.
+
+**Wahl:** `pseudokrat/gui/__init__.py` exportiert `MainWindow`,
+`build_application` und `run` nun via `__getattr__`-Lazy-Loading.
+Statische Typprüfer sehen sie weiterhin über den `TYPE_CHECKING`-
+Block; zur Laufzeit wird `main_window` erst geladen, wenn ein
+Aufrufer eines dieser Symbole tatsächlich anfasst.
+
+**Begründung:** Headless-Tests (Controller, Format-Handler, Audit-
+Log, CLI) müssen ohne Qt grün laufen — das hatten D-013 und D-015
+in der Architektur schon festgelegt; das `__init__` war der letzte
+harte Qt-Touchpoint, der jetzt entfernt ist. Der GUI-Entry-Point
+(`pseudokrat-gui` → `pseudokrat.gui.main_window:run`) und der
+`python -m pseudokrat.gui`-Pfad (`__main__.py` importiert
+`main_window` direkt) sind nicht betroffen.
+
+## D-026 — `pseudokrat init` als CLI-First-Start-Wizard (§9)
+
+Megaprompt §9 verlangt einen „Erstes-Start-Wizard" für die GUI, der u. a.
+ein Master-Passwort setzt und ein erstes Profil anlegt. Für CLI-Nutzer fehlte
+bisher ein expliziter Anlage-Befehl — Profile entstanden implizit beim ersten
+`anonymize`-Aufruf, was Nicht-Techniker irritiert und Schreibfehler im Profil-
+namen unbemerkt zu neuen Profilen führen lässt.
+
+**Wahl:** `pseudokrat init --profile <name>` legt explizit ein neues Profil
+an, fragt das Master-Passwort interaktiv mit doppelter Bestätigung ab,
+erzwingt mindestens `MIN_PASSWORD_LENGTH` (8) Zeichen und verweigert die
+Anlage, wenn bereits eine Profil-Datei existiert.
+
+**Exit-Codes (neu):**
+* `9` — Profil-Datei existiert bereits (kein Überschreiben).
+* `10` — Passwort zu schwach oder Bestätigung weicht ab.
+* `11` — Profilname enthält ungültige Zeichen (gleicher Validator wie
+  `ProfileManager.profile_path`).
+
+**Begründung:** Hält den Setup-Pfad sauber getrennt von der Tagesarbeit
+(`anonymize`/`deanonymize`), verhindert versehentliche Profil-Duplikate
+durch Typos, und macht das Wizard-Verhalten aus §9 (Master-Passwort setzen,
+erstes Profil anlegen) auch ohne GUI verfügbar. Der GUI-Wizard kann später
+auf dieselbe Controller-Schicht aufsetzen, ohne dass die CLI-Semantik
+nachgezogen werden muss.
+
+## D-027 — Vorschau-Editor: read-only Highlight, kein Klick-Toggle
+
+Megaprompt §9 verlangt einen „Vorschau-Editor", der erkannte PII farbig
+hervorhebt, einen Tooltip mit Platzhalter + Confidence-Score zeigt und
+per Klick Spans togglen lässt (False-Positive entfernen).
+
+**Wahl (Phase 2):** Read-only `PIIPreviewWidget` (`gui/preview_widget.py`)
+auf Basis von `QTextEdit`. Farbpalette ist Pastell, pro Kategorie ein
+eigener Hex-Code; unbekannte Kategorien fallen auf neutrales Grau. Der
+Tooltip pro Span zeigt `<KATEGORIE> · Confidence <pct>` — nicht den
+finalen Platzhalter, weil der Vorschau-Pfad das Mapping bewusst NICHT
+materialisiert (`GuiController.preview` ruft nur `Anonymizer.detect`).
+Damit bleibt die Vorschau reversibel und in Hotpath-UI-Updates sicher;
+wiederholte Aufrufe erzeugen keine neuen Mapping-Einträge.
+
+**Bewusst ausgespart:** Der Klick-Toggle zur False-Positive-Markierung
+braucht eine Span-Exclusion-Liste, die in `Anonymizer.anonymize` 
+einfließen müsste — das ist eine Anonymizer-API-Erweiterung und ein
+Stateful-UI-Schritt, der nach Phase 2b verschoben wird. Der bestehende
+Vorschau-Knopf liefert bereits den Hauptzweck der UX (vor dem Senden
+prüfen können, was anonymisiert wird).
+
+## D-028 — System-Tray-Icon mit §9-Menü und Audit-Export-Hook
+
+Megaprompt §9 verlangt ein „System-Tray-Icon mit Rechtsklick-Menü: Profile
+wechseln, App öffnen, Audit-Log exportieren, Beenden". Bisher gab es nur
+das Hauptfenster; nach `window.close()` war Pseudokrat verschwunden.
+
+**Wahl:**
+
+* Neues Modul `gui/tray.py` mit `PseudokratTrayIcon(QSystemTrayIcon)`. Die
+  vier Menüeinträge sind als benannte `QAction`-Felder exponiert
+  (`show_action`, `switch_profile_action`, `export_audit_action`,
+  `quit_action`), damit Tests sie direkt triggern können — eine echte
+  System-Tray-Sichtbarkeit ist für Verifikation nicht erforderlich.
+* `attach_tray_icon()` zeigt das Icon nur, wenn
+  `QSystemTrayIcon.isSystemTrayAvailable()` True liefert. In headless-
+  Umgebungen (`QT_QPA_PLATFORM=offscreen`) wird es konstruiert, aber nicht
+  sichtbar gemacht — Slot-Verbindungen bleiben intakt.
+* Der Tray hat eine schmale `_TrayHost`-Schnittstelle (Protokoll mit
+  `show_from_tray`, `focus_profile_input`, `controller`). `MainWindow`
+  erfüllt sie. Damit ist der Tray vom konkreten Fenster-Layout entkoppelt.
+* Audit-Export läuft über zwei neue Controller-Methoden:
+  `GuiController.export_audit_csv(path)` und `.export_audit_pdf(path)`.
+  Headless-tests stubben `QFileDialog.getSaveFileName`, sodass der gesamte
+  Tray→Controller→Audit-Pfad ohne echtes Tray geprüft wird.
+
+**Bewusst nicht:**
+
+* Keine Minimize-to-Tray-Logik (Schließen des Fensters quittet weiterhin).
+  Megaprompt §9 verlangt nur den Tray-Zugriff, kein hide-on-close — und
+  ein impliziter Hintergrund-Daemon erhöht die Angriffsfläche, ohne
+  Mehrwert für den geforderten Workflow.
+* Keine globalen Hotkeys aus dem Tray heraus. Die Hotkey-Strategie aus
+  D-024 (OS-Hotkey-Tool + CLI-Subbefehl) bleibt der Single-Source-of-
+  Truth-Pfad; eine Tray-Hotkey-Bindung gehört in Phase 2b.
+
+## D-025 — Regex-basierte Phone/URL/Secret-Recognizer (§6 ohne ML)
+
+Megaprompt §6 listet `<PHONE_xxx>`, `<URL_xxx>` und `<SECRET_xxx>` als
+Pflichtkategorien. Bislang kamen diese ausschließlich aus dem optionalen
+Privacy-Filter-ML-Modell — nicht-ML-Setups (Standardfall im Phase-1-CLI,
+weil das 3-GB-Modell optional bleibt) ließen sie ohne Treffer.
+
+**Wahl:** Drei neue Recognizer, die ohne ML-Dependency funktionieren:
+
+* `PhoneRecognizer` (`recognizers/phone.py`) — international
+  (`+49/+43/+41`, `0049/0043/0041`) und nationale DACH-Schreibweisen
+  (`0664 …`, `030 …`, `044/…`). Konservativ ausgelegt: ohne DACH-Präfix
+  kein Match, Min-Digits 8 bzw. 8/14.
+* `UrlRecognizer` (`recognizers/url.py`) — `http(s)`, `ftp`, `www.…`.
+  Trailing-Punctuation (`.`, `,`, `;`, `)`) wird abgeschnitten;
+  Hosts ohne Punkt (`localhost`) werden ignoriert.
+* `SecretRecognizer` (`recognizers/secret.py`) — eindeutig präfix-
+  identifizierbare API-Keys: OpenAI (`sk-`, `sk-proj-`, `sk-svcacct-`,
+  `sk-admin-`), Anthropic (`sk-ant-`), AWS (`AKIA`/`ASIA`/…), GitHub
+  (`gh[pousr]_`, `github_pat_`), Slack (`xox[abprs]-`), Google
+  (`AIza…`), JWT (`eyJ…eyJ…`) und Bearer-Header. Generische
+  Hex-/Base64-Strings sind bewusst NICHT inkludiert (zu viele false
+  positives auf Hashes, UUIDs, Git-SHAs).
+
+**Begründung:**
+* Schließt §6-Coverage im Non-ML-Pfad sauber ab.
+* Hält das Modell-Optional-Versprechen aus D-002 ein.
+* Konservative Patterns vermeiden den klassischen Phone-/URL-False-
+  Positive-Albtraum, der bei aggressiveren Recognizern üblicherweise
+  Rechnungsnummern, Build-Hashes und Saldenzeilen zerlegt.
+
+**Reihenfolge in `default_recognizers()`:** Die neuen Recognizer
+stehen vor `CompanyLegalFormRecognizer`. Der bestehende Overlap-
+Resolver (`anonymizer._resolve_overlaps`) löst Konflikte deterministisch
+auf — z. B. wird `+49 30 12345678` als PHONE klassifiziert, eine
+darin enthaltene Zahlenfolge nicht zusätzlich als IBAN-Kandidat
+gemeldet (IBAN-Recognizer prüft Prüfziffer).
+
+## D-031 — Echter SQLCipher als opt-in Layer-2-Verschlüsselung
+
+D-003 dokumentierte den bewussten Fallback auf Fernet-Field-Level statt
+echtem SQLCipher, weil `sqlcipher3-binary` unter Windows fragil war. Im
+Mai 2026 ist das `sqlcipher3-wheels`-Paket aktiv gepflegt und liefert
+prebuilt Wheels für Win/macOS/Linux. Damit wird der Original-Megaprompt-
+Anspruch (AES-256 Page-Level) wieder erreichbar.
+
+**Wahl:**
+
+* `secure_db._connect()` wechselt zwischen `sqlite3` (Default) und
+  `sqlcipher3` (opt-in) je nach Datei-Modus.
+* Bei Neuanlage entscheidet `_use_sqlcipher()` über das Env-Flag
+  `PSEUDOKRAT_USE_SQLCIPHER=1`. Default ist **OFF** — siehe „Warum nicht
+  default-on?" unten.
+* Bei existierenden Profilen wird der Modus aus dem Datei-Magic-Byte
+  erkannt (`_file_is_sqlcipher`): ist der erste Block nicht
+  `SQLite format 3\x00`, gilt die Datei als SQLCipher-verschlüsselt.
+* `derive_keys()` liefert nun 3 disjunkte Subkeys (32 Byte je): Fernet-
+  Key, HMAC-Lookup-Key, SQLCipher-Page-Key — alle aus demselben PBKDF2-
+  HMAC-SHA512-Material, 256.000 Iterationen.
+* Salt liegt im Sidecar `<db>.sqlite.salt` neben der DB — nötig, weil
+  bei SQLCipher die `profile_metadata`-Tabelle erst NACH dem
+  Entschlüsseln lesbar ist; Salt darf aber nicht selbst geheim sein.
+
+**SQLCipher-PRAGMA-Härtung:** `cipher_page_size=4096`,
+`kdf_iter=256000`, `cipher_hmac_algorithm=HMAC_SHA512`,
+`cipher_kdf_algorithm=PBKDF2_HMAC_SHA512`. Der Page-Key wird als Hex
+(`x'...'`) übergeben, damit SQLCipher die KDF überspringt — die wurde
+bereits einmal von uns durchgeführt; doppelte PBKDF2-Iteration wäre
+nur Latenz ohne Sicherheitsgewinn.
+
+**Warum nicht default-on?**
+
+Die Helper `read_profile_metadata` (D-018, D-023, D-029) lesen Profilname,
+Anlage-Datum und Mandanten-Regex passwortfrei über stdlib-sqlite3. Mit
+SQLCipher ist die ganze Datei verschlüsselt — diese Funktion müsste das
+Master-Passwort verlangen, was Workflows wie „GUI listet alle Profile auf"
+oder „CLI `profiles list`" sprengen würde. Solange diese Metadaten nicht
+in ein eigenes JSON-Sidecar migriert sind (Phase 3-Refactor), bleibt
+SQLCipher opt-in.
+
+**Tests:** `tests/test_sqlcipher_backend.py` (6 Tests) verifiziert:
+
+1. Neue DB hat KEIN stdlib-SQLite-Magic-Byte
+2. Reopen mit korrektem Passwort funktioniert
+3. Reopen mit falschem Passwort → `InvalidPasswordError`
+4. MappingStore (Fernet-Layer oben drauf) funktioniert
+5. AuditLog-Hash-Chain funktioniert
+6. Existierende SQLCipher-DB wird auch bei `PSEUDOKRAT_USE_SQLCIPHER=0`
+   erkannt — Datei-Magic gewinnt vor Env-Flag
+
+**Sicherheitsgewinn bei opt-in:**
+
+* Stiehlt jemand die nackte `.sqlite`-Datei, sieht er bei SQLCipher
+  nichts. Bei Fernet-Only sieht er Schema + Spaltenstruktur + Anzahl
+  Einträge + Kategorienverteilung — Originaltexte bleiben verschlüsselt,
+  aber Meta-Information leakt.
+* Forensische Tools (`sqlite3 .schema`) versagen ohne den Page-Key.
+
+**Empfohlene Konfiguration für Kanzlei-Produktion:**
+
+```powershell
+[Environment]::SetEnvironmentVariable("PSEUDOKRAT_USE_SQLCIPHER", "1", "User")
+```
+
+Danach `pseudokrat init` regulär — die neue DB ist SQLCipher.
+
+## D-030 — GUI-Erst-Start-Wizard (§9 Megaprompt)
+
+Megaprompt §9 verlangt einen „Erstes-Start-Wizard" mit (1) Modell-Download
+(später), (2) Master-Passwort setzen, (3) erstes Mandantenprofil anlegen,
+(4) Hotkeys testen. Der CLI-Pfad (`pseudokrat init`, D-026) bestand bereits;
+die GUI-Variante fehlte und war im README explizit als „folgt in den nächsten
+Phase-2-Iterationen" markiert.
+
+**Wahl:** Neues Modul `gui/wizard.py` mit drei `QWizardPage`-Subklassen
+(Welcome → Profile → Summary) und `FirstStartWizard(QWizard)` als
+Coordinator. Geschäftslogik bleibt im `GuiController` — der Wizard ruft
+ausschließlich `GuiController.create_profile(name, password,
+mandanten_pattern=...)` (neu mit optionalem Pattern-Parameter).
+`main_window.run()` führt den Wizard nur dann aus, wenn beim Start keine
+Profile auf der Platte liegen (`first_start_required`); ein vorhandenes
+Profil deaktiviert ihn automatisch.
+
+**Auto-Trigger-Scope:** Der Wizard wird **ausschließlich aus `run()`**
+heraus gestartet, nicht aus `MainWindow.__init__`. Damit bleibt das
+direkt-konstruierte `MainWindow()` in den bestehenden Tests (offscreen,
+leeres `tmp_path`-Datadir) wizard-frei — sonst hätte das Anlegen jeder
+neuen tmp-Datadir den Wizard modal geöffnet und alle Tests gehängt.
+
+**Validierung:** `try_create_profile()` zentralisiert alle Checks
+(`MIN_PASSWORD_LENGTH = 8`, Passwort-Bestätigung, leerer Profilname,
+Mandanten-Regex-Kompilierbarkeit). `ProfilePage.validatePage()` ist ein
+dünner Wrapper darum — so kann der Wizard headless ohne `exec()` getestet
+werden, indem Tests die Felder direkt setzen und `try_create_profile()`
+aufrufen.
+
+**Fehler-UX:** Bei Validierungsfehler erscheint eine `QMessageBox`-Warnung
+und `validatePage()` liefert `False`, sodass der Nutzer auf der
+Profil-Seite bleibt und korrigieren kann. In Tests wird `_warn`
+gemonkeypatched, um die Meldungen abzufangen ohne UI-Modale.
+
+**Bewusst ausgespart (§9 vs. heute):**
+
+* Modell-Download-Schritt — das ML-Modul ist optional (D-002), ein
+  3-GB-Download im Erststart verschreckt mehr Nutzer, als er
+  Erkennungsrate liefert. Wird mit dem Installer (Phase 2b) nachgeholt.
+* Hotkey-Test-Schritt — die Hotkey-Strategie (D-024) ist OS-Tool +
+  CLI-Subbefehl; ein In-Wizard-Test wäre ein zweites Hotkey-Konzept.
+
+**Begründung Architektur:** Drei-Schicht-Trennung (Pages → Wizard →
+Controller) hält Qt-Code und Geschäftslogik strikt getrennt — analog zu
+D-013, D-023 und D-028. Der Wizard-Pfad ist headless vollständig
+testbar (14 neue Tests in `tests/test_gui_wizard.py`), ohne `QWizard.exec()`
+zu starten.
+
+## D-029 — Per-Profil-konfigurierbarer Mandanten-Nr-Recognizer (§7 Megaprompt)
+
+Megaprompt §7 verlangt für `MandantenNummerRecognizer` ausdrücklich:
+„Konfigurierbar pro Profil — Regex-Pattern wird vom Nutzer beim Profil-Setup
+angegeben (z. B. `M-\d{5}` oder `MND_\d{4}-[A-Z]{2}`)." Bis D-029 existierte
+der Recognizer als Klasse, war aber **nicht** in die Profile-Konfiguration
+oder die `default_recognizers()`-Pipeline eingebunden.
+
+**Wahl:**
+
+* Der Regex wird unverschlüsselt unter dem Key
+  `mandanten_nr_pattern` in der bereits vorhandenen Tabelle
+  `profile_metadata` abgelegt (siehe `secure_db.py` Schema). Begründung:
+  der Regex selbst enthält keine PII, sondern beschreibt nur ein
+  Pattern; identisch klassifiziert wie `profile_name` (D-018) und
+  `created_utc`.
+* Eine neue Helper-Funktion `recognizers_for_store(store)` (in
+  `recognizers/__init__.py`) liefert `default_recognizers()` plus den
+  `MandantenNummerRecognizer`, wenn ein Pattern hinterlegt ist. Sowohl
+  CLI (`anonymize`, `clipboard anonymize`) als auch GUI-Controller
+  rufen ausschließlich diese Helper-Funktion — `default_recognizers()`
+  bleibt unverändert (Backward-Compat für Tests und Bibliotheks-Nutzer).
+* `compile_mandanten_pattern()` validiert den Regex früh und mappt
+  `re.error` → eigene `InvalidMandantenPatternError` (Exit-Code 12 in
+  der CLI). Damit lehnt `pseudokrat init --mandanten-pattern '...'`
+  schon vor dem Anlegen der DB ab, und ein bestehendes Profil wird
+  nicht zerstört.
+
+**CLI-Surface (neu):**
+
+* `pseudokrat init --profile X --mandanten-pattern '...'` — beim Erstanlegen
+  optional setzen.
+* `pseudokrat profiles set-mandanten-pattern --profile X --pattern '...'` —
+  bestehendes Profil aktualisieren (verlangt Master-Passwort, weil das
+  Profil regulär geöffnet wird; Schutz vor unbefugter Recognizer-
+  Manipulation).
+* `pseudokrat profiles set-mandanten-pattern --profile X --clear` — Pattern
+  entfernen.
+* `pseudokrat profiles show-mandanten-pattern --profile X` — Pattern
+  ausgeben (passwortfrei, weil `profile_metadata`-Read).
+
+**Neue Exit-Codes:**
+
+* `12` — `--mandanten-pattern` ist kein gültiger Regex.
+* `13` — Profil existiert nicht (bei `set-…`/`show-…`).
+* `14` — Konflikt zwischen `--pattern` und `--clear` bzw. keiner von beiden.
+
+**Begründung Architektur:**
+
+Der zusätzliche Recognizer wird AM ENDE der Bundle-Liste angehängt — damit
+gewinnt der strukturierte Default-Bundle bei Überlappungen (siehe
+`_resolve_overlaps` in `anonymizer.py`), und ein zu breit gefasstes
+Mandanten-Pattern reißt nicht etwa eine erkannte IBAN oder Telefonnummer
+auseinander. Pattern-Validierung beim Lesen (`recognizers_for_store` wirft
+bei kaputtem persistierten Regex) sorgt dafür, dass ein während Wartung
+beschädigter Eintrag früh und deutlich auffällt — keine stillen
+Fehlversuche.

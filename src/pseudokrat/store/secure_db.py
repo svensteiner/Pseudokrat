@@ -189,8 +189,10 @@ def _connect(db_path: Path, *, encrypted: bool, key_hex: str) -> sqlite3.Connect
     """
     if encrypted:
         try:
-            import sqlcipher3  # type: ignore[import-not-found]
-            from sqlcipher3.dbapi2 import Row as SqlcipherRow  # type: ignore[import-not-found]
+            import sqlcipher3  # type: ignore[import-not-found,unused-ignore]
+            from sqlcipher3.dbapi2 import (
+                Row as SqlcipherRow,  # type: ignore[import-not-found,unused-ignore]
+            )
         except ImportError as exc:  # pragma: no cover - guarded by caller
             raise InvalidPasswordError(
                 "Profil ist SQLCipher-verschlüsselt, aber sqlcipher3 ist nicht installiert. "

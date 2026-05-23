@@ -356,7 +356,7 @@ def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
                 input_path,
                 output_path,
                 transform=lambda t: anonymizer.anonymize(t).text,
-                **handler_kwargs,  # type: ignore[arg-type]
+                **handler_kwargs,
             )
             print(
                 f"[anonymized:{handler.name}] {result.segments_processed} Segmente "

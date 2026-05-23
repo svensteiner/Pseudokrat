@@ -63,7 +63,7 @@ class KeyboardBackend:
 
     def __init__(self) -> None:
         try:
-            import keyboard  # type: ignore[import-not-found]
+            import keyboard  # type: ignore[import-not-found,unused-ignore]
         except ImportError as exc:
             raise HotkeyUnavailableError(
                 "Die `keyboard`-Library ist nicht installiert. "
@@ -96,7 +96,7 @@ class PynputBackend:
 
     def __init__(self) -> None:
         try:
-            from pynput import keyboard  # type: ignore[import-not-found]
+            from pynput import keyboard  # type: ignore[import-not-found,unused-ignore]
         except ImportError as exc:
             raise HotkeyUnavailableError(
                 "Die `pynput`-Library ist nicht installiert. "
@@ -122,11 +122,11 @@ class PynputBackend:
     def run_forever(self) -> None:
         listener = self._listener_cls(self._hotkeys)
         self._listener = listener
-        listener.run()  # type: ignore[attr-defined]
+        listener.run()  # type: ignore[attr-defined,unused-ignore]
 
     def stop(self) -> None:
         if self._listener is not None:
-            self._listener.stop()  # type: ignore[attr-defined]
+            self._listener.stop()  # type: ignore[attr-defined,unused-ignore]
 
 
 def select_backend() -> HotkeyBackend:

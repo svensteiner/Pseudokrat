@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Pseudokrat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body class="pseudokrat">
+  <header>
+    <h1>Pseudokrat</h1>
+    <p class="subtitle">Lokale PII-Anonymisierung — kein Klartext verlässt diese Maschine.</p>
+  </header>
+
+  <main>
+    <section class="status">
+      <p id="backend-status">Backend-Status: <span id="backend-state">prüfe…</span></p>
+    </section>
+
+    <section class="actions">
+      <button id="anonymize-selection" type="button">Auswahl anonymisieren</button>
+      <button id="deanonymize-selection" type="button">Auswahl deanonymisieren</button>
+      <button id="anonymize-document" type="button">Gesamtes Dokument</button>
+      <button id="deanonymize-document" type="button">Dokument deanonymisieren</button>
+    </section>
+
+    <section class="profile">
+      <label for="profile-name">Profil:</label>
+      <input id="profile-name" type="text" placeholder="Mandant Hofer" />
+    </section>
+
+    <section class="log">
+      <h2>Protokoll</h2>
+      <ol id="log-list" aria-live="polite"></ol>
+    </section>
+  </main>
+</body>
+</html>

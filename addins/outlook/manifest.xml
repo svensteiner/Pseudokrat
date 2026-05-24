@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Pseudokrat Outlook-Add-in — Office.js Manifest
+  Status: Scaffold (Phase 5 des Megaprompts, parallel zu addins/excel/ und
+  addins/word/).
+
+  Sideload-Anleitung (Outlook Desktop / OWA):
+    1. Backend starten:
+         pseudokrat server start --profile "Mandant Hofer" --port 31337
+    2. In Outlook: Datei → Verwalten von Add-Ins → Meine Add-Ins →
+       Add-In aus Datei hinzufügen → manifest.xml wählen.
+    3. Ribbon → Pseudokrat → "Anonymisieren".
+
+  Für AppSource-Publishing siehe addins/outlook/README.md.
+
+  Hinweis: Outlook-Add-Ins haben drei Form-Faktoren — Read (E-Mail
+  lesen), Compose (Verfassen) und Mailbox-Ribbon. Wir aktivieren alle
+  drei: anonymisieren beim Verfassen (vor Versand), deanonymisieren
+  beim Lesen (eingehende KI-Antworten).
+-->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/mailappversionoverrides"
+           xsi:type="MailApp">
+
+  <Id>A3B7F0D8-1E2C-4A7F-9C1B-PSEUDOKRAT0004</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>Pseudokrat</ProviderName>
+  <DefaultLocale>de-DE</DefaultLocale>
+  <DisplayName DefaultValue="Pseudokrat" />
+  <Description DefaultValue="Lokale PII-Anonymisierung direkt in Outlook — DACH-Fokus." />
+  <IconUrl DefaultValue="https://localhost:31337/static/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:31337/static/icon-80.png" />
+  <SupportUrl DefaultValue="https://pseudokrat.example.com/" />
+
+  <AppDomains>
+    <AppDomain>https://localhost:31337</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.5" />
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://localhost:31337/taskpane.html" />
+        <RequestedHeight>320</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+    <Form xsi:type="ItemEdit">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://localhost:31337/taskpane.html" />
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteMailbox</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read" />
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit" />
+  </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides"
+                    xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.5">
+        <bt:Set Name="Mailbox" />
+      </bt:Sets>
+    </Requirements>
+
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url" />
+
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="PseudokratReadGroup">
+                <Label resid="PseudokratGroup.Label" />
+                <Control xsi:type="Button" id="ReadPaneButton">
+                  <Label resid="ReadButton.Label" />
+                  <Supertip>
+                    <Title resid="ReadButton.Label" />
+                    <Description resid="ReadButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+
+          <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="PseudokratComposeGroup">
+                <Label resid="PseudokratGroup.Label" />
+                <Control xsi:type="Button" id="ComposePaneButton">
+                  <Label resid="ComposeButton.Label" />
+                  <Supertip>
+                    <Title resid="ComposeButton.Label" />
+                    <Description resid="ComposeButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:31337/static/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:31337/static/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:31337/static/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:31337/taskpane.html" />
+        <bt:Url id="Commands.Url" DefaultValue="https://localhost:31337/commands.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="PseudokratGroup.Label" DefaultValue="Pseudokrat" />
+        <bt:String id="ReadButton.Label" DefaultValue="Deanonymisieren" />
+        <bt:String id="ComposeButton.Label" DefaultValue="Anonymisieren" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="ReadButton.Tooltip" DefaultValue="Eingehende E-Mail-Inhalte lokal deanonymisieren (KI-Antworten zurück auf Klartext)." />
+        <bt:String id="ComposeButton.Tooltip" DefaultValue="E-Mail-Inhalt anonymisieren bevor er an externe KI geht." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

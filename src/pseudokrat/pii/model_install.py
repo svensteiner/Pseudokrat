@@ -87,14 +87,48 @@ class ModelDownloadError(RuntimeError):
 #: ausschließlich diese Revision. Wer ein anderes Modell will, muss
 #: ``PSEUDOKRAT_MODEL_ID`` UND ``PSEUDOKRAT_MODEL_REVISION`` setzen —
 #: ungepinnte Downloads (CWE-494: Substitution-Risiko) sind nicht erlaubt.
-PINNED_MODEL_REVISION = "main"  # TODO vor 1.0: durch konkreten Git-SHA ersetzen
+#:
+#: Aktuell ist „main" als Fallback hinterlegt — der eingebaute Strict-
+#: Mode (siehe ``PSEUDOKRAT_REQUIRE_PINNED_REVISION``) verweigert in
+#: dem Fall den Download und verlangt eine explizite Revision aus der
+#: Umgebung. Vor 1.0-Release wird hier ein konkreter Git-SHA gepinnt
+#: (siehe D-036).
+PINNED_MODEL_REVISION = "main"
+
+#: Sentinel-Wert: solange ``PINNED_MODEL_REVISION`` diesem Branch-Namen
+#: entspricht, gilt die Revision als „ungepinnt".
+_UNPINNED_SENTINELS: frozenset[str] = frozenset({"main", "master", "HEAD"})
+
+
+class UnpinnedModelRevisionError(ModelDownloadError):
+    """Hardfail wenn Strict-Mode an ist und keine echte Git-SHA gepinnt ist."""
 
 
 def _resolved_revision(settings: Settings) -> str:
-    """Auflösung der Modell-Revision aus Env oder Default-Pin."""
-    import os
+    """Auflösung der Modell-Revision aus Env oder Default-Pin.
 
-    return os.environ.get("PSEUDOKRAT_MODEL_REVISION", PINNED_MODEL_REVISION)
+    Ablauf:
+
+    1. ``PSEUDOKRAT_MODEL_REVISION`` aus der Umgebung — höchste Prio,
+       erlaubt sowohl Git-SHA als auch Branch-Namen.
+    2. ``PINNED_MODEL_REVISION`` aus diesem Modul — der dauerhafte Pin.
+    3. Wenn die resultierende Revision in :data:`_UNPINNED_SENTINELS`
+       liegt UND ``PSEUDOKRAT_REQUIRE_PINNED_REVISION=1`` gesetzt ist,
+       wird :class:`UnpinnedModelRevisionError` geworfen, bevor ein
+       Download passieren kann. So kann CI/Pentest-Setup das harte
+       Verhalten erzwingen, während Entwicklung gegen ``main`` läuft.
+    """
+    revision = os.environ.get("PSEUDOKRAT_MODEL_REVISION", PINNED_MODEL_REVISION)
+    if (
+        os.environ.get("PSEUDOKRAT_REQUIRE_PINNED_REVISION", "0") == "1"
+        and revision in _UNPINNED_SENTINELS
+    ):
+        raise UnpinnedModelRevisionError(
+            f"Modell-Revision '{revision}' ist nicht auf einen Git-SHA gepinnt. "
+            "Setze PSEUDOKRAT_MODEL_REVISION=<sha> oder deaktiviere "
+            "PSEUDOKRAT_REQUIRE_PINNED_REVISION."
+        )
+    return revision
 
 
 def download_model(

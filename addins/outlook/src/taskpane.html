@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Pseudokrat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body class="pseudokrat">
+  <header>
+    <h1>Pseudokrat</h1>
+    <p class="subtitle">Lokale PII-Anonymisierung — kein Klartext verlässt diese Maschine.</p>
+  </header>
+
+  <main>
+    <section class="status">
+      <p id="backend-status">Backend-Status: <span id="backend-state">prüfe…</span></p>
+      <p id="mail-mode">Modus: <span id="mode-label">—</span></p>
+    </section>
+
+    <section class="actions" id="compose-actions" hidden>
+      <button id="anonymize-compose" type="button">Mail-Entwurf anonymisieren</button>
+      <button id="deanonymize-compose" type="button">Entwurf deanonymisieren</button>
+    </section>
+
+    <section class="actions" id="read-actions" hidden>
+      <button id="deanonymize-read" type="button">Mail-Inhalt deanonymisieren (Ansicht)</button>
+    </section>
+
+    <section class="profile">
+      <label for="profile-name">Profil:</label>
+      <input id="profile-name" type="text" placeholder="Mandant Hofer" />
+    </section>
+
+    <section class="log">
+      <h2>Protokoll</h2>
+      <ol id="log-list" aria-live="polite"></ol>
+    </section>
+
+    <section class="read-output" id="read-output" hidden>
+      <h2>Deanonymisierter Inhalt</h2>
+      <pre id="read-output-body"></pre>
+    </section>
+  </main>
+</body>
+</html>

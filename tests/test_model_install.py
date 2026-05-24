@@ -111,3 +111,47 @@ def test_download_model_raises_when_huggingface_hub_missing(
 
         download_model(settings)
     assert "huggingface_hub" in str(exc.value)
+
+
+def test_resolved_revision_strict_mode_rejects_branch(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Strict-Mode-Flag muss `main`/`master`/`HEAD` als ungepinnt verweigern."""
+    from pseudokrat.pii.model_install import (
+        UnpinnedModelRevisionError,
+        _resolved_revision,
+    )
+
+    monkeypatch.delenv("PSEUDOKRAT_MODEL_REVISION", raising=False)
+    monkeypatch.setenv("PSEUDOKRAT_REQUIRE_PINNED_REVISION", "1")
+
+    with pytest.raises(UnpinnedModelRevisionError):
+        _resolved_revision(settings)
+
+
+def test_resolved_revision_strict_mode_accepts_sha(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mit gesetzter SHA muss Strict-Mode anstandslos durchlassen."""
+    from pseudokrat.pii.model_install import _resolved_revision
+
+    sha = "a" * 40
+    monkeypatch.setenv("PSEUDOKRAT_MODEL_REVISION", sha)
+    monkeypatch.setenv("PSEUDOKRAT_REQUIRE_PINNED_REVISION", "1")
+
+    assert _resolved_revision(settings) == sha
+
+
+def test_resolved_revision_default_returns_pinned(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ohne Strict-Mode liefert die Funktion den hartcodierten Pin."""
+    from pseudokrat.pii.model_install import (
+        PINNED_MODEL_REVISION,
+        _resolved_revision,
+    )
+
+    monkeypatch.delenv("PSEUDOKRAT_MODEL_REVISION", raising=False)
+    monkeypatch.delenv("PSEUDOKRAT_REQUIRE_PINNED_REVISION", raising=False)
+
+    assert _resolved_revision(settings) == PINNED_MODEL_REVISION

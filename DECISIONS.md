@@ -686,3 +686,42 @@ aufgetreten. Aber:
 Cross-Recognizer-Integration für Companies ist durch deterministische
 Tests in `test_anonymizer_integration.py` und durch das gezielte
 `test_property_roundtrip::TestPlaceholderUniqueness` abgedeckt.
+
+## D-036 — Modell-Revision-Pinning: Strict-Mode statt Hard-Pin
+
+**Wahl:** `PINNED_MODEL_REVISION` bleibt vorerst auf `"main"`, aber das
+Modul `pseudokrat.pii.model_install` exponiert einen Strict-Mode über
+`PSEUDOKRAT_REQUIRE_PINNED_REVISION=1`. In dem Modus wirft
+`_resolved_revision()` eine `UnpinnedModelRevisionError`, sobald die
+effektive Revision in `{"main", "master", "HEAD"}` liegt — der Download
+bricht also bewusst ab, bevor er passieren kann.
+
+**Begründung:** Der eigentliche Pin auf einen konkreten HuggingFace-
+Git-SHA verlangt zwei Voraussetzungen, die autonom nicht erreichbar
+sind: (a) eine Entscheidung, welcher Snapshot der bevorzugte Stand
+ist, (b) eine reproduzierbare Verifikation der Modell-Datei-Hashes
+gegen diesen SHA. Beides ist Aufgabe der Release-Vorbereitung
+(typischerweise: einmal manuell pullen, Hashes gegen die
+HuggingFace-API verifizieren, SHA eintragen).
+
+Der Strict-Mode löst das halbe Problem heute: CI-Builds und Pentest-
+Setups können `PSEUDOKRAT_REQUIRE_PINNED_REVISION=1` setzen und dann
+zwingt das Modul den/die Setzende(n), eine konkrete Revision zu
+hinterlegen — kein versehentlicher `main`-Download in einem Build,
+der signiert und verteilt wird (CWE-494: Substitution-Risiko).
+
+**Release-Checkliste vor 1.0:**
+
+1. `huggingface-cli scan-cache --dir <cache>` nach erfolgreichem
+   `pseudokrat model download`.
+2. SHA-256 der Top-Level-`model.safetensors` notieren.
+3. `git ls-remote https://huggingface.co/openai/privacy-filter HEAD`
+   → daraus den Snapshot-SHA übernehmen.
+4. `PINNED_MODEL_REVISION` in `model_install.py` aktualisieren.
+5. CI: `PSEUDOKRAT_REQUIRE_PINNED_REVISION=1` setzen — dann blockiert
+   jeder versehentliche Reset auf `main` den Build.
+
+**Test-Coverage:** Drei neue Tests in `tests/test_model_install.py`:
+- `test_resolved_revision_strict_mode_rejects_branch`
+- `test_resolved_revision_strict_mode_accepts_sha`
+- `test_resolved_revision_default_returns_pinned`

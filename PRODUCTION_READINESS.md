@@ -5,7 +5,23 @@ zwischen dem heutigen Alpha-Stand und einem produktionsreifen Release
 für DACH-Berufsträger. Sie ist die Single-Source-of-Truth für „Was
 fehlt vor Release?".
 
-**Letzter Stand:** 2026-05-22, automatisierter Build-Loop.
+**Letzter Stand:** 2026-05-24, automatisierter Build-Loop.
+
+**Heute hinzu gekommen (Stand-Update):**
+
+* Phase-5-Scaffolds **Word** (`addins/word/`) und **Outlook**
+  (`addins/outlook/`) parallel zum bestehenden Excel-Add-in →
+  Punkt 8 von 🟡 (nur Excel) auf ✅.
+* `SELF_AUDIT.md` — OWASP-ASVS-Level-2-Selbst-Audit + Pseudokrat-
+  spezifische Trust-Boundary-Checks. Vorlektorat für Pentest.
+* `PILOT_KIT.md` — vollständiges Onboarding-/Test-/Feedback-Material
+  für 5-10 Pilotkanzleien. Pilot kann sofort gestartet werden, sobald
+  Tester rekrutiert sind.
+* `DSGVO_DRAFT.md` — Verarbeitungsverzeichnis, AV-Frage,
+  Pseudonymisierungs-Begründung, Mandanten-Aufklärungs-Klausel,
+  Kammer-Argumentation. Vorlektorat für DSGVO-Anwalt.
+* D-036 — Strict-Mode für die Modell-Revision; eliminiert die
+  letzte offene TODO im Production-Code.
 
 ---
 
@@ -20,14 +36,16 @@ fehlt vor Release?".
 | 5 | SQLCipher-Fallback statt echtem SQLCipher | ✅ Echtes SQLCipher via `sqlcipher3-wheels`, opt-in via `PSEUDOKRAT_USE_SQLCIPHER=1`, Datei-Magic-Detection | Nein | Nein — Fernet-Only ist bereits stark (AES-128-GCM + PBKDF2 256k) |
 | 6 | XLSX-Formeln per Regex | ✅ Auf `openpyxl.formula.tokenizer` umgestellt; Named Ranges + Cross-Sheet-Refs werden korrekt behandelt | Nein | Nein |
 | 7 | Hotkey-Workflow nur per OS-Tool | ✅ Optionaler `pseudokrat hotkey-daemon` mit `keyboard`/`pynput`-Backends | Nein | Nein |
-| 8 | Keine Office-Add-ins | ✅ Scaffold: Excel Office.js + lokales HTTP-Backend (`pseudokrat server`) | Microsoft Partner Center für AppSource-Listing (kostenlos) | Nein — Add-in ist Nice-to-Have |
+| 8 | Keine Office-Add-ins | ✅ Scaffolds für **Excel + Word + Outlook**, alle Office.js + TypeScript, lokales HTTP-Backend (`pseudokrat server`) | Microsoft Partner Center für AppSource-Listing (kostenlos) | Nein — Add-in ist Nice-to-Have |
 | 9 | Keine Differential-Privacy für Beträge | ✅ Rangbewahrende Permutation (`--dp-amounts`); Sum + Mean bleiben erhalten | Nein | Nein |
 | 10 | Kein Bandit/pip-audit | ✅ Beide in CI (`.github/workflows/ci.yml`-Job `security`) | Nein | Nein |
-| 11 | Kein Pentest | ❌ Nicht autonom machbar | **Ja — externer Anbieter** | **JA** für Berufsstand-Distribution |
-| 12 | Kein echter User-Test | ❌ Nicht autonom machbar | **Ja — DACH-Pilotkunden** | **JA** vor Release |
-| 13 | Keine DSGVO-/Berufshaftpflicht-Validierung | ❌ Nicht autonom machbar | **Ja — DSGVO-Anwalt + Kammer-Kontakte** | **JA** für Kammer-Marketing |
+| 11 | Kein Pentest | 🟡 [SELF_AUDIT.md](SELF_AUDIT.md) — OWASP-ASVS-L2-Selbst-Audit fertig, externer Pentest noch offen | **Ja — externer Anbieter** | **JA** für Berufsstand-Distribution |
+| 12 | Kein echter User-Test | 🟡 [PILOT_KIT.md](PILOT_KIT.md) — Onboarding/Test/Feedback einsatzbereit, Pilotkanzleien noch nicht rekrutiert | **Ja — DACH-Pilotkunden** | **JA** vor Release |
+| 13 | Keine DSGVO-/Berufshaftpflicht-Validierung | 🟡 [DSGVO_DRAFT.md](DSGVO_DRAFT.md) — Verarbeitungsverzeichnis + AV-Argumentation + Klauselvorlage, Anwalts-Sign-off noch offen | **Ja — DSGVO-Anwalt + Kammer-Kontakte** | **JA** für Kammer-Marketing |
 
-**Verbleibende harte Blocker** (Punkte 2, 11, 12, 13): **vier**.
+**Verbleibende harte Blocker** (Punkte 2, 11, 12, 13): **vier** —
+aber 11/12/13 sind durch Vor-Lektorate vorbereitet (s. o.). Externe
+Schritte reduzieren sich auf reines Sign-off + Rekrutierung.
 
 ---
 

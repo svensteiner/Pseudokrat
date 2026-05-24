@@ -659,3 +659,30 @@ auf das Verhalten, das die Test-Strategy bewusst erzeugt. Der
 Cross-Recognizer-Integrationsfall (Company + ID gemeinsam in einem
 Dokument) ist durch andere, deterministische Tests abgedeckt
 (z. B. `tests/test_anonymizer_integration.py`).
+
+## D-035 — Fuzz-Pipeline-Test: präventiv Fuzzy-Merge-Kategorien ausschließen
+
+**Wahl:** `tests/test_fuzz_pipelines.py::pipeline` instanziiert den
+Anonymizer mit `_strict_roundtrip_recognizers()` — ein gefilterter
+`default_recognizers()`-Satz, der alle Recognizer mit
+`is_fuzzy_merge_category(category) == True` herausfiltert. Aktuell
+betrifft das genau den `CompanyLegalFormRecognizer`.
+
+**Begründung:** Dieselbe Klasse von Round-Trip-Drift wie in D-034. Im
+Fuzz-Test ist die Wahrscheinlichkeit pro Iteration geringer, weil das
+Alphabet breiter ist und hypothesis seltener Beispiele mit zufälligem
+„X AG"/„Y KG" konstruiert — bisher ist deshalb kein Fehlschlag
+aufgetreten. Aber:
+
+- Round-Trip-Asserts (`deanonymize(anonymize(x)) == x`) sind per Design
+  unvereinbar mit Fuzzy-Merging: der Merge kollabiert Schreibvarianten
+  bewusst auf einen Platzhalter, und Reverse liefert dann nur die
+  zuerst gespeicherte Schreibweise.
+- Der Mapping-Store wird im Fuzz-Test über alle Beispiele hinweg
+  gemeinsam genutzt (function-scoped fixture mit hypothesis), wodurch
+  sich gespeicherte COMPANY-Entries akkumulieren und die Drift-
+  Wahrscheinlichkeit pro Beispiel monoton steigt.
+
+Cross-Recognizer-Integration für Companies ist durch deterministische
+Tests in `test_anonymizer_integration.py` und durch das gezielte
+`test_property_roundtrip::TestPlaceholderUniqueness` abgedeckt.

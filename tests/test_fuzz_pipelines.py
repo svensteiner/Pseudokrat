@@ -26,10 +26,27 @@ from pseudokrat.anonymizer import Anonymizer
 from pseudokrat.deanonymizer import Deanonymizer
 from pseudokrat.formats import CSVHandler, TextHandler, handler_for
 from pseudokrat.formats.base import UnsupportedFormatError
+from pseudokrat.fuzzy import is_fuzzy_merge_category
 from pseudokrat.recognizers import default_recognizers
 from pseudokrat.store.audit_log import AuditLog
 from pseudokrat.store.mapping_store import MappingStore
 from pseudokrat.store.profile import ProfileManager
+
+
+def _strict_roundtrip_recognizers() -> list:
+    """Default-Recognizer ohne Fuzzy-Merge-Kategorien.
+
+    Begründung: Round-Trip-Asserts (``deanonymize(anonymize(x)) == x``)
+    sind mit Fuzzy-Merging unvereinbar — der Fuzzy-Pfad kollabiert
+    Schreibvarianten bewusst auf einen einzigen Platzhalter, und die
+    Reverse-Auflösung liefert dann nur die zuerst gespeicherte
+    Schreibweise. In hypothesis-getriebenen Fuzz-Tests sammelt sich der
+    Mapping-Store über viele Iterationen hinweg an, sodass die
+    Wahrscheinlichkeit für genau diese Drift mit jedem Beispiel steigt.
+    Siehe D-034 für das ursprüngliche Vorkommen in
+    ``test_property_roundtrip``.
+    """
+    return [r for r in default_recognizers() if not is_fuzzy_merge_category(r.category)]
 
 FUZZ_SETTINGS = settings(
     max_examples=50,
@@ -62,7 +79,7 @@ def pipeline(
     store, audit = pm.open_or_create("fuzz", "Fuzz-Passw0rt-für-die-Suite!")
     anon = Anonymizer(
         store=store,
-        recognizers=default_recognizers(),
+        recognizers=_strict_roundtrip_recognizers(),
         detector=None,
         audit_log=audit,
         model_version="fuzz",

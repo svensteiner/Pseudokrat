@@ -78,6 +78,15 @@ def core_company_name(normalized: str) -> str:
     return ""
 
 
+#: Kategorien, bei denen Fuzzy-Merging zulässig ist. Alle anderen müssen exakt
+#: matchen — sonst kollabieren z. B. zwei UIDs, die sich nur in zwei Ziffern
+#: unterscheiden, zu einem Platzhalter und die Reverse-Auflösung liefert die
+#: falsche Original-ID zurück (Round-Trip-Bug). Siehe D-032.
+_FUZZY_MERGE_CATEGORIES: frozenset[str] = frozenset(
+    {"COMPANY", "ORG", "PERSON", "ADDRESS"}
+)
+
+
 def should_merge(
     candidate_normalized: str,
     existing_normalized: str,
@@ -88,12 +97,17 @@ def should_merge(
 
     Regel:
       - identische Kategorie ist Pflicht (wird vom Caller geprüft)
-      - Levenshtein-Distanz <= ``max_distance``
+      - Exact-Match nach Normalisierung gilt immer
+      - Fuzzy-Merge (Levenshtein ≤ ``max_distance``) NUR für
+        :data:`_FUZZY_MERGE_CATEGORIES` — numerische IDs wie IBAN, UID, SVNR,
+        TAX_ID, AHV verlangen Exact-Match, sonst kollabieren ähnliche Nummern
+        und die Reverse-Auflösung wird falsch.
       - Bei ORG/COMPANY zusätzlich: Rechtsform-Endung MUSS identisch sein
     """
-    del category  # bereits vom Caller geprüft
     if candidate_normalized == existing_normalized:
         return True
+    if category not in _FUZZY_MERGE_CATEGORIES:
+        return False
 
     cand_form = extract_legal_form(candidate_normalized)
     exist_form = extract_legal_form(existing_normalized)

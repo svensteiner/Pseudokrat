@@ -591,3 +591,43 @@ auseinander. Pattern-Validierung beim Lesen (`recognizers_for_store` wirft
 bei kaputtem persistierten Regex) sorgt dafür, dass ein während Wartung
 beschädigter Eintrag früh und deutlich auffällt — keine stillen
 Fehlversuche.
+
+## D-032 — Fuzzy-Merging nur für textuelle PII-Kategorien
+
+**Wahl:** `fuzzy.should_merge` führt Levenshtein-basiertes Merging nur für
+die Kategorien `COMPANY`, `ORG`, `PERSON`, `ADDRESS` durch. Alle anderen
+Kategorien (IBAN, UID, SVNR, TAX_ID, AHV, ACCOUNT, EMAIL, PHONE, URL,
+SECRET, DATE, MANDANT_NR) verlangen Exact-Match nach Normalisierung.
+
+**Begründung:** Hypothesis-Round-Trip-Tests (`test_property_roundtrip.py`)
+fanden einen kritischen Korrektheitsbug: `ATU00000015` und `ATU00000006`
+haben Levenshtein-Distanz 2 auf der normalisierten Form. Die ursprüngliche
+Implementierung mergte beide auf den ersten zugewiesenen Platzhalter →
+die Reverse-Auflösung lieferte für `ATU00000015` fälschlich `ATU00000006`
+zurück. Numerische IDs sind per Konstruktion bedeutungstragend in jeder
+Ziffer; eine 2-Ziffern-Ähnlichkeit ist Zufall, kein Schreibvariante.
+
+Fuzzy-Merging bleibt sinnvoll für „Hofer Bau GmbH" vs. „Hofer-Bau GmbH"
+(Schreibvarianten desselben Rechtsträgers, Megaprompt §12.4). Die Liste
+wird in `fuzzy._FUZZY_MERGE_CATEGORIES` zentral gepflegt.
+
+## D-033 — Länderspezifische IBAN-Regex statt generischer `{3,7}`-Gruppen
+
+**Wahl:** `recognizers/iban.py` verwendet ein Alternativen-Pattern, das je
+Ländercode (AT/DE/CH/LI) die exakte BBAN-Struktur erzwingt:
+
+- AT — 4 Gruppen à 4 Ziffern
+- DE — 4 Gruppen à 4 Ziffern + 2-Ziffern-Suffix
+- CH/LI — 4 Gruppen à 4 alphanumerisch + 1 alphanumerisch
+
+Plus terminales Negative-Lookahead `(?![A-Z0-9])`.
+
+**Begründung:** Die vorherige Variante
+`(?:[ ]?[A-Z0-9]{4}){3,7}(?:[ ]?[A-Z0-9]{1,4})?` matchte greedy und konnte
+über die korrekte Länge hinaus in nachfolgende alphanumerische Zeichen
+laufen. Beispiel aus dem Hypothesis-Fuzzer:
+`AT180000000000000000 A` — ein gültiger AT-IBAN, gefolgt von Space-A.
+Das alte Regex konsumierte ` A` als optionalen Schluss-Group; der
+MOD-97-Validator lehnte dann wegen falscher Länge (21 statt 20) ab — der
+gültige IBAN wurde vom Recognizer verfehlt. Die neue Variante stoppt
+verlässlich nach genau 20/22/21 Zeichen.

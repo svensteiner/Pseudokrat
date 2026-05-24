@@ -9,7 +9,20 @@ from pseudokrat.recognizers.base import Span
 # Pflichtlängen für DACH-IBANs.
 _IBAN_LENGTHS: dict[str, int] = {"AT": 20, "DE": 22, "CH": 21, "LI": 21}
 
-_IBAN_REGEX = re.compile(r"\b(AT|DE|CH|LI)\d{2}(?:[ ]?[A-Z0-9]{4}){3,7}(?:[ ]?[A-Z0-9]{1,4})?\b")
+# Länderspezifische Patterns. Jede Variante endet mit Negative-Lookahead
+# (?![A-Z0-9]), damit der Regex nicht über die korrekte IBAN-Länge hinaus
+# in nachfolgende alphanumerische Zeichen läuft und der MOD-97-Validator
+# dann fälschlich rejected — siehe Hypothesis-Regression D-033.
+_IBAN_REGEX = re.compile(
+    r"\b("
+    # AT: 2 Buchst. + 18 Ziffern = 4 Gruppen à 4 Ziffern (mit optionalen Spaces)
+    r"AT\d{2}(?:[ ]?\d{4}){3}[ ]?\d{4}"
+    # DE: 2 Buchst. + 20 Ziffern = 4 Gruppen à 4 + 2-Ziffern-Rest
+    r"|DE\d{2}(?:[ ]?\d{4}){4}[ ]?\d{2}"
+    # CH/LI: 2 Buchst. + 19 alphanumerisch = 4 Gruppen à 4 + 1 Zeichen
+    r"|(?:CH|LI)\d{2}(?:[ ]?[A-Z0-9]{4}){3}[ ]?[A-Z0-9]{4}[ ]?[A-Z0-9]"
+    r")(?![A-Z0-9])"
+)
 
 
 def _strip(iban: str) -> str:

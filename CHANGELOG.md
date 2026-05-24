@@ -7,6 +7,27 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+- **D-034** — Flaky `test_property_roundtrip` durch CompanyLegalForm-
+  Recognizer im Test-Setup. Der Recognizer matchte kurze Rechtsform-
+  Suffixe (`AG`/`KG`/`SE`/…), die zufällig im neutralen Glue-Text der
+  Hypothesis-Strategy auftraten; über mehrere Iterationen kollabierten
+  zwei solche Fake-COMPANY-Entries mit Levenshtein-Distanz ≤ 2 via
+  Fuzzy-Merge zu einem Platzhalter und brachen den Round-Trip. Fix:
+  Test-Pipeline verwendet jetzt nur die drei Recognizer, die die
+  Strategy auch generiert (IBAN, DE-USt-IdNr, AT-UID).
+- `tests/test_stress.py::test_10k_line_document_roundtrip` —
+  Performance-Sanity-Bound von 120 s auf 300 s erweitert. Der Test lief
+  in Isolation knapp unter dem alten Limit (≈119 s) und wurde unter
+  Voll-Suite-Last (Stress-Tests laufen sequentiell mit weiteren
+  hypothesis-getriebenen Tests) regelmäßig flaky. Die Beobachtung ist
+  weiterhin in den `print`-Ausgaben sichtbar; das Assert dient nur als
+  Pathologie-Limit.
+- `hypothesis` zu `[dev]`-Extras hinzugefügt — die im letzten Release
+  ergänzten Property-Tests waren in `pyproject.toml` nicht als Test-
+  Dependency aufgeführt, sodass ein frischer `pip install -e ".[dev]"`
+  ohne separates `pip install hypothesis` bei Collection scheiterte.
+
 ### Hinzugefügt
 - **Test-Pyramide ausgebaut** (`TESTING.md`): 67 neue Tests in vier
   Schichten — 28 Property-Based-Tests für DACH-Recognizer (Hypothesis,

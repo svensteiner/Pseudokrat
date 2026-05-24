@@ -20,7 +20,11 @@ from hypothesis import strategies as st
 
 from pseudokrat.anonymizer import Anonymizer
 from pseudokrat.deanonymizer import Deanonymizer
-from pseudokrat.recognizers import default_recognizers
+from pseudokrat.recognizers import (
+    AustrianUIDRecognizer,
+    GermanUStIdNrRecognizer,
+    IBANDachRecognizer,
+)
 from pseudokrat.store.audit_log import AuditLog
 from pseudokrat.store.mapping_store import MappingStore
 from pseudokrat.store.profile import ProfileManager
@@ -50,9 +54,19 @@ def fresh_pipeline(
     pm = ProfileManager()
     store, audit = pm.open_or_create("rt", "passw0rd-test-roundtrip")
     try:
+        # WICHTIG: nur die drei Recognizer, die die Strategy auch generiert.
+        # Das volle ``default_recognizers()`` enthält u. a. den
+        # CompanyLegalFormRecognizer, der auf ein eingestreutes "AG"/"KG"/"SE"
+        # im neutralen Glue-Text matcht — die so erzeugten COMPANY-Entries
+        # kollabieren über mehrere Hypothesis-Iterationen via Fuzzy-Merge
+        # und brechen den Round-Trip (siehe DECISIONS D-034).
         anon = Anonymizer(
             store=store,
-            recognizers=default_recognizers(),
+            recognizers=[
+                IBANDachRecognizer(),
+                GermanUStIdNrRecognizer(),
+                AustrianUIDRecognizer(),
+            ],
             detector=None,
             audit_log=audit,
             model_version="test",

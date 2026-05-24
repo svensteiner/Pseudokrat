@@ -8,6 +8,24 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- **Test-Pyramide ausgebaut** (`TESTING.md`): 67 neue Tests in vier
+  Schichten — 28 Property-Based-Tests für DACH-Recognizer (Hypothesis,
+  generiert algorithmisch gültige IDs), 6 Round-Trip-Property-Tests
+  (`deanonymize(anonymize(x)) == x`), 12 Fuzz-Tests für die Format-
+  Pipelines (TXT/CSV mit randomisierten Unicode-/Binär-Inputs), 15
+  Security-Tests (PBKDF2-Iterationen, Wrong-Password, Salt-Manipulation,
+  Hash-Chain-Tampering, Plaintext-Leak-Check auf der rohen SQLite-Datei),
+  6 Stress-Tests (`@slow`, 2k-Zeilen-Round-Trip, 1.000 distinct Mandanten,
+  XLSX-Pivot-Konsistenz). SQLCipher-Backend-Tests sind jetzt aktiv (zuvor
+  übersprungen).
+- **D-032** — Fuzzy-Merging strikt auf textuelle Kategorien beschränkt
+  (`COMPANY`, `ORG`, `PERSON`, `ADDRESS`). Hypothesis-Round-Trip fand,
+  dass zwei UIDs mit Levenshtein-Distanz 2 fälschlich gemerged wurden
+  und das Reverse-Lookup die falsche Original-ID lieferte.
+- **D-033** — Länderspezifische IBAN-Regex statt generischer `{3,7}`-
+  Gruppen. Die alte Regex matchte über die korrekte IBAN-Länge hinaus,
+  wenn direkt danach Alphanumerik folgte, was den MOD-97-Validator
+  fälschlich rejecten ließ.
 - **SECURITY_MODEL.md** — Pentest-Briefing-Dokument mit Trust-Boundaries,
   Crypto-Primitiven, Daten-/Datei-/HTTP-Layer-Review-Foki und expliziten
   Non-Goals. Schließt den in `PRODUCTION_READINESS.md` Punkt 11 markierten
@@ -28,6 +46,10 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   konkretem Handoff für Pentest, User-Test und DSGVO-Sign-off.
 
 ### Geändert
+- `MappingStore.find_by_original` überspringt den linearen Fuzzy-Scan
+  für non-fuzzy-Kategorien — vor allem für IDs (IBAN/UID/SVNR/…) war das
+  bisher O(n) Fernet-Entschlüsselungen pro Lookup. Spürbarer Speedup im
+  Stress-Test (2k Entitäten: 6 min → < 1 min).
 - `GuiController.create_profile()` akzeptiert nun ein optionales
   `mandanten_pattern`-Argument; Validierung über
   `compile_mandanten_pattern`, Pattern wird nach erfolgreicher Anlage in

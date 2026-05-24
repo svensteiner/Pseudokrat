@@ -24,7 +24,6 @@ from pseudokrat.recognizers import default_recognizers
 from pseudokrat.store.audit_log import AuditLog
 from pseudokrat.store.mapping_store import MappingStore
 from pseudokrat.store.profile import ProfileManager
-
 from tests.test_property_recognizers import (
     valid_at_uid,
     valid_de_ust_id,

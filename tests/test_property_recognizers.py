@@ -14,8 +14,8 @@ from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from pseudokrat.recognizers.at_svnr import (
-    AustrianSVNRRecognizer,
     _WEIGHTS,
+    AustrianSVNRRecognizer,
     is_valid_at_svnr,
 )
 from pseudokrat.recognizers.at_uid import AustrianUIDRecognizer, is_valid_at_uid
@@ -218,7 +218,6 @@ class TestAtUidProperty:
     @HYP_SETTINGS
     def test_flipping_check_digit_invalidates(self, uid: str) -> None:
         d_last = int(uid[-1])
-        flipped = uid[:-1] + str((d_last + 1) % 10)
         # Es gibt Edge-Cases, in denen ein anderer Check-Digit zufällig
         # auch valide wäre — wir verifizieren, dass mindestens 9 von 10
         # Flip-Varianten ungültig sind.

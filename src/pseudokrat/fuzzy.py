@@ -87,6 +87,12 @@ _FUZZY_MERGE_CATEGORIES: frozenset[str] = frozenset(
 )
 
 
+def is_fuzzy_merge_category(category: str) -> bool:
+    """True für Kategorien, in denen Schreibvarianten zum selben Platzhalter
+    zusammengeführt werden dürfen (Firmen, Personen, Adressen)."""
+    return category in _FUZZY_MERGE_CATEGORIES
+
+
 def should_merge(
     candidate_normalized: str,
     existing_normalized: str,

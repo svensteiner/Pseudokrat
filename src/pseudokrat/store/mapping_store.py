@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pseudokrat.fuzzy import normalize, should_merge
+from pseudokrat.fuzzy import is_fuzzy_merge_category, normalize, should_merge
 from pseudokrat.store.secure_db import DerivedKeys, open_or_init, transaction
 
 
@@ -107,7 +107,13 @@ class MappingStore:
         ).fetchone()
         if row is not None:
             return self._row_to_mapping(row)
-        # 2) Fuzzy-Match — alle Kandidaten derselben Kategorie laden
+        # 2) Fuzzy-Match — nur für Kategorien, die Schreibvarianten erlauben.
+        #    Für numerische IDs (IBAN/UID/SVNR/…) wäre der lineare Scan nicht
+        #    nur unnötig (Exact-Match-Schritt 1 ist authoritative), sondern
+        #    auch teuer: jeder Lookup würde O(n) Fernet-Entschlüsselungen
+        #    kosten. Siehe D-032.
+        if not is_fuzzy_merge_category(category):
+            return None
         rows = self._conn.execute(
             "SELECT * FROM mappings WHERE pii_category = ?",
             (category,),

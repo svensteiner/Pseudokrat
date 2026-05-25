@@ -169,7 +169,7 @@ zutreffend.
 |---|---|---|
 | V14.1.1 Unbenötigte Features deaktiviert | ✅ | ML-Modul nur via `--with-ml` Extra; SQLCipher nur via Env-Var |
 | V14.2.1 Build hardening | 🟡 | PyInstaller-Spec hat `--strip` und `--noconsole` für GUI-Build; reproducible builds noch offen |
-| V14.4.1 Security-Header (HTTP) | 🟡 | Server setzt `Content-Type: application/json`; CSP/X-Frame-Options aktuell nicht relevant (kein HTML-Output); **Empfehlung Pentest:** falls künftig HTML-Endpunkte hinzukommen, CSP einführen |
+| V14.4.1 Security-Header (HTTP) | ✅ | Defense-in-depth — Server sendet auf allen Responses: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`, `Cache-Control: no-store`, `Permissions-Policy: interest-cohort=()`, `Vary: Origin`. Siehe `server.py::_SECURITY_HEADERS` |
 | V14.5.1 Standard-Konfig sicher | ✅ | Default-Server-Bind auf `127.0.0.1`; SQLCipher-Modus opt-in; Telemetry hartcodiert deaktiviert (kein Toggle existiert) |
 
 ---
@@ -205,7 +205,7 @@ zutreffend.
 | Punkt | Status | Beleg |
 |---|---|---|
 | Pinned Revision | ✅ | `PINNED_MODEL_REVISION` in `model_install.py` (siehe D-036) |
-| Hash-Verifikation der Modell-Files | 🟡 | `huggingface_hub` validiert SHA-256-Summen aus dem Repo-Manifest; eigener Toplevel-Manifest-Hash wäre defensiver — Empfehlung Pentest |
+| Hash-Verifikation der Modell-Files | ✅ | `huggingface_hub` validiert SHA-256-Summen aus dem Repo-Manifest **und** Pseudokrat berechnet einen eigenen Toplevel-Manifest-Hash über alle Snapshot-Files (`compute_model_manifest_hash`). Mit `PSEUDOKRAT_PINNED_MANIFEST_SHA256=<hex>` wird der Hash konstantzeit gegen den Pin verglichen, jede Abweichung bricht den Start (`ModelManifestMismatchError`). Siehe D-037 |
 
 ### S5 — DP-Permutation (SECURITY_MODEL §8)
 

@@ -725,3 +725,45 @@ der signiert und verteilt wird (CWE-494: Substitution-Risiko).
 - `test_resolved_revision_strict_mode_rejects_branch`
 - `test_resolved_revision_strict_mode_accepts_sha`
 - `test_resolved_revision_default_returns_pinned`
+
+
+## D-037 — Toplevel-Manifest-Hash für das ML-Modell
+
+**Wahl:** `compute_model_manifest_hash(settings)` berechnet einen
+deterministischen SHA-256 ueber alle Dateien des konfigurierten
+Modell-Snapshots. Sortierschluessel ist der POSIX-relative Pfad
+(plattformunabhaengig). Pro Datei wird `<pfad> <sha256>
+` ins
+Toplevel-Hashing gefuettert. `.lock`/`.tmp`-Dateien werden bewusst
+ausgeschlossen (volatile Cache-Artefakte).
+
+`verify_model_manifest(settings)` haengt sich an die Pin-Variable
+`PSEUDOKRAT_PINNED_MANIFEST_SHA256` und vergleicht konstantzeit
+(`hmac.compare_digest`). Mismatch → `ModelManifestMismatchError` und
+harter Abort, bevor das Modell geladen wird. `download_model` ruft
+`verify_model_manifest` direkt nach dem Snapshot-Download auf —
+damit auch ein erfolgreicher Download in einem CI/Pentest-Setup
+fehlschlaegt, wenn ein Angreifer die Files unterwegs ausgetauscht
+haette.
+
+**Begruendung:** S4 im Self-Audit (siehe SELF_AUDIT.md) war
+vorher 🟡 — `huggingface_hub` validiert pro Datei den
+Repo-Manifest-Hash, aber wenn das Repo-Manifest selbst kompromittiert
+waere (z. B. ein erfolgreicher Token-Diebstahl bei HuggingFace), gaebe
+es keine zweite Linie. Der eigene Toplevel-Hash schliesst diese Luecke:
+Operator notiert den Wert nach dem ersten Download (Output von
+`download_model` enthaelt `Manifest-Hash: sha256:…`), traegt ihn in
+das CI-Secrets-Verzeichnis ein, und ab dann ist jeder Substitutions-
+Versuch deterministisch detektierbar.
+
+**Release-Vorgehen:**
+
+1. Manuell einen sauberen `pseudokrat model download` ausfuehren.
+2. Den gemeldeten `Manifest-Hash` notieren.
+3. In CI als Secret hinterlegen, plus in `packaging/`-Skripten als
+   Env-Var setzen.
+4. Ab dann blockt jeder Build mit abweichendem Manifest-Hash.
+
+**Test-Coverage:** Sechs neue Tests in `tests/test_model_install.py`,
+u. a. Determinismus, Mutation-Detection, Lock-Datei-Ausschluss,
+Mismatch-Pfad und Cache-leer-Pfad.

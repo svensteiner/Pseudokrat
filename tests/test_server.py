@@ -120,6 +120,76 @@ def test_anonymize_endpoint_with_valid_token_returns_results(
         server.stop()
 
 
+def test_health_response_includes_security_headers(running_server: ServerState) -> None:
+    port = _free_port()
+    server = start_server(running_server, host=DEFAULT_HOST, port=port, in_background=True)
+    try:
+        req = urllib.request.Request(
+            f"http://{DEFAULT_HOST}:{port}/health",
+            headers={"Authorization": f"Bearer {running_server.token_store.ensure()}"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 - localhost
+            headers = {k.lower(): v for k, v in resp.getheaders()}
+        assert headers.get("x-content-type-options") == "nosniff"
+        assert headers.get("x-frame-options") == "DENY"
+        assert headers.get("referrer-policy") == "no-referrer"
+        assert headers.get("cross-origin-resource-policy") == "same-origin"
+        csp = headers.get("content-security-policy", "")
+        assert "default-src 'none'" in csp
+        assert "frame-ancestors 'none'" in csp
+        assert "no-store" in headers.get("cache-control", "")
+        assert headers.get("vary") == "Origin"
+    finally:
+        server.stop()
+
+
+def test_options_preflight_includes_allow_headers_for_allowed_origin(
+    running_server: ServerState,
+) -> None:
+    port = _free_port()
+    server = start_server(running_server, host=DEFAULT_HOST, port=port, in_background=True)
+    try:
+        req = urllib.request.Request(
+            f"http://{DEFAULT_HOST}:{port}/v1/anonymize",
+            method="OPTIONS",
+            headers={
+                "Origin": "https://excel.officeapps.live.com",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 - localhost
+            headers = {k.lower(): v for k, v in resp.getheaders()}
+        # Preflight aus erlaubter Origin → CORS-Header gespiegelt + Max-Age.
+        assert headers.get("access-control-allow-origin") == "https://excel.officeapps.live.com"
+        assert "POST" in headers.get("access-control-allow-methods", "")
+        assert headers.get("access-control-max-age") == "600"
+        # Defense-in-depth: Security-Header auch auf 204 mit dabei.
+        assert headers.get("x-frame-options") == "DENY"
+    finally:
+        server.stop()
+
+
+def test_options_from_disallowed_origin_drops_cors_headers(
+    running_server: ServerState,
+) -> None:
+    port = _free_port()
+    server = start_server(running_server, host=DEFAULT_HOST, port=port, in_background=True)
+    try:
+        req = urllib.request.Request(
+            f"http://{DEFAULT_HOST}:{port}/v1/anonymize",
+            method="OPTIONS",
+            headers={"Origin": "https://böses-tab.example.com"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 - localhost
+            headers = {k.lower(): v for k, v in resp.getheaders()}
+        # Eine Disallowed Origin darf NICHT in `Access-Control-Allow-Origin` landen.
+        assert "access-control-allow-origin" not in headers
+        # Vary muss trotzdem stehen — verhindert Cache-Poisoning via fehlende Origin-Variation.
+        assert headers.get("vary") == "Origin"
+    finally:
+        server.stop()
+
+
 def test_unknown_path_returns_404(running_server: ServerState) -> None:
     port = _free_port()
     server = start_server(running_server, host=DEFAULT_HOST, port=port, in_background=True)

@@ -7,6 +7,28 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-05-25)
+- **HTTP-Server Defense-in-Depth-Header.** Der lokale Backend-Server
+  (`server.py`) sendet jetzt auf allen Responses `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+  `Cross-Origin-Resource-Policy: same-origin`,
+  `Cross-Origin-Opener-Policy: same-origin`, eine harte CSP
+  (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`),
+  `Cache-Control: no-store, no-cache, must-revalidate, private`,
+  `Pragma: no-cache`, `Strict-Transport-Security` (für künftige TLS-Setups),
+  `Permissions-Policy: interest-cohort=()` sowie `Vary: Origin`.
+  CORS-Preflights setzen zusätzlich `Access-Control-Max-Age: 600`.
+  → Closes V14.4.1 in [SELF_AUDIT.md](SELF_AUDIT.md).
+- **Toplevel-Manifest-Hash für das ML-Modell.**
+  `compute_model_manifest_hash` berechnet einen deterministischen
+  SHA-256 über alle Snapshot-Dateien des konfigurierten Modells
+  (sortiert nach POSIX-Pfad, `.lock`/`.tmp` ausgeschlossen).
+  `verify_model_manifest` vergleicht konstantzeit gegen die optionale
+  Pin-Variable `PSEUDOKRAT_PINNED_MANIFEST_SHA256`; jede Abweichung
+  bricht den Download hart mit `ModelManifestMismatchError` ab.
+  → Closes S4 in [SELF_AUDIT.md](SELF_AUDIT.md). Siehe D-037 in
+  [DECISIONS.md](DECISIONS.md).
+
 ### Behoben
 - **D-034** — Flaky `test_property_roundtrip` durch CompanyLegalForm-
   Recognizer im Test-Setup. Der Recognizer matchte kurze Rechtsform-

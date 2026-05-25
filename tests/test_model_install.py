@@ -142,6 +142,125 @@ def test_resolved_revision_strict_mode_accepts_sha(
     assert _resolved_revision(settings) == sha
 
 
+def test_compute_manifest_hash_empty_cache_returns_empty(settings: Settings) -> None:
+    from pseudokrat.pii.model_install import compute_model_manifest_hash
+
+    assert compute_model_manifest_hash(settings) == ""
+
+
+def test_compute_manifest_hash_is_deterministic(settings: Settings) -> None:
+    """Zweimal hashen liefert denselben Wert (Sortierung + Streaming-Hash)."""
+    from pseudokrat.pii.model_install import compute_model_manifest_hash
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "config.json").write_bytes(b"{}")
+    (snap / "weights.bin").write_bytes(b"\xaa" * 1024)
+
+    h1 = compute_model_manifest_hash(settings)
+    h2 = compute_model_manifest_hash(settings)
+    assert h1 == h2 and len(h1) == 64
+
+
+def test_compute_manifest_hash_changes_on_mutation(settings: Settings) -> None:
+    """Mutiert man eine Datei, verändert sich der Toplevel-Hash."""
+    from pseudokrat.pii.model_install import compute_model_manifest_hash
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "weights.bin").write_bytes(b"\xaa" * 1024)
+    before = compute_model_manifest_hash(settings)
+
+    (snap / "weights.bin").write_bytes(b"\xbb" * 1024)
+    after = compute_model_manifest_hash(settings)
+    assert before != after
+
+
+def test_compute_manifest_hash_ignores_lock_files(settings: Settings) -> None:
+    """Lock/Tmp-Dateien sind volatile und dürfen den Hash nicht beeinflussen."""
+    from pseudokrat.pii.model_install import compute_model_manifest_hash
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "config.json").write_bytes(b"{}")
+    before = compute_model_manifest_hash(settings)
+
+    (snap / "config.json.lock").write_bytes(b"x")
+    (snap / "weights.bin.tmp").write_bytes(b"x" * 16)
+    after = compute_model_manifest_hash(settings)
+    assert before == after
+
+
+def test_verify_model_manifest_returns_hash_when_unpinned(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pseudokrat.pii.model_install import (
+        compute_model_manifest_hash,
+        verify_model_manifest,
+    )
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "config.json").write_bytes(b"{}")
+
+    monkeypatch.delenv("PSEUDOKRAT_PINNED_MANIFEST_SHA256", raising=False)
+    assert verify_model_manifest(settings) == compute_model_manifest_hash(settings)
+
+
+def test_verify_model_manifest_accepts_matching_pin(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pseudokrat.pii.model_install import (
+        compute_model_manifest_hash,
+        verify_model_manifest,
+    )
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "config.json").write_bytes(b"{}")
+
+    expected = compute_model_manifest_hash(settings)
+    monkeypatch.setenv("PSEUDOKRAT_PINNED_MANIFEST_SHA256", expected.upper())
+    assert verify_model_manifest(settings) == expected
+
+
+def test_verify_model_manifest_rejects_mismatch(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pseudokrat.pii.model_install import (
+        ModelManifestMismatchError,
+        verify_model_manifest,
+    )
+
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    snap = model_dir / "snapshots" / "abc"
+    snap.mkdir(parents=True, exist_ok=True)
+    (snap / "config.json").write_bytes(b"{}")
+
+    monkeypatch.setenv("PSEUDOKRAT_PINNED_MANIFEST_SHA256", "0" * 64)
+    with pytest.raises(ModelManifestMismatchError):
+        verify_model_manifest(settings)
+
+
+def test_verify_model_manifest_rejects_pin_when_cache_empty(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pin gesetzt + kein Cache → harter Fehler, nicht stiller Pass."""
+    from pseudokrat.pii.model_install import (
+        ModelManifestMismatchError,
+        verify_model_manifest,
+    )
+
+    monkeypatch.setenv("PSEUDOKRAT_PINNED_MANIFEST_SHA256", "a" * 64)
+    with pytest.raises(ModelManifestMismatchError):
+        verify_model_manifest(settings)
+
+
 def test_resolved_revision_default_returns_pinned(
     settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:

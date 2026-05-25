@@ -13,9 +13,10 @@ Sysadmin) bereitstellt.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,6 +105,30 @@ class UnpinnedModelRevisionError(ModelDownloadError):
     """Hardfail wenn Strict-Mode an ist und keine echte Git-SHA gepinnt ist."""
 
 
+class ModelManifestMismatchError(ModelDownloadError):
+    """Hardfail wenn der berechnete Toplevel-Manifest-Hash nicht zum Pin passt.
+
+    Schützt vor (a) korrupten Downloads, (b) Substitution durch einen
+    Angreifer auf dem HuggingFace-CDN/Proxy, (c) versehentlichem Wechsel
+    auf eine andere Revision, ohne den Pin nachzuziehen.
+
+    Siehe S4 in :doc:`SELF_AUDIT` und §9 in :doc:`SECURITY_MODEL`.
+    """
+
+
+#: Block-Größe für das streaming-Hashing einzelner Modell-Files.
+#: 1 MiB ist groß genug, um IO-Overhead zu amortisieren, aber klein
+#: genug, dass der Peak-Memory der Hash-Operation deterministisch
+#: bleibt.
+_MANIFEST_HASH_BLOCK = 1 << 20
+
+#: Datei-Endungen, die NICHT in den Manifest-Hash einfließen. Caches
+#: schreiben hier flüchtige Locks/Hints, deren Inhalt sich zwischen zwei
+#: Runs ändert (z. B. mtimes serialisiert). Sie sind kein Teil der
+#: Modell-Integrität.
+_MANIFEST_IGNORE_SUFFIXES: frozenset[str] = frozenset({".lock", ".tmp"})
+
+
 def _resolved_revision(settings: Settings) -> str:
     """Auflösung der Modell-Revision aus Env oder Default-Pin.
 
@@ -129,6 +154,109 @@ def _resolved_revision(settings: Settings) -> str:
             "PSEUDOKRAT_REQUIRE_PINNED_REVISION."
         )
     return revision
+
+
+def _iter_manifest_files(root: Path) -> Iterable[Path]:
+    """Sortierter Iterator über alle Modell-Dateien, die in den Manifest-Hash einfließen.
+
+    Sortierung nach relativem POSIX-Pfad — plattformunabhängig
+    deterministisch (`\\` → `/`), gleiches Manifest auf Windows wie auf
+    macOS für denselben Snapshot.
+    """
+    if not root.exists():
+        return
+    candidates: list[tuple[str, Path]] = []
+    for entry in root.rglob("*"):
+        try:
+            if not entry.is_file():
+                continue
+        except OSError:
+            continue
+        if entry.suffix.lower() in _MANIFEST_IGNORE_SUFFIXES:
+            continue
+        rel = entry.relative_to(root).as_posix()
+        candidates.append((rel, entry))
+    candidates.sort(key=lambda pair: pair[0])
+    for _, path in candidates:
+        yield path
+
+
+def _hash_file(path: Path) -> str:
+    """Streaming-SHA-256 eines einzelnen Files."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while True:
+            chunk = fh.read(_MANIFEST_HASH_BLOCK)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def compute_model_manifest_hash(settings: Settings | None = None) -> str:
+    """Berechnet den Toplevel-Manifest-Hash des aktuell gecachten Modells.
+
+    Der Manifest-Hash ist ein deterministischer Fingerprint über
+    *alle* Modell-Dateien im Snapshot des konfigurierten Modells. Er
+    eignet sich zum (a) Festhalten eines bekannten Stands („Was hat
+    Pentest XYZ unterschrieben?"), (b) Erzwingen einer bestimmten
+    Version via :envvar:`PSEUDOKRAT_PINNED_MANIFEST_SHA256`, (c)
+    Detektion von Korruption oder Substitution nach dem Download.
+
+    Berechnung:
+        Für jede Datei (sortiert nach POSIX-relativem Pfad) wird die
+        Zeile ``<pfad>\\0<sha256-der-datei>\\n`` ins Toplevel-Hashing
+        gefüttert. Resultat ist der hex-codierte SHA-256.
+
+    Gibt einen leeren String zurück, wenn der Cache leer ist —
+    Aufrufer können das als „nichts zu verifizieren" interpretieren.
+    """
+    settings = settings or Settings.load()
+    model_dir = _model_cache_subdir(settings.model_cache_dir, settings.model_id)
+    files = list(_iter_manifest_files(model_dir))
+    if not files:
+        return ""
+    toplevel = hashlib.sha256()
+    for path in files:
+        rel = path.relative_to(model_dir).as_posix()
+        file_hash = _hash_file(path)
+        toplevel.update(rel.encode("utf-8"))
+        toplevel.update(b"\x00")
+        toplevel.update(file_hash.encode("ascii"))
+        toplevel.update(b"\n")
+    return toplevel.hexdigest()
+
+
+def verify_model_manifest(settings: Settings | None = None) -> str:
+    """Vergleicht den berechneten Manifest-Hash gegen einen optionalen Pin.
+
+    Liest :envvar:`PSEUDOKRAT_PINNED_MANIFEST_SHA256`. Wenn gesetzt,
+    muss der berechnete Hash mit dem Pin übereinstimmen — ansonsten
+    :class:`ModelManifestMismatchError`. Ohne Pin wird der Hash nur
+    berechnet und zurückgegeben (gut für ersten Run + Notieren).
+
+    Vergleich ist konstantzeit (`hmac.compare_digest`), obwohl der
+    Angriffsweg theoretisch wäre: das schließt eine zukünftige
+    Erweiterung (z. B. Netz-Manifest-Server) sauber ab, ohne erst
+    nachträglich migrieren zu müssen.
+    """
+    import hmac
+
+    actual = compute_model_manifest_hash(settings)
+    pinned = os.environ.get("PSEUDOKRAT_PINNED_MANIFEST_SHA256", "").strip().lower()
+    if not pinned:
+        return actual
+    if not actual:
+        raise ModelManifestMismatchError(
+            "PSEUDOKRAT_PINNED_MANIFEST_SHA256 gesetzt, aber kein Modell-Cache vorhanden — "
+            "lade das Modell zuerst herunter."
+        )
+    if not hmac.compare_digest(actual, pinned):
+        raise ModelManifestMismatchError(
+            "Modell-Manifest-Hash stimmt nicht mit dem Pin überein. "
+            f"erwartet={pinned[:12]}…, berechnet={actual[:12]}…"
+        )
+    return actual
 
 
 def download_model(
@@ -182,6 +310,9 @@ def download_model(
         raise ModelDownloadError(f"Download fehlgeschlagen: {exc}") from exc
 
     status = model_status(settings)
+    manifest_hash = verify_model_manifest(settings)
+    if manifest_hash:
+        notify(f"Manifest-Hash: sha256:{manifest_hash}")
     notify(
         f"Fertig. Modell liegt unter {status.cache_dir} "
         f"({status.gigabytes_on_disk:.2f} GB belegt)."

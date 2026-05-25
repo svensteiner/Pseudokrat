@@ -41,6 +41,28 @@ ALLOWED_ORIGINS = (
     "https://outlook.office.com",
 )
 
+#: Defense-in-depth-Headers für alle JSON-Responses. Wir liefern aktuell
+#: keinen HTML-Content aus — die Header sind trotzdem nützlich, falls ein
+#: Pentest oder eine Browser-Anomalie versucht, die Response als HTML zu
+#: interpretieren (MIME-Sniffing) oder in einem Frame einzubetten.
+#: Cache-Control verhindert, dass Mandanten-Texte versehentlich in einem
+#: Proxy- oder Browser-Cache liegen bleiben.
+_SECURITY_HEADERS: tuple[tuple[str, str], ...] = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("X-Frame-Options", "DENY"),
+    ("Referrer-Policy", "no-referrer"),
+    ("Cross-Origin-Resource-Policy", "same-origin"),
+    ("Cross-Origin-Opener-Policy", "same-origin"),
+    (
+        "Content-Security-Policy",
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    ),
+    ("Cache-Control", "no-store, no-cache, must-revalidate, private"),
+    ("Pragma", "no-cache"),
+    ("Strict-Transport-Security", "max-age=63072000; includeSubDomains"),
+    ("Permissions-Policy", "interest-cohort=()"),
+)
+
 
 class TokenStore:
     """Hält + persistiert das Server-Bearer-Token."""
@@ -146,11 +168,15 @@ class _RequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        for name, value in _SECURITY_HEADERS:
+            self.send_header(name, value)
+        self.send_header("Vary", "Origin")
         allowed = _origin_allowed(self.headers.get("Origin"))
         if allowed is not None:
             self.send_header("Access-Control-Allow-Origin", allowed)
             self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
             self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+            self.send_header("Access-Control-Max-Age", "600")
         self.end_headers()
         self.wfile.write(body)
 
@@ -258,3 +284,8 @@ __all__ = (
     "TokenStore",
     "start_server",
 )
+
+
+def security_headers() -> tuple[tuple[str, str], ...]:
+    """Liefert die statischen Defense-in-Depth-Header. Für Tests + Audit-Doku."""
+    return _SECURITY_HEADERS

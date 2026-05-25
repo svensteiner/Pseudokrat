@@ -22,6 +22,17 @@ fehlt vor Release?".
   Kammer-Argumentation. Vorlektorat für DSGVO-Anwalt.
 * D-036 — Strict-Mode für die Modell-Revision; eliminiert die
   letzte offene TODO im Production-Code.
+* **2026-05-25 Self-Audit-Schliessung:**
+    * V14.4.1 (Security-Header) von 🟡 auf ✅ — der lokale HTTP-Backend
+      sendet ab sofort `X-Content-Type-Options`, `X-Frame-Options`,
+      `Referrer-Policy`, `COOP`/`CORP`, eine harte CSP
+      (`default-src 'none'`) sowie `Cache-Control: no-store` und
+      `Vary: Origin`. Tests in `tests/test_server.py`.
+    * S4 (Modell-Hash-Verifikation) von 🟡 auf ✅ — eigener
+      Toplevel-Manifest-Hash über alle Snapshot-Files (siehe D-037).
+      Operator kann via `PSEUDOKRAT_PINNED_MANIFEST_SHA256` einen
+      bekannten Stand erzwingen; jeder Mismatch bricht den Download
+      hart ab. Sechs neue Tests in `tests/test_model_install.py`.
 
 ---
 

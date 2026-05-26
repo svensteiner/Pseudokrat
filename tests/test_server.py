@@ -10,6 +10,7 @@ from urllib.error import HTTPError
 
 import pytest
 
+from pseudokrat.rate_limit import TokenBucket
 from pseudokrat.server import (
     DEFAULT_HOST,
     ServerState,
@@ -69,7 +70,9 @@ def test_health_endpoint_returns_version_and_profiles(running_server: ServerStat
             f"http://{DEFAULT_HOST}:{port}/health",
             headers={"Authorization": f"Bearer {running_server.token_store.ensure()}"},
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 - localhost
+        # Erstes Request auf Windows-HTTPServer kann mehrere Sekunden für den
+        # Listener-Backlog brauchen — daher großzügiger Timeout, sonst flaky.
+        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - localhost
             payload = json.loads(resp.read().decode("utf-8"))
         assert "version" in payload
         assert "profiles" in payload
@@ -186,6 +189,90 @@ def test_options_from_disallowed_origin_drops_cors_headers(
         assert "access-control-allow-origin" not in headers
         # Vary muss trotzdem stehen — verhindert Cache-Poisoning via fehlende Origin-Variation.
         assert headers.get("vary") == "Origin"
+    finally:
+        server.stop()
+
+
+def test_post_anonymize_rate_limited_returns_429_with_retry_after(
+    tmp_path: Path,
+) -> None:
+    """Vorher leerer Bucket → POST muss 429 + Retry-After liefern. Wir
+    konsumieren den einzigen Token VOR dem ersten HTTP-Call und umgehen so
+    den Cold-Start des Anonymizers (der unter Windows-Pytest-Last den 5 s
+    Socket-Timeout reißen kann — siehe pfull.log)."""
+    state = ServerState(
+        profile_manager=ProfileManager(),
+        profile_name="default",
+        password="supergeheim",
+        token_store=TokenStore(tmp_path / "token.txt"),
+        no_ml=True,
+        rate_limiter=TokenBucket(capacity=1, refill_per_sec=0.01),
+    )
+    # Bucket sofort leeren, damit der erste echte HTTP-POST 429 sieht.
+    state.rate_limiter.try_consume()
+    port = _free_port()
+    server = start_server(state, host=DEFAULT_HOST, port=port, in_background=True)
+    try:
+        token = state.token_store.ensure()
+        # Cold-Start-Warmup: erstes Request auf Windows-HTTPServer kann mehrere
+        # Sekunden brauchen, bis der Listener-Backlog stabil ist. /health geht
+        # nicht durch den Rate-Limiter (siehe Test darunter) und wärmt den
+        # Server vor.
+        warmup = urllib.request.Request(
+            f"http://{DEFAULT_HOST}:{port}/health",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(warmup, timeout=30) as _resp:  # noqa: S310 - localhost
+            _resp.read()
+        req = urllib.request.Request(
+            f"http://{DEFAULT_HOST}:{port}/v1/anonymize",
+            data=json.dumps({"texts": ["Hofer Bau GmbH"]}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as exc:
+            urllib.request.urlopen(req, timeout=10)  # noqa: S310 - localhost
+        assert exc.value.code == 429
+        retry_after = exc.value.headers.get("Retry-After")
+        assert retry_after is not None
+        assert int(retry_after) >= 1
+        # Defense-in-depth-Header bleiben auch auf 429 vorhanden.
+        assert exc.value.headers.get("X-Frame-Options") == "DENY"
+    finally:
+        server.stop()
+
+
+def test_rate_limit_does_not_affect_health_endpoint(tmp_path: Path) -> None:
+    """`/health` ist diagnostisch und darf nicht von der Rate-Limit-Logik
+    blockiert werden — der Bucket wird bei GETs gar nicht angefasst."""
+    state = ServerState(
+        profile_manager=ProfileManager(),
+        profile_name="default",
+        password="supergeheim",
+        token_store=TokenStore(tmp_path / "token.txt"),
+        no_ml=True,
+        rate_limiter=TokenBucket(capacity=1, refill_per_sec=0.01),
+    )
+    # Bucket leeren, damit POSTs blockiert wären.
+    state.rate_limiter.try_consume()
+    port = _free_port()
+    server = start_server(state, host=DEFAULT_HOST, port=port, in_background=True)
+    try:
+        token = state.token_store.ensure()
+        for i in range(3):
+            req = urllib.request.Request(
+                f"http://{DEFAULT_HOST}:{port}/health",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            # Erstes /health auf einem frisch gestarteten Windows-HTTPServer
+            # kann ~10 s brauchen — danach sind Anfragen schnell.
+            timeout = 30 if i == 0 else 10
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - localhost
+                assert resp.status == 200
+                resp.read()
     finally:
         server.stop()
 

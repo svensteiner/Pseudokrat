@@ -33,6 +33,14 @@ fehlt vor Release?".
       Operator kann via `PSEUDOKRAT_PINNED_MANIFEST_SHA256` einen
       bekannten Stand erzwingen; jeder Mismatch bricht den Download
       hart ab. Sechs neue Tests in `tests/test_model_install.py`.
+* **2026-05-26 Self-Audit-Schliessung:**
+    * F-001 (Rate-Limit auf POST-Endpunkten) **geschlossen** —
+      Token-Bucket in `pseudokrat.rate_limit` schützt
+      `/v1/anonymize`/`/v1/deanonymize`; 429 + `Retry-After` bei
+      Erschöpfung. Defaults via Env-Var konfigurierbar. Siehe D-038.
+      Damit ist V2.7.1 im Self-Audit von 🟡 auf ✅ gewandert; offen
+      bleiben nur noch dokumentierte „bewusst akzeptierte" Trade-Offs
+      und externe Blocker (Pentest/Code-Signing/Pilot/DSGVO).
 
 ---
 

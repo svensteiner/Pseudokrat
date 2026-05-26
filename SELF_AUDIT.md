@@ -28,12 +28,12 @@ zutreffend.
 | V2.1.5 Keine Default-Credentials | ✅ | Es gibt keine Default-Passwörter; jedes Profil verlangt expliziten Wizard-Schritt |
 | V2.4.1 Passwörter werden mit KDF gespeichert | ✅ | PBKDF2-HMAC-SHA512, 256 000 Iterationen, 16 Byte Salt; siehe `store/secure_db.py::derive_keys` |
 | V2.4.4 KDF-Iterationen ≥ OWASP-Empfehlung (600k SHA-256-Äquivalent) | ✅ | 256 000 SHA-512 ≈ 512 000 SHA-256-Äquivalent (SHA-512 ist ~2x langsamer pro Iteration auf 64-Bit) |
-| V2.7.1 Lock-out gegen Brute-Force | 🟡 | Lokale Software, kein Netzwerk-Auth — Brute-Force-Schutz allein durch PBKDF2-Kosten (~ 800 ms pro Versuch auf Referenz-Maschine, 75 Versuche/Minute Worst-Case) |
+| V2.7.1 Lock-out gegen Brute-Force | ✅ | PBKDF2-Kosten (~ 800 ms pro Master-PW-Versuch) **plus** Token-Bucket-Rate-Limit auf POST-Endpunkten (Default 60 Tokens Burst, 1 Token/s Refill, konfigurierbar via `PSEUDOKRAT_SERVER_RATE_BURST` / `PSEUDOKRAT_SERVER_RATE_RPS`). Siehe D-038 / F-001 |
 | V2.7.2 Constant-time Vergleich | ✅ | Server: `secrets.compare_digest`; SQLite-Verifikationstoken: gleichlanger Vergleich via Fernet-Decrypt-Roundtrip |
 | V2.10.1 Service-zu-Service-Auth | ✅ | Office-Add-In → Backend: Bearer-Token aus `secrets.token_urlsafe(32)` (256 Bit Entropie) |
 
 **Findings:**
-- F-001 *(Severity: Info)* — Server hat noch keine Rate-Limits für `/v1/anonymize`. Bei lokaler Bind-Adresse (`127.0.0.1`) ist das nur relevant bei lokalem RCE-Vektor; im Multi-User-Endgerät aber denkbar. **Empfehlung:** im externen Pentest re-evaluieren, bei Bedarf `slowapi`-Decorator hinzufügen.
+- F-001 *(Severity: Info)* — ~~Server hat noch keine Rate-Limits für `/v1/anonymize`.~~ **Geschlossen 2026-05-26 (D-038).** Token-Bucket-Limiter in `pseudokrat.rate_limit` schützt `/v1/anonymize` und `/v1/deanonymize`; 429 + `Retry-After`-Header bei Erschöpfung. Defaults (Burst 60, Refill 1/s) decken Excel-Add-in-Spaltenscans ab und kappen lokale Brute-Force-/Flood-Versuche. `/health` und CORS-Preflight bleiben unbeeinflusst.
 
 ---
 
@@ -221,7 +221,7 @@ zutreffend.
 
 | ID | Severity | Status | Aktion |
 |---|---|---|---|
-| F-001 | Info | dokumentiert | Pentest re-evaluieren |
+| F-001 | Info | **geschlossen 2026-05-26** | Token-Bucket im Server (D-038) |
 | F-002 | Low | dokumentiert | Polyglot-Tests beim Pentest |
 | F-003 | Info | bewusste Wahl | siehe D-006 |
 

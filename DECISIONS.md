@@ -767,3 +767,49 @@ Versuch deterministisch detektierbar.
 **Test-Coverage:** Sechs neue Tests in `tests/test_model_install.py`,
 u. a. Determinismus, Mutation-Detection, Lock-Datei-Ausschluss,
 Mismatch-Pfad und Cache-leer-Pfad.
+
+
+## D-038 — Rate-Limit für HTTP-Server-POSTs
+
+**Wahl:** Token-Bucket-Limiter (`pseudokrat.rate_limit.TokenBucket`)
+wird per default in jeden `ServerState` eingehängt und bei
+`/v1/anonymize`/`/v1/deanonymize` vor dem Body-Read geprüft. Defaults:
+Burst 60, Refill 1 Token/Sekunde — konfigurierbar via
+`PSEUDOKRAT_SERVER_RATE_BURST` und `PSEUDOKRAT_SERVER_RATE_RPS`. Bei
+Erschöpfung antwortet der Server mit `429` und `Retry-After`-Header
+(aufgerundete Sekunden, min 1).
+
+**Begründung:**
+
+- F-001 aus dem Self-Audit (Pentest-Vorlektorat) forderte einen
+  Brute-Force-/Flood-Schutz auf den POST-Endpunkten. Der Server bindet
+  zwar an Loopback, ist aber auf Multi-User-OS oder bei lokalem
+  RCE-Vektor weiterhin angreifbar.
+- Token-Bucket gewährt **bursting** (Excel-Add-in iteriert spaltenweise,
+  hat dadurch oft 30–50 schnelle Requests) und kappt sustained Flood.
+- Keine externe Dependency. Pseudokrat-Prinzip: lokal, abhängigkeitsarm.
+  Kein `slowapi`, kein Redis. Threading.Lock genügt für single-process
+  HTTPServer.
+
+**Verworfene Alternativen:**
+
+- `slowapi` / `limits`: zusätzliche Dependency, mehr Tests, mehr CVE-
+  Oberfläche — Mehrwert gering bei einer Loopback-Single-Process-App.
+- Festes Per-Minute-Limit ohne Burst-Toleranz: würde den Excel-
+  Add-in-Workflow stören (50 Zellen → 50 schnelle Requests).
+- HTTP-Status `503` statt `429`: `429 Too Many Requests` ist der
+  RFC-6585-spezifische Status für Rate-Limit-Erschöpfung.
+
+**Konsequenzen:**
+
+- `/health` ist bewusst NICHT rate-limited — diagnostisches
+  Pre-Flight-Probing aus dem Add-in soll nicht blockiert werden.
+- Bucket lebt im `ServerState` (eine Instanz pro Server). Bei
+  mehreren parallelen Servern (z. B. Tests) sind die Limiter unabhängig.
+- Headers wie `Retry-After` werden über den neuen `extra_headers`-
+  Parameter in `_send_json` durchgereicht; Defense-in-Depth-Header
+  bleiben unverändert.
+
+**Test-Coverage:** 8 Unit-Tests in `tests/test_rate_limit.py` (Bucket-
+Mechanik, Env-Var-Parsing, Refill-Caps), 2 Integrations-Tests in
+`tests/test_server.py` (429-Response auf POST, /health unbeeinflusst).

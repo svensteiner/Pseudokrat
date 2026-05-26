@@ -7,6 +7,28 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-05-26)
+- **Token-Bucket-Rate-Limit für HTTP-POST-Endpunkte.**
+  `pseudokrat.rate_limit.TokenBucket` schützt `/v1/anonymize` und
+  `/v1/deanonymize` vor lokalen Flood- bzw. Brute-Force-Vektoren.
+  Defaults: 60 Tokens Burst, 1 Token/Sekunde Refill — konfigurierbar
+  über `PSEUDOKRAT_SERVER_RATE_BURST` und `PSEUDOKRAT_SERVER_RATE_RPS`.
+  Bei Erschöpfung antwortet der Server mit `429` plus `Retry-After`
+  (Sekunden, aufgerundet, min 1) und behält alle Defense-in-Depth-
+  Header bei. `/health` und CORS-Preflights (`OPTIONS`) bleiben
+  bewusst unbegrenzt. → Closes F-001 in [SELF_AUDIT.md](SELF_AUDIT.md);
+  siehe D-038 in [DECISIONS.md](DECISIONS.md). Neue Test-Datei
+  `tests/test_rate_limit.py` (8 Unit-Tests) und 2 zusätzliche Server-
+  Integrationstests in `tests/test_server.py`.
+
+### Behoben (2026-05-26)
+- `tests/test_server.py::test_health_endpoint_returns_version_and_profiles`
+  und der neue 429-Test setzen Socket-Timeouts großzügiger (≥ 30 s
+  für den ersten Request auf Windows-`HTTPServer`). Hintergrund: der
+  Listener-Backlog braucht auf manchen Windows-Konfigurationen mehrere
+  Sekunden bis zum ersten Accept; der 5-s-Default war flaky. Server-
+  Logik bleibt unverändert.
+
 ### Hinzugefügt (2026-05-25)
 - **HTTP-Server Defense-in-Depth-Header.** Der lokale Backend-Server
   (`server.py`) sendet jetzt auf allen Responses `X-Content-Type-Options:

@@ -28,6 +28,7 @@ from pseudokrat import __version__
 from pseudokrat.anonymizer import Anonymizer
 from pseudokrat.deanonymizer import Deanonymizer
 from pseudokrat.pii.privacy_filter import load_default_detector
+from pseudokrat.rate_limit import TokenBucket, bucket_from_env
 from pseudokrat.recognizers import recognizers_for_store
 from pseudokrat.store.profile import ProfileManager
 from pseudokrat.store.secure_db import InvalidPasswordError
@@ -96,6 +97,7 @@ class ServerState:
     password: str
     token_store: TokenStore
     no_ml: bool = False
+    rate_limiter: TokenBucket = field(default_factory=bucket_from_env)
     _store: object | None = field(default=None, init=False, repr=False)
 
     def open_session(
@@ -163,12 +165,20 @@ class _RequestHandler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def _send_json(self, status: int, payload: object) -> None:
+    def _send_json(
+        self,
+        status: int,
+        payload: object,
+        *,
+        extra_headers: tuple[tuple[str, str], ...] = (),
+    ) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         for name, value in _SECURITY_HEADERS:
+            self.send_header(name, value)
+        for name, value in extra_headers:
             self.send_header(name, value)
         self.send_header("Vary", "Origin")
         allowed = _origin_allowed(self.headers.get("Origin"))
@@ -207,6 +217,18 @@ class _RequestHandler(BaseHTTPRequestHandler):
         if not self._require_token():
             return
         if self.path in ("/v1/anonymize", "/v1/deanonymize"):
+            decision = self.state.rate_limiter.try_consume()
+            if not decision.allowed:
+                # Retry-After als ganze Sekunden, aufgerundet, min 1.
+                from math import ceil
+
+                retry_after = max(1, ceil(decision.retry_after_seconds))
+                self._send_json(
+                    429,
+                    {"error": "rate-limited"},
+                    extra_headers=(("Retry-After", str(retry_after)),),
+                )
+                return
             body = self._read_body()
             texts_raw = body.get("texts", [])
             if not isinstance(texts_raw, list):

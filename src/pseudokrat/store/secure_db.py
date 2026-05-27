@@ -25,24 +25,33 @@ Siehe DECISIONS.md D-003 / D-031.
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
 import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
 from typing import Any
 
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import InvalidToken
+
+from pseudokrat.store.key_protector import (
+    SALT_BYTES,
+    KeyProtector,
+    KeyringSecretMissingError,
+    OsKeyringKeyProtector,
+    PasswordKeyProtector,
+)
+from pseudokrat.store.key_protector import (
+    DerivedKeys as _ProtectorDerivedKeys,
+)
 
 PBKDF2_ITERATIONS = 256_000
-SALT_BYTES = 16
 VERIFICATION_PLAINTEXT = b"pseudokrat-v1-ok"
+
+#: Sidecar neben der DB: existiert → Profil benutzt OS-Keyring statt Passwort.
+#: Inhalt = Profilname (UTF-8), das als Account-Name im Keyring liegt.
+KEYRING_MARKER_SUFFIX = ".keyring"
 
 #: Magic bytes am Datei-Anfang einer unverschlüsselten SQLite-DB.
 SQLITE_MAGIC = b"SQLite format 3\x00"
@@ -86,41 +95,17 @@ class InvalidPasswordError(Exception):
     """Master-Passwort konnte das Profil nicht entsperren."""
 
 
-@dataclass(frozen=True)
-class DerivedKeys:
-    fernet_key: bytes  # 32 bytes, base64-codiert für Fernet
-    hmac_key: bytes  # 32 bytes raw
-    sqlcipher_key_hex: str  # 64 hex chars = 32 bytes für SQLCipher PRAGMA key
-
-    @property
-    def fernet(self) -> Fernet:
-        return Fernet(self.fernet_key)
-
-    def hmac_hex(self, value: str) -> str:
-        return hmac.new(self.hmac_key, value.encode("utf-8"), hashlib.sha256).hexdigest()
+#: Re-export für Rückwärtskompatibilität — bestehender Code importiert
+#: ``DerivedKeys`` aus ``secure_db``. Die kanonische Definition liegt jetzt in
+#: :mod:`pseudokrat.store.key_protector`.
+DerivedKeys = _ProtectorDerivedKeys
 
 
 def derive_keys(password: str, salt: bytes) -> DerivedKeys:
-    if len(salt) != SALT_BYTES:
-        raise ValueError(f"Salt muss {SALT_BYTES} Byte sein, war {len(salt)}")
-    # Wir leiten 96 Byte ab: 32 für Fernet, 32 für HMAC, 32 für SQLCipher.
-    # Drei disjunkte Subkeys aus demselben PBKDF2-Material — ein Leak des
-    # Fernet-Keys kompromittiert weder HMAC-Lookup noch SQLCipher-Page-Key.
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA512(),
-        length=96,
-        salt=salt,
-        iterations=PBKDF2_ITERATIONS,
-    )
-    material = kdf.derive(password.encode("utf-8"))
-    fernet_key = base64.urlsafe_b64encode(material[:32])
-    hmac_key = material[32:64]
-    sqlcipher_key_hex = material[64:96].hex()
-    return DerivedKeys(
-        fernet_key=fernet_key,
-        hmac_key=hmac_key,
-        sqlcipher_key_hex=sqlcipher_key_hex,
-    )
+    """Kompatibilitäts-Shim. Neuer Code soll ``PasswordKeyProtector(password)
+    .derive(salt)`` verwenden — diese Funktion delegiert genau dorthin und
+    bleibt für ältere Aufrufer (Tests, externe Skripte) erhalten."""
+    return PasswordKeyProtector(password).derive(salt)
 
 
 _SCHEMA = """
@@ -213,20 +198,66 @@ def _connect(db_path: Path, *, encrypted: bool, key_hex: str) -> sqlite3.Connect
     return conn
 
 
+def _keyring_marker_path(db_path: Path) -> Path:
+    """Sidecar-Marker neben der DB: existiert → Profil im OS-Keyring-Modus."""
+    return db_path.with_suffix(db_path.suffix + KEYRING_MARKER_SUFFIX)
+
+
+def profile_uses_keyring(db_path: Path) -> bool:
+    """True, wenn das Profil im Simple-Mode angelegt wurde (OS-Keyring statt
+    Passwort). Wird von der CLI/GUI für den Auto-Open-Pfad benutzt — ohne
+    Passwort-Prompt."""
+    return _keyring_marker_path(db_path).exists()
+
+
+def _resolve_protector(
+    db_path: Path,
+    *,
+    protector: KeyProtector | None,
+    password: str | None,
+) -> KeyProtector:
+    """Wähle Protector entweder explizit (``protector`` Arg), oder
+    abgeleitet aus Sidecar-Marker + ``password``."""
+    if protector is not None:
+        return protector
+    marker_path = _keyring_marker_path(db_path)
+    if marker_path.exists():
+        profile_name = marker_path.read_text(encoding="utf-8").strip()
+        if not profile_name:
+            raise InvalidPasswordError(
+                f"Keyring-Marker {marker_path} ist leer — Profil-Metadaten beschädigt."
+            )
+        return OsKeyringKeyProtector(profile_name=profile_name)
+    if password is None:
+        raise InvalidPasswordError(
+            "Profil benötigt ein Master-Passwort, aber keines wurde übergeben "
+            "(und kein OS-Keyring-Marker gefunden)."
+        )
+    return PasswordKeyProtector(password)
+
+
 def open_or_init(
     db_path: Path,
-    password: str,
+    password: str | None = None,
     *,
     profile_name: str | None = None,
+    protector: KeyProtector | None = None,
 ) -> tuple[sqlite3.Connection, DerivedKeys]:
     """Öffne oder initialisiere eine Profil-DB.
 
-    Bei Erstanlage werden Salt + Verifikations-Token generiert. Bei jedem
-    weiteren Öffnen wird das Passwort über das Verifikations-Token geprüft;
-    falsches Passwort → :class:`InvalidPasswordError`.
+    Zwei Modi:
 
-    SQLCipher vs. Fernet-Only: Existiert die Datei, wird der Modus aus dem
-    Datei-Header erkannt; bei Neuanlage entscheidet :func:`_use_sqlcipher`.
+    1. **Passwort-Modus** (Default für Backwards-Compat): ``password`` wird
+       per PBKDF2 in einen ``PasswordKeyProtector`` gewickelt.
+    2. **Simple-Mode**: ``protector`` ist explizit ein
+       :class:`OsKeyringKeyProtector`. Beim Erstanlegen wird ein
+       Sidecar-Marker ``<db>.keyring`` geschrieben — dann erkennt jeder
+       spätere ``open_or_init``-Aufruf den Modus automatisch und braucht
+       kein Passwort.
+
+    Bei Erstanlage werden Salt + Verifikations-Token generiert. Bei jedem
+    weiteren Öffnen wird der abgeleitete Schlüssel über das
+    Verifikations-Token geprüft; Mismatch → :class:`InvalidPasswordError`.
     """
     is_new = not db_path.exists()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -237,10 +268,24 @@ def open_or_init(
     salt_path = db_path.with_suffix(db_path.suffix + ".salt")
     use_sqlcipher = _file_is_sqlcipher(db_path) if not is_new else _use_sqlcipher()
 
+    active_protector = _resolve_protector(db_path, protector=protector, password=password)
+    is_keyring_mode = isinstance(active_protector, OsKeyringKeyProtector)
+
     if is_new:
         salt = os.urandom(SALT_BYTES)
-        keys = derive_keys(password, salt)
+        try:
+            keys = active_protector.derive(salt)
+        except KeyringSecretMissingError as exc:
+            raise InvalidPasswordError(str(exc)) from exc
         salt_path.write_bytes(salt)
+        if isinstance(active_protector, OsKeyringKeyProtector):
+            # Marker FIRST: bei einem späteren Crash zwischen DB-Create und
+            # Marker-Write hätten wir sonst eine DB ohne Auto-Detect — der
+            # Nutzer würde nach einem Passwort gefragt, das er nie gesetzt
+            # hat. Reihenfolge: Marker → Salt → DB.
+            _keyring_marker_path(db_path).write_text(
+                active_protector.profile_name, encoding="utf-8"
+            )
         conn = _connect(db_path, encrypted=use_sqlcipher, key_hex=keys.sqlcipher_key_hex)
         conn.executescript(_SCHEMA)
         verification_ct = keys.fernet.encrypt(VERIFICATION_PLAINTEXT)
@@ -257,6 +302,7 @@ def open_or_init(
                 ("recognizer_version_pinned", ""),
                 ("schema_version", "2"),
                 ("encryption_mode", "sqlcipher+fernet" if use_sqlcipher else "fernet"),
+                ("auth_mode", "os-keyring" if is_keyring_mode else "password"),
             ],
         )
         conn.commit()
@@ -268,7 +314,10 @@ def open_or_init(
             f"Salt-Datei fehlt: {salt_path}. Profil ist nicht entschlüsselbar."
         )
     salt = salt_path.read_bytes()
-    keys = derive_keys(password, salt)
+    try:
+        keys = active_protector.derive(salt)
+    except KeyringSecretMissingError as exc:
+        raise InvalidPasswordError(str(exc)) from exc
     conn = _connect(db_path, encrypted=use_sqlcipher, key_hex=keys.sqlcipher_key_hex)
     if use_sqlcipher:
         try:
@@ -293,6 +342,11 @@ def open_or_init(
         plaintext = keys.fernet.decrypt(verification_ct)
     except InvalidToken as exc:
         conn.close()
+        if is_keyring_mode:
+            raise InvalidPasswordError(
+                "OS-Keyring-Eintrag passt nicht zur Profil-DB — "
+                "vermutlich aus einem Backup übernommen oder Konto-Wechsel."
+            ) from exc
         raise InvalidPasswordError("Falsches Master-Passwort") from exc
     if plaintext != VERIFICATION_PLAINTEXT:
         conn.close()

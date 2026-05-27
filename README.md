@@ -79,19 +79,41 @@ Das war's. Pseudokrat ist jetzt als CLI-Befehl `pseudokrat` verfügbar.
 
 ## Erste Schritte (in 60 Sekunden)
 
-### Mandantenprofil anlegen
+### Mandantenprofil anlegen — der einfache Weg (empfohlen)
+
+```powershell
+pseudokrat init --profile "Mandant Hofer" --simple
+```
+
+**Kein Master-Passwort.** Pseudokrat erzeugt ein 256-Bit-Geheimnis und legt es
+im **Windows Credential Manager** (Windows) bzw. **macOS Keychain** (macOS) ab —
+gebunden an Ihren OS-Login. Folgebefehle (`anonymize`, `deanonymize`, …)
+brauchen kein Passwort, das Profil wird automatisch erkannt:
+
+```powershell
+pseudokrat anonymize --profile "Mandant Hofer" --text "Hofer Bau GmbH ..."
+```
+
+Sicherheitsmodell: gleiches Niveau wie Edge-Passwort-Speicher oder Outlook-PSTs.
+Wer Ihren Windows-Login kontrolliert, kann auch das Mapping lesen. Für 95 %
+der Einzelplatz-Nutzer ist das die richtige Wahl.
+
+### Mandantenprofil anlegen — der Compliance-Weg (Kanzlei, Mehrnutzer-PC)
 
 ```powershell
 pseudokrat init --profile "Mandant Hofer"
 ```
 
-Pseudokrat fragt anschließend zweimal nach Ihrem Master-Passwort und legt das
-verschlüsselte Profil unter `%LOCALAPPDATA%\Pseudokrat\profiles\` (Windows)
-bzw. `~/.local/share/pseudokrat/profiles/` (macOS / Linux) an. Das Master-
-Passwort wird nicht gespeichert — bewahren Sie es sicher auf.
+Pseudokrat fragt zweimal nach einem Master-Passwort. Ohne dieses Passwort ist
+das Profil **niemand** zugänglich — auch nicht jemand mit vollem
+Windows-Konto-Zugriff. Bewahren Sie das Passwort sicher auf; ein verlorenes
+Master-Passwort ist nicht wiederherstellbar.
 
-Per `--password "…"` oder über die Umgebungsvariable `PSEUDOKRAT_PASSWORD`
-lässt sich das Setup auch nicht-interaktiv durchführen, z. B. in Skripten.
+Per `--password "…"` oder Umgebungsvariable `PSEUDOKRAT_PASSWORD` lässt sich
+das Setup auch nicht-interaktiv durchführen (Skripte / CI).
+
+Profile werden unter `%LOCALAPPDATA%\Pseudokrat\profiles\` (Windows) bzw.
+`~/.local/share/pseudokrat/profiles/` (macOS / Linux) abgelegt.
 
 ### Text anonymisieren
 

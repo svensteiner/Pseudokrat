@@ -6,10 +6,14 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pseudokrat.config import Settings
 from pseudokrat.store.audit_log import AuditLog
 from pseudokrat.store.mapping_store import MappingStore
+
+if TYPE_CHECKING:
+    from pseudokrat.store.key_protector import KeyProtector, KeyringBackend
 
 _PROFILE_NAME_RE = re.compile(r"^[A-Za-zÄÖÜäöüß0-9 _\-]{1,64}$")
 
@@ -106,8 +110,36 @@ class ProfileManager:
             )
         return self._settings.profiles_dir / f"{_safe_slug(name)}.sqlite"
 
-    def open_or_create(self, name: str, password: str) -> tuple[MappingStore, AuditLog]:
+    def open_or_create(
+        self,
+        name: str,
+        password: str | None = None,
+        *,
+        protector: KeyProtector | None = None,
+    ) -> tuple[MappingStore, AuditLog]:
+        """Öffne oder erzeuge ein Profil per Master-Passwort ODER per
+        OS-Keyring-``protector``. Existiert das Profil bereits im
+        Simple-Mode (``<db>.keyring``-Marker), genügt ``password=None``,
+        ``protector=None`` — der Modus wird automatisch erkannt."""
         path = self.profile_path(name)
-        store = MappingStore(path, password=password, profile_name=name)
+        store = MappingStore(
+            path, password=password, profile_name=name, protector=protector
+        )
         log = AuditLog(store.connection)
         return store, log
+
+    def open_or_create_simple(
+        self, name: str, *, backend: KeyringBackend | None = None
+    ) -> tuple[MappingStore, AuditLog]:
+        """Convenience: legt das Profil im Simple-Mode an (OS-Keyring),
+        falls noch nicht vorhanden — sonst öffnet es im erkannten Modus.
+
+        ``backend`` ist nur für Tests gedacht — Default ist
+        :class:`SystemKeyringBackend` (Windows Credential Manager / macOS
+        Keychain / Linux SecretService).
+        """
+        from pseudokrat.store.key_protector import OsKeyringKeyProtector
+
+        protector = OsKeyringKeyProtector(name, backend=backend)
+        protector.ensure_secret()
+        return self.open_or_create(name, protector=protector)

@@ -7,6 +7,23 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-05-27)
+- **Simple-Mode: passwortfreie Profile via OS-Keyring.** Neue Architektur-
+  Schicht `pseudokrat.store.key_protector` mit `KeyProtector`-Protocol
+  und zwei Implementierungen: `PasswordKeyProtector` (klassisch, PBKDF2)
+  und `OsKeyringKeyProtector` (256-Bit-Geheimnis im Windows Credential
+  Manager / macOS Keychain / Linux SecretService, gespannt mit HKDF-SHA512
+  zum profil-Salt). Aktivieren über `pseudokrat init --simple` —
+  bestehende CLI-Befehle (`anonymize`, `deanonymize`, `clipboard`,
+  `hotkey-daemon`, `audit`, `profiles`) erkennen Simple-Mode-Profile
+  automatisch am Sidecar-Marker `<db>.keyring` und überspringen den
+  Passwort-Prompt. Bestehender Passwort-Modus ist 1:1 erhalten — kein
+  Migrationsschritt für existierende Profile nötig. Neue Optional-
+  Dependency `pseudokrat[simple-mode]` (zieht `keyring>=24.0`).
+  → Phase-A der UX-Vereinfachung; siehe [D-039](DECISIONS.md). 20 neue
+  Unit-Tests in `tests/test_key_protector.py` (Determinismus, Profil-
+  Isolation, Tampering-Detection, Marker-Auto-Detect, Cross-Mode-Reject).
+
 ### Hinzugefügt (2026-05-26)
 - **Token-Bucket-Rate-Limit für HTTP-POST-Endpunkte.**
   `pseudokrat.rate_limit.TokenBucket` schützt `/v1/anonymize` und

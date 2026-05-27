@@ -46,6 +46,12 @@ sqlcipher = [
   # gepflegte Manylinux/Windows-Wheels.
   "sqlcipher3-wheels>=0.5.7",
 ]
+simple-mode = [
+  # OS-Keyring-Integration für Profile ohne Master-Passwort.
+  # Windows → Credential Manager / DPAPI; macOS → Keychain;
+  # Linux → SecretService/GNOME-Keyring.
+  "keyring>=24.0",
+]
 gui = [
   "PySide6-Essentials>=6.6.0",
 ]

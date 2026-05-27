@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from pseudokrat.fuzzy import is_fuzzy_merge_category, normalize, should_merge
+from pseudokrat.store.key_protector import KeyProtector
 from pseudokrat.store.secure_db import DerivedKeys, open_or_init, transaction
 
 
@@ -25,10 +26,29 @@ class Mapping:
 class MappingStore:
     """Verschlüsselter Persistenz-Layer für PII-Mappings eines Profils."""
 
-    def __init__(self, db_path: Path, password: str, profile_name: str | None = None) -> None:
+    def __init__(
+        self,
+        db_path: Path,
+        password: str | None = None,
+        profile_name: str | None = None,
+        *,
+        protector: KeyProtector | None = None,
+    ) -> None:
+        """Öffne oder erzeuge ein Profil.
+
+        Entweder ``password`` (klassischer Passwort-Modus) ODER ``protector``
+        (Simple-Mode mit OS-Keyring) muss gesetzt sein — oder die DB
+        existiert bereits mit einem Keyring-Marker, dann reicht
+        ``password=None, protector=None`` (Auto-Detect).
+        """
         self._conn: sqlite3.Connection
         self._keys: DerivedKeys
-        self._conn, self._keys = open_or_init(db_path, password, profile_name=profile_name)
+        self._conn, self._keys = open_or_init(
+            db_path,
+            password,
+            profile_name=profile_name,
+            protector=protector,
+        )
 
     @property
     def connection(self) -> sqlite3.Connection:

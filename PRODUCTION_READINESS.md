@@ -5,7 +5,21 @@ zwischen dem heutigen Alpha-Stand und einem produktionsreifen Release
 für DACH-Berufsträger. Sie ist die Single-Source-of-Truth für „Was
 fehlt vor Release?".
 
-**Letzter Stand:** 2026-05-24, automatisierter Build-Loop.
+**Letzter Stand:** 2026-05-27, autonom + interaktiv.
+
+**UX-Vereinfachung — Phase A (2026-05-27) abgeschlossen:**
+
+* **Simple-Mode landed.** Profile können jetzt ohne Master-Passwort
+  angelegt werden (`pseudokrat init --simple`). 256-Bit-Geheimnis liegt
+  im OS-Keyring (Windows Credential Manager / DPAPI, macOS Keychain,
+  Linux SecretService). Alle CLI-Befehle erkennen Simple-Mode-Profile
+  automatisch und überspringen den Passwort-Prompt. Bestehender
+  Passwort-Modus bleibt 1:1 erhalten (Power-User / Kanzlei-Compliance).
+  Siehe D-039 / S6 im Self-Audit. 21 neue Tests.
+* **Phase B (offen):** `pseudokrat install`-Befehl + Explorer-Context-
+  Menu + Hotkey-Autostart.
+* **Phase C (offen):** GUI versteckt Profil-Selector im Simple-Mode-
+  Default; Tray-First-Workflow ohne Hauptfenster.
 
 **Heute hinzu gekommen (Stand-Update):**
 

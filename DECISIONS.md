@@ -813,3 +813,94 @@ Erschöpfung antwortet der Server mit `429` und `Retry-After`-Header
 **Test-Coverage:** 8 Unit-Tests in `tests/test_rate_limit.py` (Bucket-
 Mechanik, Env-Var-Parsing, Refill-Caps), 2 Integrations-Tests in
 `tests/test_server.py` (429-Response auf POST, /health unbeeinflusst).
+
+
+## D-039 — Simple-Mode: OS-Keyring statt Master-Passwort
+
+**Wahl:** Pseudokrat unterstützt zwei Trust-Anchor parallel:
+
+1. **Passwort-Modus** (klassisch, Default für CLI ohne `--simple`):
+   Master-Passwort → PBKDF2-HMAC-SHA512 256k Iterationen → DerivedKeys.
+2. **Simple-Mode** (neu, opt-in via `pseudokrat init --simple`):
+   256-Bit-Zufallsgeheimnis liegt im OS-Keyring (Windows Credential
+   Manager / DPAPI, macOS Keychain, Linux SecretService). HKDF-SHA512
+   spannt es mit dem profil-Salt zu den DerivedKeys auf.
+
+Architektur: gemeinsame `KeyProtector`-Protocol-Abstraktion
+(`pseudokrat.store.key_protector`). `secure_db.open_or_init` akzeptiert
+einen Protector oder ein Passwort. Sidecar-File `<db>.keyring` neben der
+DB markiert Simple-Mode-Profile — CLI und GUI erkennen den Modus
+automatisch beim Öffnen und überspringen den Passwort-Prompt.
+
+**Begründung:** UX-Asymmetrie zur Konkurrenz (CamoText hat gar keine
+Verschlüsselung; lokal-arbeitende Mitbewerber wie BMD/RZL haben überall
+Master-Passwörter, die User regelmäßig vergessen). Simple-Mode
+eliminiert das Passwort-Management-Friction für 90 % der Einzelplatz-
+Berufsträger, ohne die Architektur für Compliance-/Kammer-Use-Cases zu
+schwächen — der Passwort-Modus bleibt 1:1 erhalten.
+
+**Sicherheitsmodell-Shift (dokumentationspflichtig für Pentest):**
+
+- **Vorher (Passwort-Modus):** Profil-DB ist nutzlos für jeden, der nicht
+  das Master-Passwort kennt — selbst bei vollem Festplatten-Zugriff.
+- **Nachher (Simple-Mode):** Profil-DB ist nutzlos für jeden, der nicht
+  das **Windows-/macOS-Benutzerkonto** des Profil-Eigentümers
+  kontrolliert. Ein Angreifer mit Konto-Zugriff (gestohlener Laptop +
+  Login-Bypass, Malware mit User-Rechten) kann auch die Mappings lesen.
+  Identisches Niveau wie Edge-Passwort-Speicher, Outlook-PST-Dateien,
+  Sticky-Notes.
+
+Das ist der **richtige** Trade-off für DACH-Berufsträger-Einzelplatz:
+„Mandantendaten verlassen die Maschine nicht" ist das Versprechen, nicht
+„die Maschine ist eine Festung gegen den Eigentümer". Kammer-Pitch
+schwächt das nicht — wer Festungs-Modus will, bekommt ihn über
+weglassen des `--simple`-Flags.
+
+**Crypto-Detail — Warum HKDF statt PBKDF2 im Simple-Mode:** Das
+OS-Keyring-Geheimnis ist bereits 256 Bit Entropie (`os.urandom`).
+PBKDF2 ist für Low-Entropy-Inputs (Passwörter) gedacht — Stretching
+schützt vor Brute-Force. Für High-Entropy-Inputs ist HKDF das richtige
+Primitiv: Domain-Separation per `info`-Tag, kein Compute-Overhead.
+
+**Migration:** Bestehende Passwort-Profile bleiben Passwort-Profile. Es
+gibt aktuell **keinen** automatischen Migrationspfad — ein Nutzer, der
+von Passwort auf Simple-Mode wechseln will, muss das Profil neu anlegen.
+Migrations-Tooling ist Folge-Arbeit (Phase C-Frage).
+
+**Sidecar-Sicherheit:** Der `<db>.keyring`-Marker enthält nur den
+Profilnamen (Klartext, kein Geheimnis). Ein Angreifer, der die Datei
+sieht, lernt nur den Profilnamen — den er aus dem DB-Dateinamen ohnehin
+ableiten könnte. Reihenfolge beim Erstanlegen: Marker → Salt → DB,
+damit ein Crash zwischen DB-Create und Marker-Write nicht zu einem
+„Modus-unbekannt"-Zustand führt.
+
+**Reset-Pfad:** Wenn der OS-Keyring-Eintrag verloren geht (OS-Reinstall,
+Konto-Wechsel), ist das Profil unentschlüsselbar — gleiches
+Failure-Modus wie „Master-Passwort vergessen". Das ist by-design;
+Backup-Strategie ist Sache des Nutzers (`PILOT_KIT.md` muss erweitert
+werden, sobald Phase B/C landet).
+
+**Verworfene Alternativen:**
+
+- **DPAPI direkt** über `win32crypt.CryptProtectData`: bindet uns an
+  pywin32, eine schwere Dependency (Build-Komplexität auf macOS/Linux).
+  `keyring` ist dünner, plattformneutral, gepflegt.
+- **Eigenes File-mit-OS-ACLs** (Plaintext-Geheimnis, NTFS-ACL auf
+  Eigentümer): keine Härtung gegen Angreifer im selben Userkontext.
+  OS-Keyring nutzt zumindest TPM-gebundene Schlüssel auf Windows 11.
+- **Auto-Migration Passwort→Simple-Mode:** zu invasiv für eine Phase-A-
+  Änderung, plus nicht klar dokumentierter Side-Effekt für bestehende
+  Nutzer. Folge-Arbeit.
+
+**Test-Coverage:** 20 Unit-Tests in `tests/test_key_protector.py`
+(Determinismus, Profilisolation, Tampering, Marker-Write-Order,
+Auto-Detect-Pfad, Cross-Mode-Rejection).
+
+**Folgearbeit (nicht in D-039):**
+
+- Phase B: `pseudokrat install`-Befehl, der ein Default-Profil im
+  Simple-Mode anlegt + Explorer-Context-Menu + Hotkey-Autostart.
+- Phase C: GUI versteckt Profil-Selector im Simple-Mode-Default;
+  Tray-First-Workflow ohne Hauptfenster.
+- Migration: `pseudokrat profiles migrate --to=simple --profile X` mit
+  Passwort-Prompt + Re-Encryption-Pfad.

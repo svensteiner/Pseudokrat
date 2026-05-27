@@ -8,6 +8,7 @@ import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from pseudokrat import __version__
 from pseudokrat.anonymizer import Anonymizer
@@ -120,6 +121,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--password",
         default=None,
         help="Master-Passwort (interaktiv abfragen, wenn nicht angegeben).",
+    )
+    p_init.add_argument(
+        "--simple",
+        action="store_true",
+        help=(
+            "Simple-Mode: kein Master-Passwort — Schlüssel wird im OS-Keyring "
+            "(Windows Credential Manager / macOS Keychain) abgelegt und ist an "
+            "das Windows-/macOS-Konto gebunden. Bequemer Default für "
+            "Einzelplatz-Nutzer. Power-User / strenge Compliance: ohne --simple."
+        ),
     )
     p_init.add_argument(
         "--mandanten-pattern",
@@ -270,6 +281,37 @@ def _resolve_password(arg: str | None) -> str:
     return getpass.getpass("Master-Passwort: ")
 
 
+def _open_profile(
+    manager: ProfileManager,
+    profile_name: str,
+    password_arg: str | None,
+) -> tuple[Any, Any]:
+    """Single entry point für CLI-Commands, die ein bestehendes Profil
+    öffnen wollen.
+
+    Erkennt Simple-Mode-Profile (Sidecar ``<db>.keyring``) und überspringt
+    in dem Fall den Passwort-Prompt. Bei klassischen Passwort-Profilen
+    verhält es sich wie ein direkter ``_resolve_password`` +
+    ``manager.open_or_create``-Aufruf.
+    """
+    from pseudokrat.store.secure_db import profile_uses_keyring
+
+    try:
+        path = manager.profile_path(profile_name)
+    except ValueError:
+        # Ungültiger Name → klassischer Pfad wird die Fehlermeldung liefern.
+        password = _resolve_password(password_arg)
+        return manager.open_or_create(profile_name, password)
+
+    if path.exists() and profile_uses_keyring(path):
+        # Simple-Mode: kein Prompt nötig, Protector wird automatisch
+        # aus dem Sidecar-Marker resolved.
+        return manager.open_or_create(profile_name)
+
+    password = _resolve_password(password_arg)
+    return manager.open_or_create(profile_name, password)
+
+
 def _read_input(args: argparse.Namespace) -> str:
     if getattr(args, "stdin", False):
         return sys.stdin.read()
@@ -308,9 +350,8 @@ def _has_handler(path: Path | None) -> bool:
 
 
 def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
-    password = _resolve_password(args.password)
     try:
-        store, audit = manager.open_or_create(args.profile, password)
+        store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
@@ -377,9 +418,8 @@ def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
 
 
 def _cmd_deanonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
-    password = _resolve_password(args.password)
     try:
-        store, audit = manager.open_or_create(args.profile, password)
+        store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
@@ -476,16 +516,30 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
         )
         return 9
 
-    password, err = _resolve_new_password(args.password)
-    if err is not None or password is None:
-        print(f"Fehler: {err or 'Passwort konnte nicht ermittelt werden.'}", file=sys.stderr)
-        return 10
-    if len(password) < MIN_PASSWORD_LENGTH:
-        print(
-            f"Fehler: Master-Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein.",
-            file=sys.stderr,
-        )
-        return 10
+    simple_mode = bool(getattr(args, "simple", False))
+    password: str | None = None
+    if simple_mode:
+        if args.password is not None:
+            print(
+                "Fehler: --simple und --password schließen sich aus.",
+                file=sys.stderr,
+            )
+            return 10
+    else:
+        resolved, err = _resolve_new_password(args.password)
+        if err is not None or resolved is None:
+            print(
+                f"Fehler: {err or 'Passwort konnte nicht ermittelt werden.'}",
+                file=sys.stderr,
+            )
+            return 10
+        if len(resolved) < MIN_PASSWORD_LENGTH:
+            print(
+                f"Fehler: Master-Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein.",
+                file=sys.stderr,
+            )
+            return 10
+        password = resolved
 
     mandanten_pattern = getattr(args, "mandanten_pattern", None)
     if mandanten_pattern is not None:
@@ -496,10 +550,17 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
             return 12
 
     try:
-        store, _audit = manager.open_or_create(args.profile, password)
+        if simple_mode:
+            store, _audit = manager.open_or_create_simple(args.profile)
+        else:
+            store, _audit = manager.open_or_create(args.profile, password)
     except InvalidPasswordError as exc:  # pragma: no cover — neuer Pfad
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
+    except RuntimeError as exc:
+        # Tritt z. B. auf, wenn ``keyring`` nicht installiert ist.
+        print(f"Fehler: {exc}", file=sys.stderr)
+        return 13
     if mandanten_pattern is not None:
         store.set_metadata(MANDANTEN_PATTERN_METADATA_KEY, mandanten_pattern)
     store.close()
@@ -508,15 +569,26 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
     if mandanten_pattern is not None:
         print(f"Mandanten-Pattern hinterlegt: {mandanten_pattern}")
     print("Nächste Schritte:")
-    print(
-        f"  pseudokrat anonymize --profile \"{args.profile}\" "
-        '--text "Mein Mandant Hofer Bau GmbH ..."'
-    )
-    print("  pseudokrat profiles list")
-    print(
-        "Hinweis: Bewahren Sie Ihr Master-Passwort sicher auf — ohne dieses "
-        "ist das Mapping nicht wiederherstellbar."
-    )
+    if simple_mode:
+        print(
+            f"  pseudokrat anonymize --profile \"{args.profile}\" "
+            '--text "Mein Mandant Hofer Bau GmbH ..."'
+        )
+        print(
+            "Hinweis: Simple-Mode — kein Master-Passwort. Der Schlüssel ist im "
+            "OS-Keyring an Ihr Benutzerkonto gebunden. Bei Konto-Wechsel oder "
+            "OS-Reinstall ist das Profil nicht mehr entschlüsselbar."
+        )
+    else:
+        print(
+            f"  pseudokrat anonymize --profile \"{args.profile}\" "
+            '--text "Mein Mandant Hofer Bau GmbH ..."'
+        )
+        print("  pseudokrat profiles list")
+        print(
+            "Hinweis: Bewahren Sie Ihr Master-Passwort sicher auf — ohne dieses "
+            "ist das Mapping nicht wiederherstellbar."
+        )
     return 0
 
 
@@ -591,9 +663,8 @@ def _cmd_profile_set_pattern(args: argparse.Namespace, manager: ProfileManager) 
             print(f"Fehler: {exc}", file=sys.stderr)
             return 12
 
-    password = _resolve_password(getattr(args, "password", None))
     try:
-        store, _audit = manager.open_or_create(args.profile, password)
+        store, _audit = _open_profile(manager, args.profile, getattr(args, "password", None))
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
@@ -632,9 +703,8 @@ def _cmd_clipboard(args: argparse.Namespace, manager: ProfileManager) -> int:
         print("Hinweis: Zwischenablage ist leer — nichts zu tun.", file=sys.stderr)
         return 8
 
-    password = _resolve_password(args.password)
     try:
-        store, audit = manager.open_or_create(args.profile, password)
+        store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
@@ -770,9 +840,8 @@ def _cmd_hotkey_daemon(args: argparse.Namespace, manager: ProfileManager) -> int
         HotkeyUnavailableError,
     )
 
-    password = _resolve_password(args.password)
     try:
-        store, audit = manager.open_or_create(args.profile, password)
+        store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2
@@ -913,9 +982,8 @@ def _cmd_model(args: argparse.Namespace, manager: ProfileManager) -> int:
 
 
 def _cmd_audit(args: argparse.Namespace, manager: ProfileManager) -> int:
-    password = _resolve_password(args.password)
     try:
-        store, audit = manager.open_or_create(args.profile, password)
+        store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
         return 2

@@ -207,6 +207,19 @@ zutreffend.
 | Pinned Revision | ✅ | `PINNED_MODEL_REVISION` in `model_install.py` (siehe D-036) |
 | Hash-Verifikation der Modell-Files | ✅ | `huggingface_hub` validiert SHA-256-Summen aus dem Repo-Manifest **und** Pseudokrat berechnet einen eigenen Toplevel-Manifest-Hash über alle Snapshot-Files (`compute_model_manifest_hash`). Mit `PSEUDOKRAT_PINNED_MANIFEST_SHA256=<hex>` wird der Hash konstantzeit gegen den Pin verglichen, jede Abweichung bricht den Start (`ModelManifestMismatchError`). Siehe D-037 |
 
+### S6 — Simple-Mode / OS-Keyring (D-039)
+
+| Punkt | Status | Beleg |
+|---|---|---|
+| 256-Bit-Secret aus `os.urandom` | ✅ | `OsKeyringKeyProtector.ensure_secret` — `os.urandom(SECRET_BYTES)` |
+| HKDF-SHA512 mit profil-Salt | ✅ | `OsKeyringKeyProtector.derive` — `HKDF(algorithm=SHA512, length=96, salt=salt, info=HKDF_INFO)` |
+| Geheimnis verlässt Pseudokrat-Prozess nicht | ✅ | `keyring`-Library kapselt OS-API; Secret nur in Memory der Derive-Call, dann GC |
+| Marker-Datei enthält kein Geheimnis | ✅ | `<db>.keyring` enthält nur den Profilnamen (Klartext) — derselbe Info-Gehalt wie der DB-Dateiname |
+| Wrong-Secret-Open → harter Reject | ✅ | Verification-Token-Roundtrip schlägt fehl → `InvalidPasswordError` (Test: `test_open_or_init_reopen_with_wrong_keyring_secret_raises`) |
+| Cross-Mode-Open verhindert | ✅ | Passwort-DB mit Keyring-Protector öffnen → Mismatch (Test: `test_open_or_init_password_profile_rejects_keyring_open`) |
+| Bedrohungsmodell-Shift dokumentiert | ✅ | D-039 + README — Angreifer mit OS-Konto-Zugriff kann Mappings lesen (bewusster Trade-Off) |
+| Pentest-Aspekte | 🟡 | **Pentest-Empfehlung:** prüfen ob `keyring`-Library auf Windows tatsächlich DPAPI nutzt (nicht Filesystem-Fallback), und ob TPM-Bindung greift |
+
 ### S5 — DP-Permutation (SECURITY_MODEL §8)
 
 | Punkt | Status | Beleg |

@@ -62,3 +62,6 @@ pseudokrat.local.toml
 
 # Local verification logs (pytest/ruff/mypy/bandit output)
 *.log
+
+# Claude Code harness state (user-local, never commit)
+.claude/

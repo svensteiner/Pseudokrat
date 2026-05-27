@@ -269,6 +269,51 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Exportformat (Standard: csv).",
     )
 
+    # install / uninstall — Phase B (Windows-Integration)
+    p_install = sub.add_parser(
+        "install",
+        help=(
+            "Pseudokrat in den Windows-Workflow integrieren: Default-Profil "
+            "(Simple-Mode) + Rechtsklick-Menü im Explorer + optional Autostart."
+        ),
+    )
+    p_install.add_argument(
+        "--profile",
+        default=None,
+        help=(
+            "Name des Default-Profils, das angelegt wird (Standard: 'Mein Konto'). "
+            "Existiert das Profil bereits, wird es nicht überschrieben."
+        ),
+    )
+    p_install.add_argument(
+        "--no-profile",
+        action="store_true",
+        help="Kein Default-Profil anlegen (nur Registry-Einträge).",
+    )
+    p_install.add_argument(
+        "--with-hotkeys",
+        action="store_true",
+        help=(
+            "Hotkey-Daemon beim Login automatisch starten. "
+            "Hinweis: ohne dieses Flag bleibt der Hotkey-Daemon manuell startbar."
+        ),
+    )
+    p_install.add_argument(
+        "--status",
+        action="store_true",
+        help="Nur Status der aktuellen Registrierung anzeigen, nichts ändern.",
+    )
+
+    p_uninstall = sub.add_parser(
+        "uninstall",
+        help="Registry-Einträge entfernen (Profile bleiben erhalten).",
+    )
+    p_uninstall.add_argument(
+        "--yes",
+        action="store_true",
+        help="Ohne Rückfrage ausführen.",
+    )
+
     return parser
 
 
@@ -1011,6 +1056,133 @@ def _cmd_audit(args: argparse.Namespace, manager: ProfileManager) -> int:
     return 1
 
 
+def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """Setup-Workflow: Default-Profil + Explorer-Integration + Autostart.
+
+    Ohne Argumente → empfohlener Einzelplatz-Default:
+    - Profil 'Mein Konto' im Simple-Mode (kein Passwort)
+    - Rechtsklick-Menü für PDF/DOCX/XLSX/CSV/TXT
+    - Kein Autostart (opt-in via --with-hotkeys)
+    """
+    from pseudokrat.install import (
+        SUPPORTED_EXTENSIONS,
+        check_install_state,
+        default_backend,
+        perform_install,
+    )
+
+    try:
+        backend = default_backend()
+    except RuntimeError as exc:
+        print(f"Fehler: {exc}", file=sys.stderr)
+        return 14
+
+    if args.status:
+        state = check_install_state(backend)
+        print("Pseudokrat — Installations-Status")
+        print("Rechtsklick-Menü:")
+        for ext in SUPPORTED_EXTENSIONS:
+            mark = "✓" if state.get(ext) else "—"
+            print(f"  {mark} {ext}")
+        autostart_mark = "✓" if state.get("autostart") else "—"
+        print(f"Autostart Hotkey-Daemon: {autostart_mark}")
+        return 0
+
+    profile_name = args.profile or "Mein Konto"
+    create_profile = not args.no_profile
+
+    def _create_default_profile(name: str) -> None:
+        try:
+            path = manager.profile_path(name)
+        except ValueError as exc:
+            raise FileExistsError(str(exc)) from exc
+        if path.exists():
+            raise FileExistsError(f"Profil '{name}' existiert bereits unter {path}.")
+        try:
+            store, _ = manager.open_or_create_simple(name)
+        except RuntimeError as exc:
+            # keyring-Lib fehlt
+            raise RuntimeError(
+                "Simple-Mode benötigt die Keyring-Bibliothek. Installiere mit:\n"
+                f"  pip install pseudokrat[simple-mode]\n(Original: {exc})"
+            ) from exc
+        store.close()
+
+    result = perform_install(
+        backend=backend,
+        create_profile=create_profile,
+        profile_name=profile_name,
+        with_hotkeys=bool(args.with_hotkeys),
+        profile_creator=_create_default_profile if create_profile else None,
+    )
+
+    print("Pseudokrat — Einrichtung")
+    if create_profile:
+        if result.profile_created:
+            print(f"  ✓ Default-Profil '{result.profile_name}' angelegt (Simple-Mode)")
+        else:
+            print(f"  — Default-Profil '{result.profile_name}' nicht neu angelegt")
+    else:
+        print("  — Default-Profil übersprungen (--no-profile)")
+    if result.extensions_registered:
+        ext_str = ", ".join(result.extensions_registered)
+        print(f"  ✓ Rechtsklick-Menü registriert für: {ext_str}")
+    if result.extensions_skipped:
+        skip_str = ", ".join(result.extensions_skipped)
+        print(f"  ⚠ Übersprungen (Permissions?): {skip_str}", file=sys.stderr)
+    if result.autostart_registered:
+        print("  ✓ Hotkey-Daemon Autostart aktiviert")
+    elif args.with_hotkeys:
+        print("  ⚠ Autostart konnte nicht registriert werden", file=sys.stderr)
+    for note in result.notes:
+        print(f"  ℹ {note}")
+    print()
+    print("Nächste Schritte:")
+    print("  • Im Explorer eine PDF/DOCX/XLSX rechtsklicken → 'Mit Pseudokrat anonymisieren'")
+    print(f"  • CLI: pseudokrat anonymize --profile \"{profile_name}\" --text \"...\"")
+    if not args.with_hotkeys:
+        print("  • Hotkeys aktivieren: pseudokrat install --with-hotkeys")
+    return 0
+
+
+def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """Entferne alle Registry-Einträge. Profile bleiben unangetastet."""
+    del manager  # nicht benötigt
+    from pseudokrat.install import default_backend, perform_uninstall
+
+    try:
+        backend = default_backend()
+    except RuntimeError as exc:
+        print(f"Fehler: {exc}", file=sys.stderr)
+        return 14
+
+    if not args.yes:
+        confirm = input(
+            "Pseudokrat aus dem Explorer-Menü und Autostart entfernen? [j/N] "
+        ).strip().lower()
+        if confirm not in ("j", "ja", "y", "yes"):
+            print("Abgebrochen.")
+            return 0
+
+    removed_ext, removed_autostart = perform_uninstall(backend=backend)
+    print("Pseudokrat — Deinstallation")
+    if removed_ext:
+        print(f"  ✓ Rechtsklick-Menü entfernt für: {', '.join(removed_ext)}")
+    else:
+        print("  — Keine Rechtsklick-Menü-Einträge gefunden")
+    if removed_autostart:
+        print("  ✓ Autostart-Eintrag entfernt")
+    else:
+        print("  — Kein Autostart-Eintrag gefunden")
+    print()
+    print(
+        "Hinweis: Profile und Mappings bleiben erhalten. "
+        "Komplettes Entfernen: zusätzlich die Dateien unter "
+        "%LOCALAPPDATA%\\Pseudokrat\\ löschen."
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -1036,6 +1208,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_hotkey_daemon(args, manager)
     if args.command == "server":
         return _cmd_server(args, manager)
+    if args.command == "install":
+        return _cmd_install(args, manager)
+    if args.command == "uninstall":
+        return _cmd_uninstall(args, manager)
     parser.error(f"Unbekannter Befehl: {args.command}")
     return 1  # type: ignore[unreachable]
 

@@ -904,3 +904,94 @@ Auto-Detect-Pfad, Cross-Mode-Rejection).
   Tray-First-Workflow ohne Hauptfenster.
 - Migration: `pseudokrat profiles migrate --to=simple --profile X` mit
   Passwort-Prompt + Re-Encryption-Pfad.
+
+
+## D-040 — `pseudokrat install`: Ein-Befehl-Setup für Einzelplatz-Nutzer
+
+**Wahl:** Neuer CLI-Befehl `pseudokrat install` macht in einem Schritt:
+
+1. Default-Profil „Mein Konto" im Simple-Mode anlegen (sofern nicht
+   schon vorhanden; `--no-profile` deaktiviert das).
+2. Rechtsklick-Menü im Windows Explorer registrieren für `.pdf`,
+   `.docx`, `.xlsx`, `.csv`, `.txt` → „Mit Pseudokrat anonymisieren".
+3. Optional: Hotkey-Daemon beim Login automatisch starten
+   (`--with-hotkeys`).
+
+Gegenstück: `pseudokrat uninstall` entfernt Registry-Einträge wieder
+(Profile bleiben erhalten — Wegklicken wäre zu zerstörerisch ohne
+explizite Daten-Lösch-Geste).
+
+**Architektur:** Neues Modul `pseudokrat.install` mit
+`RegistryBackend`-Protocol. Production-Backend (`WinRegistryBackend`)
+benutzt `winreg`-Stdlib; Test-Backend (`InMemoryRegistryBackend`)
+bildet die Hierarchie als verschachtelte Dicts ab. Damit läuft die
+Suite auch auf Linux/macOS-CI — kein Mock-Aufwand bei jedem Test, das
+Backend ist die natürliche Abstraktion.
+
+**Registry-Pfade (HKCU only, kein Admin nötig):**
+
+- `HKCU\Software\Classes\SystemFileAssociations\<.ext>\shell\PseudokratAnonymize`
+  — verbreitet als „SystemFileAssociations"-Variante des Shell-Menüs.
+  Vorteil gegenüber `HKCR\<.ext>\shell\...`: greift unabhängig vom
+  installierten Default-Handler, kein Schreibzugriff auf HKLM nötig.
+- `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+  → `PseudokratHotkeyDaemon` für Autostart.
+
+**Command-Resolution (siehe `resolve_pseudokrat_command`):**
+
+1. `shutil.which("pseudokrat")` → wenn vorhanden, direkter Pfad zur
+   PyInstaller-EXE.
+2. Sonst Fallback: `"<sys.executable>" -m pseudokrat anonymize --input "%1"`
+   — dev-install-tauglich, weil python.exe + Modul-Resolution unter
+   Kontrolle bleibt.
+
+**Bewusste Trade-offs:**
+
+- **Kein Admin.** Wir registrieren nur in HKCU, nicht in HKLM. Das
+  begrenzt den Eintrag auf den aktuellen Benutzer — gewollt für
+  Kanzlei-IT-Policies, die jeden Admin-Schritt blockieren.
+- **Kein Icon.** Phase B legt das `Icon`-REG_SZ-Feld an, aber leer.
+  Ein hübsches Icon ist Phase-C-Arbeit (zusammen mit Pyinstaller-EXE,
+  damit das Icon Teil der signierten Distribution ist).
+- **Nur Windows.** macOS-Services (FinderSync-Extension oder
+  `defaults write com.apple.finder ...`) und Linux-Desktop-Entries
+  sind eigene Wurmlöcher — Folge-PR.
+- **Hotkeys opt-in.** `keyboard`-Library braucht auf Windows
+  Administrator-Rechte für `register_hotkey` mit `<win>+...`-Kombis.
+  Wer per default Autostartet hat, kriegt im schlimmsten Fall einen
+  stillen Failure. Opt-in via `--with-hotkeys` macht das explizit.
+
+**Verworfene Alternativen:**
+
+- **NSIS- oder Inno-Setup-Installer ruft `install` selbst auf:**
+  überflüssig — Inno-Setup kann Registry-Einträge selbst schreiben.
+  Das wäre Doppelarbeit. Phase D (eigener Installer) ruft `install`
+  als Last-Step auf, oder schreibt die Reg-Keys direkt — beides
+  äquivalent.
+- **`HKCR\<.ext>\shell\PseudokratAnonymize` statt
+  `SystemFileAssociations`:** funktioniert nur, wenn der ProgID
+  schreibbar ist; bei manchen .pdf-Defaults (Edge, Adobe) werden
+  Schreibzugriffe blockiert. SystemFileAssociations ist robuster.
+
+**Test-Coverage:** 24 Unit-Tests in `tests/test_install.py` —
+Backend-Mechanik (Set/Get/Delete/Tree-Delete/Hive-Validation),
+Context-Menu-Lifecycle (install/uninstall/idempotency/nicht-eigene-
+Subkeys-bleiben), Autostart-Lifecycle, `perform_install`-Workflow mit
+allen Permutationen (`create_profile` × `with_hotkeys`),
+`check_install_state`-Diagnose, Command-Resolution-Format.
+
+**Pentest-Hinweise (für nächstes Audit):**
+
+- Command-Template enthält `"%1"` — Explorer-Shell expandiert das mit
+  dem Datei-Pfad. Bei manipulierten Dateinamen (Anführungszeichen)
+  könnte Argv-Injection entstehen. Mitigation: `argparse` validiert
+  ohnehin nur den `--input`-Pfad als `Path`; alles dahinter wird
+  ignoriert. Trotzdem im Pentest-Briefing erwähnen.
+- `WinRegistryBackend` schreibt nur in HKCU — kein Privilege-
+  Escalation-Vektor.
+
+**Folgearbeit:**
+
+- Phase C: GUI versteckt Profil-Selector + Tray-First-Workflow.
+- macOS-Install-Pfad: FinderSync-Extension oder Services-Plist.
+- Icon-Asset für Context-Menu + Tray (.ico unter `packaging/icons/`).

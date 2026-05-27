@@ -79,7 +79,28 @@ Das war's. Pseudokrat ist jetzt als CLI-Befehl `pseudokrat` verfügbar.
 
 ## Erste Schritte (in 60 Sekunden)
 
-### Mandantenprofil anlegen — der einfache Weg (empfohlen)
+### Komplettes Setup mit einem Befehl (Windows, empfohlen)
+
+```powershell
+pseudokrat install
+```
+
+Das war's. Pseudokrat:
+
+1. Legt das Default-Profil „Mein Konto" an (Simple-Mode, kein Passwort).
+2. Trägt im Windows-Explorer ein neues Rechtsklick-Menü ein:
+   **„Mit Pseudokrat anonymisieren"** für `.pdf`, `.docx`, `.xlsx`, `.csv`, `.txt`.
+3. Bereitet (mit `--with-hotkeys`) den Hotkey-Daemon für den Autostart vor.
+
+Ab diesem Punkt: PDF im Explorer rechtsklicken → „Mit Pseudokrat anonymisieren"
+→ `datei.anon.pdf` liegt daneben. Niemand muss eine CLI öffnen, niemand muss
+sich ein Passwort merken.
+
+Status prüfen: `pseudokrat install --status`. Rückgängig: `pseudokrat uninstall`.
+
+Kein Admin nötig — alle Einträge landen unter `HKCU` (nur aktueller Benutzer).
+
+### Mandantenprofil manuell anlegen — der einfache Weg (empfohlen)
 
 ```powershell
 pseudokrat init --profile "Mandant Hofer" --simple

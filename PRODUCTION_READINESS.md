@@ -7,19 +7,24 @@ fehlt vor Release?".
 
 **Letzter Stand:** 2026-05-27, autonom + interaktiv.
 
-**UX-Vereinfachung — Phase A (2026-05-27) abgeschlossen:**
+**UX-Vereinfachung — Phase A + B (2026-05-27) abgeschlossen:**
 
-* **Simple-Mode landed.** Profile können jetzt ohne Master-Passwort
-  angelegt werden (`pseudokrat init --simple`). 256-Bit-Geheimnis liegt
-  im OS-Keyring (Windows Credential Manager / DPAPI, macOS Keychain,
-  Linux SecretService). Alle CLI-Befehle erkennen Simple-Mode-Profile
-  automatisch und überspringen den Passwort-Prompt. Bestehender
-  Passwort-Modus bleibt 1:1 erhalten (Power-User / Kanzlei-Compliance).
-  Siehe D-039 / S6 im Self-Audit. 21 neue Tests.
-* **Phase B (offen):** `pseudokrat install`-Befehl + Explorer-Context-
-  Menu + Hotkey-Autostart.
+* **Phase A — Simple-Mode landed.** Profile können jetzt ohne Master-
+  Passwort angelegt werden (`pseudokrat init --simple`).
+  256-Bit-Geheimnis liegt im OS-Keyring (Windows Credential Manager /
+  DPAPI, macOS Keychain, Linux SecretService). Alle CLI-Befehle erkennen
+  Simple-Mode-Profile automatisch und überspringen den Passwort-Prompt.
+  Bestehender Passwort-Modus bleibt 1:1 erhalten (Power-User /
+  Kanzlei-Compliance). Siehe D-039 / S6 im Self-Audit. 21 neue Tests.
+* **Phase B — Ein-Befehl-Setup landed.** `pseudokrat install` legt das
+  Default-Profil an, registriert „Mit Pseudokrat anonymisieren" im
+  Explorer-Rechtsklick-Menü (`.pdf`/`.docx`/`.xlsx`/`.csv`/`.txt`) und
+  optional den Hotkey-Daemon im Autostart. `pseudokrat uninstall` ist
+  das Gegenstück. Alle Eintragungen unter HKCU — kein Admin nötig.
+  Siehe D-040. 23 neue Tests in `tests/test_install.py`.
 * **Phase C (offen):** GUI versteckt Profil-Selector im Simple-Mode-
-  Default; Tray-First-Workflow ohne Hauptfenster.
+  Default; Tray-First-Workflow ohne Hauptfenster; Icon-Assets für
+  Context-Menu und Tray.
 
 **Heute hinzu gekommen (Stand-Update):**
 

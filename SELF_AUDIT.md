@@ -207,6 +207,17 @@ zutreffend.
 | Pinned Revision | ✅ | `PINNED_MODEL_REVISION` in `model_install.py` (siehe D-036) |
 | Hash-Verifikation der Modell-Files | ✅ | `huggingface_hub` validiert SHA-256-Summen aus dem Repo-Manifest **und** Pseudokrat berechnet einen eigenen Toplevel-Manifest-Hash über alle Snapshot-Files (`compute_model_manifest_hash`). Mit `PSEUDOKRAT_PINNED_MANIFEST_SHA256=<hex>` wird der Hash konstantzeit gegen den Pin verglichen, jede Abweichung bricht den Start (`ModelManifestMismatchError`). Siehe D-037 |
 
+### S7 — Windows-Registry-Integration (D-040)
+
+| Punkt | Status | Beleg |
+|---|---|---|
+| Schreibt nur in HKCU, kein HKLM | ✅ | `WinRegistryBackend._hkey` whitelistet `{HKCU, HKLM}` aber alle High-Level-Funktionen rufen `set_string("HKCU", …)` |
+| Kein Admin/Elevation | ✅ | HKCU ist user-scope; UAC-Prompt nicht nötig |
+| Idempotent install/uninstall | ✅ | `install_context_menu` überschreibt Werte, `uninstall_*` ist no-op bei fehlenden Subkeys (Tests: `test_uninstall_context_menu_idempotent`, `test_uninstall_autostart_returns_false_when_missing`) |
+| Command-Template enthält `%1` als Explorer-Platzhalter | ✅ | `resolve_pseudokrat_command` setzt `"%1"` als gequoteten Path-Slot |
+| Argv-Injection via Dateinamen | 🟡 | Explorer expandiert `%1` mit Quoting. Pseudokrat parsed `--input` als `Path` — kein eval/shell. **Pentest-Empfehlung:** Datei mit `"foo" -x bar.pdf`-Namen ausprobieren |
+| Uninstall löscht nur eigene Subkeys | ✅ | `uninstall_context_menu` löscht den `PseudokratAnonymize`-Subkey, nicht den gesamten `shell\`-Container (Test: `test_uninstall_context_menu_removes_only_our_keys`) |
+
 ### S6 — Simple-Mode / OS-Keyring (D-039)
 
 | Punkt | Status | Beleg |

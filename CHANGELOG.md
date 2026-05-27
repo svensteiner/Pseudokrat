@@ -7,7 +7,21 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
-### Hinzugefügt (2026-05-27)
+### Hinzugefügt (2026-05-27, Phase B)
+- **`pseudokrat install` / `pseudokrat uninstall` — Ein-Befehl-Setup für
+  Windows-Einzelplatz.** `install` legt in einem Schritt das Default-
+  Profil „Mein Konto" (Simple-Mode, kein Passwort) an, registriert
+  „Mit Pseudokrat anonymisieren" im Explorer-Rechtsklick-Menü für
+  `.pdf`/`.docx`/`.xlsx`/`.csv`/`.txt`, und (mit `--with-hotkeys`) den
+  Hotkey-Daemon im Autostart. Alle Eintragungen unter HKCU — **kein
+  Admin nötig**, kompatibel mit Kanzlei-IT-Policies. `uninstall`
+  entfernt die Registry-Einträge wieder; Profile bleiben erhalten.
+  Neues Modul `pseudokrat.install` mit `RegistryBackend`-Protocol
+  (Production: `WinRegistryBackend` via `winreg`-Stdlib; Tests:
+  `InMemoryRegistryBackend` — Suite läuft cross-platform). 23 neue
+  Unit-Tests in `tests/test_install.py`. Siehe D-040.
+
+### Hinzugefügt (2026-05-27, Phase A)
 - **Simple-Mode: passwortfreie Profile via OS-Keyring.** Neue Architektur-
   Schicht `pseudokrat.store.key_protector` mit `KeyProtector`-Protocol
   und zwei Implementierungen: `PasswordKeyProtector` (klassisch, PBKDF2)

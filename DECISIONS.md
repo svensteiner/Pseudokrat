@@ -1080,9 +1080,47 @@ Validierung — keine ML-Abhängigkeit, sollte in 1 Commit gehen).
   unsichtbar. Pro-Commit-Iteration zeigt nach jeder Änderung sofort,
   ob Recall/Precision sich in die richtige Richtung bewegt haben.
 
+**PRL-Iteration 2 (BIC-Recognizer) — abgeschlossen:**
+
+Neuer `BICRecognizer` (`recognizers/bic.py`) erkennt ISO-9362-konforme
+SWIFT-Codes (8 oder 11 Zeichen, AAAA BB CC [XXX]) mit zwei
+Validierungs-Stufen:
+
+1. **Format + ISO-3166-Country-Code-Whitelist** (~250 Codes statisch
+   deklariert).
+2. **Kontext-Keyword innerhalb 40 Zeichen davor**: `BIC`, `SWIFT`,
+   `BANK IDENTIFIER`. Nötig, weil das BIC-Format mit alltäglichen
+   deutschen Groß-Wörtern kollidiert — z. B. `NEUERUNG` = `NEUE+RU+NG`
+   (RU = Russia, valid country code), `DEUTSCHLAND` = `DEUT+SC+HL+AND`
+   (SC = Seychelles). Reine Form+Country-Whitelist produzierte sonst
+   False Positives in jedem Fließtext.
+
+Trade-Off: Wir verpassen BICs, die ohne Label-Wort daneben stehen —
+in DACH-Banking-Dokumenten (Lohnkonten, Rechnungen, Auszüge) ist das
+Label aber praktisch immer da. Real-World-Fall der „nur Wert, kein
+Label" ist selten.
+
+Test-Coverage: 25 Tests in `tests/test_bic_recognizer.py` — echte
+BICs (DEUTDEFFXXX, GIBAATWWXXX, UBSWCHZH80A, ...), Format-Verstöße
+(falsche Länge, Lowercase, Ziffern in Country-Stellen, falsches
+ISO-Code), Multi-BIC-Extraction, Word-Boundary, False-Positive-
+Trap (`NEUERUNG`/`DEUTSCHLAND` ohne Kontext).
+
+**Eval-Status nach Iteration 2:**
+
+| Kategorie | F1 | Gate | Status |
+|---|---|---|---|
+| IBAN, SVNR, TAX_ID, UID, AHV, EMAIL, PHONE, COMPANY, **BIC** | 1.00 | — | ✅ |
+| PERSON, ADDRESS, DATE | 0.00 | 0.95/0.90/0.85 | 🟡 ML-Pfad, Phase 2 |
+
+Total F1 stieg 0.585 (baseline) → 0.651 (Iter 1) → 0.682 (Iter 2).
+Alle deterministischen Recognizer auf 1.00. Verbleibende Lücken
+sind alle ML-abhängig — der nächste Schritt ist nicht „noch ein
+Recognizer", sondern der Eval-Modus mit eingeschaltetem
+Privacy-Filter-Modell.
+
 **Folgearbeit:**
 
-- BIC-Recognizer (ISO 9362).
 - `tools/audit_run.py` für Audit-Phase.
 - ML-Lauf-Modus (`runner.py --with-ml`) inkl. Modell-Cache-Check.
 - DOCX/XLSX/PDF-Fixture-Builder (binäre Formate, Phase D-2).

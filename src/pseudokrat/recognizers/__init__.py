@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from pseudokrat.recognizers.at_svnr import AustrianSVNRRecognizer
 from pseudokrat.recognizers.at_uid import AustrianUIDRecognizer
 from pseudokrat.recognizers.base import Recognizer, Span
+from pseudokrat.recognizers.bic import BICRecognizer
 from pseudokrat.recognizers.ch_ahv import SwissAHVRecognizer
 from pseudokrat.recognizers.company import CompanyLegalFormRecognizer
 from pseudokrat.recognizers.de_steuer_id import GermanSteuerIdRecognizer
@@ -27,6 +28,7 @@ def default_recognizers() -> list[Recognizer]:
     """Standard-Bundle aller eingebauten Recognizer (ohne MandantenNummer)."""
     return [
         IBANDachRecognizer(),
+        BICRecognizer(),
         AustrianUIDRecognizer(),
         AustrianSVNRRecognizer(),
         GermanSteuerIdRecognizer(),
@@ -76,6 +78,7 @@ __all__ = [
     "Span",
     "AustrianSVNRRecognizer",
     "AustrianUIDRecognizer",
+    "BICRecognizer",
     "CompanyLegalFormRecognizer",
     "EmailRecognizer",
     "GermanSteuerIdRecognizer",

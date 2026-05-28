@@ -992,6 +992,78 @@ allen Permutationen (`create_profile` × `with_hotkeys`),
 
 **Folgearbeit:**
 
-- Phase C: GUI versteckt Profil-Selector + Tray-First-Workflow.
 - macOS-Install-Pfad: FinderSync-Extension oder Services-Plist.
 - Icon-Asset für Context-Menu + Tray (.ico unter `packaging/icons/`).
+
+
+## D-041 — GUI Simple-Mode: Profil-Chrome ausblenden, Auto-Open, Close-to-Tray
+
+**Wahl:** Wenn `ProfileManager.detect_simple_default()` einen Profilnamen
+liefert (genau ein Profil, im OS-Keyring-Modus angelegt), schaltet die
+GUI automatisch in einen vereinfachten Modus:
+
+1. **Profil-Auswahl-Zeile** (`profile_input`, `password_input`,
+   `open_button`) ist im UI vorhanden, aber via `setVisible(False)`
+   versteckt — der Nutzer sieht keine Profil-/Passwort-Felder.
+2. **Profile-Tab** wird gar nicht erst als TabWidget-Reiter hinzugefügt.
+   Tabs sind nur „Live" + „Datei". (Power-User können `MainWindow(force_full_mode=True)`
+   nutzen oder die CLI.)
+3. **Auto-Open beim Start:** `controller.open_simple_profile(name)`
+   öffnet das einzige Profil ohne Passwort-Dialog. Action-Buttons
+   sind sofort enabled.
+4. **Close-Verhalten:** Schließt der Nutzer das Fenster, wird es
+   stattdessen in die System-Tray minimiert (`event.ignore()` +
+   `self.hide()`). Toast-Notification erklärt: „Läuft im Hintergrund
+   weiter. Beenden über das Tray-Menü." — Der Hotkey-Daemon und das
+   Explorer-Context-Menu (D-040) bleiben aktiv.
+
+**Erkennungs-Heuristik (`detect_simple_default`):**
+
+```
+Genau ein Profil    UND  profile_uses_keyring(db_path) == True
+→ return profile.name
+sonst → return None
+```
+
+* Mehrere Profile → Multi-Mandant-Setup, Selector bleibt sichtbar.
+* Kein Profil → Wizard-Onboarding nötig (Phase D oder „pseudokrat install").
+* Einziges Profil im Passwort-Modus → Power-User, Selector bleibt
+  sichtbar (Passwort-Eingabe ist hier Feature, nicht Bug).
+
+**Fallback bei Auto-Open-Fehler:** Wenn `open_simple_profile` wirft
+(z. B. `keyring`-Lib fehlt, Keyring-Eintrag gelöscht), schaltet die GUI
+zurück in den Power-User-Modus: Profil-Row + Profile-Tab werden
+sichtbar gemacht, eine `QMessageBox.warning` erklärt den Fehler. Der
+Nutzer kann manuell weiter — kein toter Zustand.
+
+**Verworfene Alternativen:**
+
+- **Hauptfenster initial direkt in Tray verstecken (Tray-First-First):**
+  zu aggressiv für die ersten Sessions. Nutzer sieht beim ersten Start
+  nichts und hat keine Orientierung. Stattdessen: Hauptfenster ist
+  sichtbar, Close-Button macht den Tray-Übergang explizit.
+- **`Profile`-Tab versteckt statt entfernt:** geht nicht direkt — QTabWidget
+  hat keine `setTabVisible`-API in PySide6.6 (erst in 6.7+). Wir bauen
+  den Tab also gar nicht erst ein, halten aber das Widget-Objekt für
+  den Fallback bereit (`self._profiles_tab`).
+- **Eigene Settings-Datei `simple_mode = true`:** zu viel State.
+  Auto-Detection aus dem Profilbestand ist sauberer und reagiert
+  automatisch, sobald ein zweites Profil hinzukommt.
+
+**Test-Coverage:** 12 Tests in `tests/test_gui_simple_mode.py` —
+Detect-Logik (4 Permutationen: single-simple, none, password-only,
+multiple), MainWindow-Construction (hide-row, tab-list, simple-default-
+state, force-full-mode-override, auto-open-session, close-to-tray,
+close-quits-in-full-mode), Controller-API (open_simple_profile
+activates session, rejects empty name).
+
+**Folgearbeit:**
+
+- **Tray-Menü ausbauen:** Aktuell hat das Tray-Icon nur die Basis-
+  Funktionen aus Phase-2. Phase D sollte hinzufügen: „Hauptfenster
+  zeigen", „Zwischenablage anonymisieren", „Zwischenablage deanonymisieren",
+  „Beenden" (echtes Quit statt nur Hide).
+- **„Erweitert"-Menüpunkt** in der Menüleiste, der `force_full_mode=True`
+  einschaltet (Power-User-Übergang ohne CLI).
+- **Icon-Assets:** PyInstaller-Build mit echtem `.ico` für Window-Icon,
+  Tray-Icon und Context-Menu-Icon (`Icon`-REG_SZ-Feld in D-040).

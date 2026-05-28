@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QFont
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -81,19 +81,44 @@ class FileDropList(QListWidget):
 
 
 class MainWindow(QMainWindow):
-    """Hauptfenster: Profil-Auswahl + Live- und Datei-Tab."""
+    """Hauptfenster: Profil-Auswahl + Live- und Datei-Tab.
 
-    def __init__(self, controller: GuiController | None = None) -> None:
+    **Simple-Mode-Pfad** (Phase C): wenn es genau ein Profil im
+    OS-Keyring-Modus gibt (`controller.detect_simple_default()` liefert
+    einen Namen), wird das Profil beim Start automatisch geöffnet,
+    Profil-Selector und Profile-Tab werden ausgeblendet, und der
+    Close-Button schickt das Fenster in die Tray statt zu beenden.
+    Das macht aus dem GUI ein „immer-im-Hintergrund"-Tool für
+    Berufsträger, die nur den Datei- und Live-Tab brauchen.
+    """
+
+    def __init__(
+        self,
+        controller: GuiController | None = None,
+        *,
+        force_full_mode: bool = False,
+    ) -> None:
         super().__init__()
         self._controller = controller or GuiController()
         self.setWindowTitle(f"Pseudokrat — v{__version__}")
         self.resize(960, 720)
+
+        # Simple-Mode-Erkennung VOR dem UI-Build, damit wir Widgets gar
+        # nicht erst anlegen (sauberer als nachträglich Hide).
+        self._simple_default: str | None = (
+            None if force_full_mode else self._controller.detect_simple_default()
+        )
+        self._simple_mode: bool = self._simple_default is not None
 
         central = QWidget(self)
         self.setCentralWidget(central)
         root_layout = QVBoxLayout(central)
 
         self._build_profile_row(root_layout)
+        if self._simple_mode:
+            # Profile-Row bleibt im Layout (für Tests greifbar), wird aber
+            # ausgeblendet — der Nutzer soll nichts von Profilen sehen.
+            self._hide_profile_row()
 
         self.tabs = QTabWidget(self)
         self.tabs.setObjectName("tabs")
@@ -101,7 +126,13 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self._build_live_tab(), "Live")
         self.tabs.addTab(self._build_files_tab(), "Datei")
-        self.tabs.addTab(self._build_profiles_tab(), "Profile")
+        # Profile-Tab nur im Power-User-Modus.
+        if not self._simple_mode:
+            self.tabs.addTab(self._build_profiles_tab(), "Profile")
+        else:
+            # Profile-Tab-Widgets trotzdem anlegen, damit referenzierende
+            # Methoden (z. B. _refresh_profiles) nicht crashen.
+            self._build_profiles_tab()
 
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Kein Profil geöffnet.")
@@ -110,6 +141,9 @@ class MainWindow(QMainWindow):
         self._refresh_profiles()
 
         self.tray_icon: PseudokratTrayIcon = attach_tray_icon(self, parent=self)
+
+        if self._simple_mode and self._simple_default is not None:
+            self._auto_open_simple_default(self._simple_default)
 
     # --- builders -------------------------------------------------------------
 
@@ -128,7 +162,46 @@ class MainWindow(QMainWindow):
         self.open_button.setObjectName("open_button")
         self.open_button.clicked.connect(self._open_profile)
         profile_row.addWidget(self.open_button)
-        root_layout.addLayout(profile_row)
+
+        # Container, damit wir die ganze Zeile in einem Schritt verstecken
+        # können (Layouts allein haben kein setVisible).
+        self._profile_row_widget = QWidget(self)
+        self._profile_row_widget.setObjectName("profile_row")
+        self._profile_row_widget.setLayout(profile_row)
+        root_layout.addWidget(self._profile_row_widget)
+
+    def _hide_profile_row(self) -> None:
+        """Versteckt die Profil-Auswahl im Simple-Mode."""
+        self._profile_row_widget.setVisible(False)
+
+    def _auto_open_simple_default(self, name: str) -> None:
+        """Öffnet das Simple-Mode-Default-Profil ohne Passwort-Dialog.
+
+        Bei Fehler (z. B. Keyring-Lib fehlt) wird der Power-User-Modus
+        wiederhergestellt: Profil-Row + Profile-Tab werden sichtbar,
+        damit der Nutzer manuell einsteigen kann.
+        """
+        try:
+            self._controller.open_simple_profile(name, disable_ml=True)
+        except GuiError as exc:
+            # Fallback: simple-mode rückgängig, Power-User-UI freilegen.
+            self._simple_mode = False
+            self._simple_default = None
+            self._profile_row_widget.setVisible(True)
+            # Profile-Tab nachträglich einhängen, damit der Nutzer ein
+            # neues Profil anlegen oder zu einem anderen wechseln kann.
+            if self.tabs.indexOf(self._profiles_tab) == -1:
+                self.tabs.addTab(self._profiles_tab, "Profile")
+            QMessageBox.warning(
+                self,
+                "Pseudokrat — Simple-Mode nicht verfügbar",
+                f"Konnte das Standard-Profil nicht automatisch öffnen:\n\n{exc}",
+            )
+            return
+        self.statusBar().showMessage(
+            f'Profil "{name}" geöffnet (Simple-Mode). Bereit für Anonymisierung.'
+        )
+        self._update_action_buttons_enabled(True)
 
     def _build_live_tab(self) -> QWidget:
         tab = QWidget(self)
@@ -359,6 +432,9 @@ class MainWindow(QMainWindow):
 
     def _build_profiles_tab(self) -> QWidget:
         tab = QWidget(self)
+        # Referenz merken, damit der Simple-Mode-Fallback diesen Tab später
+        # einhängen kann, wenn der Auto-Open fehlschlägt.
+        self._profiles_tab = tab
         layout = QVBoxLayout(tab)
 
         layout.addWidget(
@@ -478,9 +554,26 @@ class MainWindow(QMainWindow):
         self.profile_input.setFocus()
         self.profile_input.selectAll()
 
-    def closeEvent(self, event: object) -> None:  # noqa: N802 - Qt-Signatur
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt-Signatur
+        """Close-Verhalten:
+
+        * **Simple-Mode + Tray sichtbar**: minimiert in die Tray statt zu
+          beenden. Der Hotkey-Daemon + Context-Menu-Handler laufen weiter
+          (Tray-First-Workflow). Beenden geht nur über das Tray-Menü.
+        * **Power-User-Mode** oder Tray nicht verfügbar: Standardverhalten,
+          Controller schließen und Fenster zu.
+        """
+        if self._simple_mode and self.tray_icon.isVisible():
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage(
+                "Pseudokrat",
+                "Läuft im Hintergrund weiter. Beenden über das Tray-Menü.",
+                msecs=3000,
+            )
+            return
         self._controller.close()
-        super().closeEvent(event)  # type: ignore[arg-type]
+        super().closeEvent(event)
 
 
 def build_application(argv: Sequence[str] | None = None) -> QApplication:

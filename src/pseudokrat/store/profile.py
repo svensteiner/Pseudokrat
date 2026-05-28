@@ -128,6 +128,30 @@ class ProfileManager:
         log = AuditLog(store.connection)
         return store, log
 
+    def detect_simple_default(self) -> str | None:
+        """Erkennt das Default-Profil für den Simple-Mode-UX-Pfad.
+
+        Liefert genau dann einen Profilnamen zurück, wenn es **genau ein**
+        Profil gibt und das im Simple-Mode (OS-Keyring-Marker) angelegt
+        wurde. Sonst ``None`` — entweder weil mehrere Profile existieren
+        (Multi-Mandant-Setup, Profil-Auswahl bleibt sichtbar), keines
+        existiert (Wizard-Onboarding nötig), oder das einzige im
+        Passwort-Modus liegt (Power-User-Setup).
+
+        Diese Heuristik treibt den GUI-Simple-Mode: ein Profil + Simple-
+        Mode → Profil-Selector + Profile-Tab werden ausgeblendet, das
+        Profil wird beim Start automatisch geöffnet.
+        """
+        from pseudokrat.store.secure_db import profile_uses_keyring
+
+        profiles = self.list_profiles()
+        if len(profiles) != 1:
+            return None
+        only = profiles[0]
+        if not profile_uses_keyring(only.db_path):
+            return None
+        return only.name
+
     def open_or_create_simple(
         self, name: str, *, backend: KeyringBackend | None = None
     ) -> tuple[MappingStore, AuditLog]:

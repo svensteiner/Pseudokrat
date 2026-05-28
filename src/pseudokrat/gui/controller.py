@@ -121,6 +121,11 @@ class GuiController:
     def list_profiles(self) -> list[str]:
         return [p.name for p in self._manager.list_profiles()]
 
+    def detect_simple_default(self) -> str | None:
+        """Wrapper um :meth:`ProfileManager.detect_simple_default` — liefert
+        den Profilnamen für den GUI-Simple-Mode-Pfad oder ``None``."""
+        return self._manager.detect_simple_default()
+
     def list_profile_summaries(self) -> list[ProfileSummary]:
         """Listet alle Profile inkl. Anlage-Datum und Mapping-Anzahl auf."""
         return [
@@ -181,7 +186,42 @@ class GuiController:
             raise GuiError(str(exc)) from exc
         except ValueError as exc:
             raise GuiError(str(exc)) from exc
+        self._activate_session(name, store, audit, disable_ml=disable_ml)
 
+    def open_simple_profile(self, name: str, *, disable_ml: bool = True) -> None:
+        """Öffnet ein Simple-Mode-Profil ohne Passwort-Prompt.
+
+        Verwendet den OS-Keyring-Trust-Anchor. Wirft ``GuiError`` mit
+        einer klaren Meldung, wenn das Profil im Passwort-Modus ist oder
+        die Keyring-Library fehlt — ein stiller Fallback auf den
+        Passwort-Dialog wäre verwirrend, weil der GUI-Simple-Mode genau
+        diesen Dialog vermeiden will.
+        """
+        if not name.strip():
+            raise GuiError("Bitte einen Profilnamen eingeben.")
+        try:
+            store, audit = self._manager.open_or_create_simple(name)
+        except RuntimeError as exc:
+            # keyring-Lib fehlt → klare Anweisung an den Nutzer.
+            raise GuiError(
+                "Simple-Mode benötigt die Keyring-Bibliothek. "
+                "Installiere mit: pip install pseudokrat[simple-mode]"
+            ) from exc
+        except (InvalidPasswordError, ValueError) as exc:
+            raise GuiError(str(exc)) from exc
+        self._activate_session(name, store, audit, disable_ml=disable_ml)
+
+    def _activate_session(
+        self,
+        name: str,
+        store: MappingStore,
+        audit: AuditLog,
+        *,
+        disable_ml: bool,
+    ) -> None:
+        """Gemeinsame Session-Aktivierung für Passwort- und Simple-Mode-
+        Pfad. Schließt ggf. eine bestehende Session sauber, baut den
+        Anonymizer/Deanonymizer und persistiert die neue Session."""
         settings = self._manager.settings
         detector = None if disable_ml or settings.disable_ml else load_default_detector(settings)
         anonymizer = Anonymizer(

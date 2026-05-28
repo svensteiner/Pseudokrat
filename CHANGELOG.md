@@ -7,6 +7,21 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-05-27, Phase C)
+- **GUI Simple-Mode: ein Profil, kein Passwort-Prompt, Close→Tray.**
+  Wenn genau ein Profil existiert und im Simple-Mode angelegt wurde,
+  blendet das Hauptfenster die Profil-Auswahl-Zeile und den Profile-
+  Tab automatisch aus, öffnet das Profil ohne Passwort-Dialog beim
+  Start und minimiert den Close-Button in die System-Tray statt zu
+  beenden. Der Hotkey-Daemon und das Explorer-Context-Menu (D-040)
+  laufen weiter. Multi-Mandant-Setups (mehrere Profile) und Power-
+  User-Profile (Passwort-Modus) zeigen weiterhin die volle UI;
+  `MainWindow(force_full_mode=True)` erzwingt die Power-User-UI auch
+  bei vorhandenem Simple-Default. Bei Auto-Open-Fehler (Keyring-Lib
+  fehlt etc.) schaltet die GUI sauber in den Full-Mode zurück und
+  zeigt eine Fehlermeldung. 12 neue Tests in
+  `tests/test_gui_simple_mode.py`. Siehe D-041.
+
 ### Hinzugefügt (2026-05-27, Phase B)
 - **`pseudokrat install` / `pseudokrat uninstall` — Ein-Befehl-Setup für
   Windows-Einzelplatz.** `install` legt in einem Schritt das Default-

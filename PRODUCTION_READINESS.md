@@ -7,7 +7,7 @@ fehlt vor Release?".
 
 **Letzter Stand:** 2026-05-27, autonom + interaktiv.
 
-**UX-Vereinfachung — Phase A + B (2026-05-27) abgeschlossen:**
+**UX-Vereinfachung — Phase A + B + C (2026-05-27) abgeschlossen:**
 
 * **Phase A — Simple-Mode landed.** Profile können jetzt ohne Master-
   Passwort angelegt werden (`pseudokrat init --simple`).
@@ -22,9 +22,15 @@ fehlt vor Release?".
   optional den Hotkey-Daemon im Autostart. `pseudokrat uninstall` ist
   das Gegenstück. Alle Eintragungen unter HKCU — kein Admin nötig.
   Siehe D-040. 23 neue Tests in `tests/test_install.py`.
-* **Phase C (offen):** GUI versteckt Profil-Selector im Simple-Mode-
-  Default; Tray-First-Workflow ohne Hauptfenster; Icon-Assets für
-  Context-Menu und Tray.
+* **Phase C — GUI Simple-Mode landed.** Bei genau einem Simple-Mode-
+  Profil blendet das Hauptfenster Profil-Auswahl und Profile-Tab
+  automatisch aus, öffnet das Profil ohne Passwort-Dialog und
+  minimiert beim Close in die Tray. Multi-Mandant- und Power-User-
+  Setups behalten die volle UI. Siehe D-041. 12 neue Tests in
+  `tests/test_gui_simple_mode.py`.
+* **Phase D (offen):** PyInstaller-EXE-Build mit Code-Signing,
+  Tray-Menü-Ausbau (Zwischenablage-Aktionen + echtes Beenden),
+  Icon-Assets, macOS-Installer-Pendant.
 
 **Heute hinzu gekommen (Stand-Update):**
 

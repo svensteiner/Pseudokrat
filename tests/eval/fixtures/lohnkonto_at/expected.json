@@ -1,0 +1,78 @@
+{
+  "description": "Österreichisches Lohnkonto, 1 Dienstnehmer, alle DACH-PII-Kategorien außer ORG (Firma deckt CompanyLegalForm ab).",
+  "seed": 101,
+  "spans": [
+    {
+      "start": 84,
+      "end": 103,
+      "category": "COMPANY",
+      "text": "Mustermann Bau GmbH"
+    },
+    {
+      "start": 127,
+      "end": 156,
+      "category": "ADDRESS",
+      "text": "Industriestraße 12, 4020 Linz"
+    },
+    {
+      "start": 180,
+      "end": 191,
+      "category": "UID",
+      "text": "ATU00245537"
+    },
+    {
+      "start": 215,
+      "end": 256,
+      "category": "EMAIL",
+      "text": "lohnverrechnung@mustermann-bau-at.example"
+    },
+    {
+      "start": 259,
+      "end": 275,
+      "category": "PHONE",
+      "text": "+43 732 12 34 56"
+    },
+    {
+      "start": 300,
+      "end": 317,
+      "category": "PERSON",
+      "text": "Anna Beispielsohn"
+    },
+    {
+      "start": 341,
+      "end": 351,
+      "category": "DATE",
+      "text": "15.03.1985"
+    },
+    {
+      "start": 375,
+      "end": 385,
+      "category": "SVNR",
+      "text": "8537070785"
+    },
+    {
+      "start": 409,
+      "end": 441,
+      "category": "ADDRESS",
+      "text": "Mariahilfer Straße 88, 1070 Wien"
+    },
+    {
+      "start": 466,
+      "end": 486,
+      "category": "IBAN",
+      "text": "AT208852897524068140"
+    },
+    {
+      "start": 510,
+      "end": 530,
+      "category": "IBAN",
+      "text": "AT658821562237753148"
+    },
+    {
+      "start": 547,
+      "end": 564,
+      "category": "PERSON",
+      "text": "Anna Beispielsohn"
+    }
+  ]
+}

@@ -996,6 +996,99 @@ allen Permutationen (`create_profile` × `with_hotkeys`),
 - Icon-Asset für Context-Menu + Tray (.ico unter `packaging/icons/`).
 
 
+## D-042 — Production-Readiness-Loop (PRL): Eval-getriebener Lückenschluss
+
+**Wahl:** Statt weiterer Feature-Sprints fahren wir Pseudokrat in einem
+expliziten, messbaren Loop in die Produktionsreife. Die Latte ist
+schriftlich fixiert (`PRODUCTION_READY_GATE.md`), wird automatisch
+gegen Eval- und Audit-Reports geprüft, und treibt einen Iterations-
+Rhythmus, in dem **pro Commit genau eine Lücke** geschlossen wird.
+
+**Vier Phasen pro Iteration:**
+
+1. **Eval-Phase** — `tests/eval/runner.py` läuft gegen Fixtures unter
+   `tests/eval/fixtures/<name>/{input.txt, expected.json}` und
+   produziert einen `eval_report.json` mit Precision/Recall/F1 pro
+   Kategorie + pro Fixture + global. Span-Matching via Jaccard ≥ 0.5
+   (siehe `scoring.py`).
+2. **Audit-Phase** *(folgt in nächster Iteration)* — `tools/audit_run.py`
+   bündelt Ruff/mypy/pytest/bandit/pip-audit + Trust-Boundary-Coverage-
+   Heuristik.
+3. **Gap-Phase** — die offenste Lücke wird identifiziert
+   (Eval-Defizit ggü. Gate, fehlende Trust-Boundary-Test, offene
+   DECISIONS-Folgearbeit).
+4. **Close-Phase** — eine Lücke, ein Commit, neuer Branch nach dem
+   Schema `fix/<gap-id>` oder `feat/<feature-id>`.
+
+**Fixture-Format:** `FixtureBuilder` mit Slot-Substitution rechnet
+Offsets exakt aus, damit Ground-Truth nicht händisch gepflegt werden
+muss. Synth-Werte (IBAN/SVNR/UID/TAX_ID/AHV) sind mit korrekten
+Prüfziffern reproduzierbar aus Seeds erzeugt. Cross-Validation-Tests
+(`test_synth_*_accepted_by_recognizer`) stellen sicher, dass jeder
+Synth-Wert auch wirklich vom Production-Recognizer akzeptiert wird —
+sonst messen wir Recall an der falschen Stelle.
+
+**Eval-Mode-Trennung:** Phase 1 des Gates misst nur die regelbasierten
+DACH-Recognizer (deterministisch, deshalb sind die Latten meist
+`1.00`). ML-Detector-abhängige Kategorien (PERSON, ADDRESS, DATE)
+brauchen Phase-2-Lauf mit gecachtem Modell — der ist noch nicht
+implementiert, fließt aber als bekannte Phase-2-Lücke in den Gap-Report.
+
+**Erste Iteration — geschlossene Lücken:**
+
+1. **TAX_ID Recall 0% → 100%.** Ursache: das Fixture verwendete die
+   Kategorie `STEUER_ID`, der Production-Recognizer aber `TAX_ID`.
+   Fix: Fixture-Generator + Gate-Spec auf `TAX_ID` umgestellt.
+2. **UID Recall 0% → 100%.** Ursache: der Synth-Generator nutzte den
+   Standard-Luhn-Algorithmus, der Production-Recognizer aber den
+   BMF-Algorithmus mit der spezifischen Konstante `+4` in
+   `check = (10 - (S + 4) % 10) % 10`. Fix: Synth-Algorithmus an BMF-
+   Variante angeglichen.
+3. **TAX_ID-Synth-Constraint präzisiert.** Die ISO-7064-Mod-11,10-
+   Wiederholungsregel verlangt **genau eine** Ziffer, die in den
+   Stellen 1-10 zwei- oder dreimal vorkommt — alle anderen Ziffern
+   höchstens einmal. Mein erster Generator hatte den schwächeren
+   Check „mindestens eine Ziffer kommt 2-3x vor". Fix: aktiver
+   Konstruktor statt Retry-Loop.
+
+**Aktueller Stand nach Iteration 1:**
+
+| Kategorie | F1 | Gate | Status |
+|---|---|---|---|
+| IBAN | 1.00 | 1.00 | ✅ |
+| SVNR | 1.00 | 1.00 | ✅ |
+| TAX_ID | 1.00 | 1.00 | ✅ |
+| UID | 1.00 | 1.00 | ✅ |
+| AHV | 1.00 | — | ✅ |
+| COMPANY | 1.00 | 0.95 | ✅ |
+| EMAIL | 1.00 | 1.00 | ✅ |
+| PHONE | 1.00 | — | ✅ |
+| BIC | 0.00 | — | ❌ Recognizer fehlt komplett |
+| PERSON | 0.00 | 0.95 | ❌ ML-Pfad, Phase 2 |
+| ADDRESS | 0.00 | 0.90 | ❌ ML-Pfad, Phase 2 |
+| DATE | 0.00 | 0.85 | ❌ ML-Pfad, Phase 2 |
+
+**Nächste Iteration:** BIC-Recognizer (deterministische SWIFT-ISO-9362-
+Validierung — keine ML-Abhängigkeit, sollte in 1 Commit gehen).
+
+**Verworfene Alternativen:**
+
+- **Eval gegen echte Mandantendaten:** dataschutzrechtlich tot.
+  Synth-only, Algorithmus-Cross-Validated, ist die korrekte Form für
+  ein DACH-PII-Tool.
+- **Ein Mega-Sprint, der alles auf einmal closed:** macht Eval-Drift
+  unsichtbar. Pro-Commit-Iteration zeigt nach jeder Änderung sofort,
+  ob Recall/Precision sich in die richtige Richtung bewegt haben.
+
+**Folgearbeit:**
+
+- BIC-Recognizer (ISO 9362).
+- `tools/audit_run.py` für Audit-Phase.
+- ML-Lauf-Modus (`runner.py --with-ml`) inkl. Modell-Cache-Check.
+- DOCX/XLSX/PDF-Fixture-Builder (binäre Formate, Phase D-2).
+- Trust-Boundary-Coverage-Heuristik in der Audit-Phase.
+
+
 ## D-041 — GUI Simple-Mode: Profil-Chrome ausblenden, Auto-Open, Close-to-Tray
 
 **Wahl:** Wenn `ProfileManager.detect_simple_default()` einen Profilnamen

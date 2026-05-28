@@ -1,0 +1,15 @@
+LOHNABRECHNUNG Januar 2026
+============================================
+
+Arbeitgeber:           Rheinmetall Mustermann AG
+                       Werftstraße 22, 40549 Düsseldorf
+Kontakt Lohn:          lohn@rheinmetall-mustermann-de.example
+
+Arbeitnehmer:          Friedrich Beispiel
+Anschrift:             Königsallee 47, 40212 Düsseldorf
+Geburtsdatum:          07.11.1978
+Steuer-ID:             49703815164
+
+Auszahlung an:         IBAN DE72863833469318108802 (BIC DEUTDEDDXXX)
+
+Bemerkung: Friedrich Beispiel ist seit 2018 in der Lohngruppe E12.

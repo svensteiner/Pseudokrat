@@ -1,0 +1,5 @@
+{
+  "description": "Sätze mit Quasi-PII (Markennamen mit Bindestrich, halbe Adressen, PII-Wörter ohne Werte) — Recognizer dürfen hier nichts taggen.",
+  "seed": null,
+  "spans": []
+}

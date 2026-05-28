@@ -1,0 +1,48 @@
+{
+  "description": "Schweizer Krankenkassen-Antrag mit AHV und CH-IBAN.",
+  "seed": 303,
+  "spans": [
+    {
+      "start": 82,
+      "end": 101,
+      "category": "PERSON",
+      "text": "Markus Beispielmann"
+    },
+    {
+      "start": 124,
+      "end": 154,
+      "category": "ADDRESS",
+      "text": "Bahnhofstrasse 14, 8001 Zürich"
+    },
+    {
+      "start": 177,
+      "end": 187,
+      "category": "DATE",
+      "text": "22.08.1972"
+    },
+    {
+      "start": 210,
+      "end": 226,
+      "category": "AHV",
+      "text": "756.2472.2372.14"
+    },
+    {
+      "start": 249,
+      "end": 270,
+      "category": "IBAN",
+      "text": "CH6165374992266542101"
+    },
+    {
+      "start": 293,
+      "end": 330,
+      "category": "EMAIL",
+      "text": "kunde@beispielversicherung-ch.example"
+    },
+    {
+      "start": 332,
+      "end": 351,
+      "category": "PERSON",
+      "text": "Markus Beispielmann"
+    }
+  ]
+}

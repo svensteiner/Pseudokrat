@@ -1,0 +1,9 @@
+Wir haben heute beim Hofer-Markt Wien eingekauft. Die Müller-Schiene
+an der Kasse 3 war defekt. Bauer-Land-Speck war aus.
+
+ATU ohne Ziffern, GmbH ohne Firmennamen davor.
+Eine IBAN-Anleitung ohne konkrete IBAN.
+DE12 ist keine Steuer-ID.
+
+Ein Test mit Goethestraße 5 (ohne PLZ und Ort) sollte nicht als
+vollständige Adresse durchgehen.

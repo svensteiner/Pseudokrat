@@ -1,0 +1,66 @@
+{
+  "description": "Deutsche Lohnabrechnung mit Steuer-ID und DE-IBAN.",
+  "seed": 202,
+  "spans": [
+    {
+      "start": 96,
+      "end": 121,
+      "category": "COMPANY",
+      "text": "Rheinmetall Mustermann AG"
+    },
+    {
+      "start": 145,
+      "end": 177,
+      "category": "ADDRESS",
+      "text": "Werftstraße 22, 40549 Düsseldorf"
+    },
+    {
+      "start": 201,
+      "end": 239,
+      "category": "EMAIL",
+      "text": "lohn@rheinmetall-mustermann-de.example"
+    },
+    {
+      "start": 264,
+      "end": 282,
+      "category": "PERSON",
+      "text": "Friedrich Beispiel"
+    },
+    {
+      "start": 306,
+      "end": 338,
+      "category": "ADDRESS",
+      "text": "Königsallee 47, 40212 Düsseldorf"
+    },
+    {
+      "start": 362,
+      "end": 372,
+      "category": "DATE",
+      "text": "07.11.1978"
+    },
+    {
+      "start": 396,
+      "end": 407,
+      "category": "TAX_ID",
+      "text": "49703815164"
+    },
+    {
+      "start": 437,
+      "end": 459,
+      "category": "IBAN",
+      "text": "DE72863833469318108802"
+    },
+    {
+      "start": 465,
+      "end": 476,
+      "category": "BIC",
+      "text": "DEUTDEDDXXX"
+    },
+    {
+      "start": 490,
+      "end": 508,
+      "category": "PERSON",
+      "text": "Friedrich Beispiel"
+    }
+  ]
+}

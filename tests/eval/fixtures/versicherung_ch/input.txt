@@ -1,0 +1,11 @@
+Krankenkassen-Vertragsantrag
+=============================
+
+Antragsteller:        Markus Beispielmann
+Adresse:              Bahnhofstrasse 14, 8001 Zürich
+Geburtsdatum:         22.08.1972
+AHV-Nummer:           756.2472.2372.14
+Prämien-Belastung:    CH6165374992266542101
+Kontakt:              kunde@beispielversicherung-ch.example
+
+Markus Beispielmann bestätigt mit seiner Unterschrift die Richtigkeit.

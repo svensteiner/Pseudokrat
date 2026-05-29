@@ -17,6 +17,7 @@ from pseudokrat.recognizers.de_ust_id import GermanUStIdNrRecognizer
 from pseudokrat.recognizers.email import EmailRecognizer
 from pseudokrat.recognizers.iban import IBANDachRecognizer
 from pseudokrat.recognizers.mandanten_nr import MandantenNummerRecognizer
+from pseudokrat.recognizers.person import PersonRecognizer
 from pseudokrat.recognizers.phone import PhoneRecognizer
 from pseudokrat.recognizers.secret import SecretRecognizer
 from pseudokrat.recognizers.url import UrlRecognizer
@@ -41,6 +42,7 @@ def default_recognizers() -> list[Recognizer]:
         SecretRecognizer(),
         CompanyLegalFormRecognizer(),
         BirthDateRecognizer(),
+        PersonRecognizer(),
     ]
 
 
@@ -88,6 +90,7 @@ __all__ = [
     "GermanUStIdNrRecognizer",
     "IBANDachRecognizer",
     "MandantenNummerRecognizer",
+    "PersonRecognizer",
     "PhoneRecognizer",
     "SecretRecognizer",
     "SwissAHVRecognizer",

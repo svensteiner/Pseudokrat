@@ -1447,3 +1447,55 @@ Adressen in Variationen (Mehrfamilienhaus-Suffixe, internationale
 Adressen, Postfach-Notation), die nicht abgedeckt sind und vom
 ML-Modell gegriffen werden. Trade-Off bewusst akzeptiert für Iter-7;
 Erweiterung in Folge-Iterationen sobald reale Pilot-Daten vorliegen.
+
+
+## D-046 — Install-Defaults umkehren + `pseudokrat doctor` (PRL Iter-8)
+
+**Wahl:** Zwei Vereinfachungen für Pilot-Tester:
+
+(A) **Hotkeys per Default AN.** `pseudokrat install` aktiviert ab Iter-8
+das Autostart des Hotkey-Daemons. `--no-hotkeys` schaltet aus.
+`--with-hotkeys` bleibt als Skript-Kompatibilitäts-Alias erhalten
+(versteckt im Help, kein Default-Wechsel).
+
+(B) **Neuer `pseudokrat doctor`-Befehl.** Einzelner Selbst-Diagnose-
+Aufruf liefert vier Checks mit konkreten Fix-Anweisungen:
+- Profile vorhanden?
+- Anonymize/Deanonymize-Roundtrip auf einem Test-String mit IBAN +
+  Anrede + Person + Betrag — Original-Text muss 1:1 wiederkehren.
+- Hotkey-Backend (`keyboard` oder `pynput`) importierbar?
+- ML-Modell im Cache?
+
+Exit 0 = Kern-Workflow läuft (WARNs erlaubt). Exit 1 = blockierender
+Fehler — Tester weiss sofort, was zu tun ist.
+
+**Begründung:**
+
+Sven's Forderung: „supereinfach in der Installation und in der Bedienung".
+Vor Iter-8 brauchte ein Tester zwei Befehle (`install`, `install
+--with-hotkeys`), und bei Problemen hatte er keine zentrale Diagnose —
+einzelne CLI-Aufrufe versuchen ist nicht zumutbar. Nach Iter-8:
+
+* Ein Befehl `pseudokrat install` setzt alles auf.
+* Ein Befehl `pseudokrat doctor` sagt zuverlässig, ob alles funktioniert,
+  und wenn nicht, welche genau eine Befehlszeile das Problem behebt.
+
+**Verworfen:**
+
+- **Hotkeys ohne `--with-hotkeys`-Alias entfernen.** Würde Skripte
+  brechen, die Iter-7-Verhalten erwarten. Alias bleibt, ist aber
+  `argparse.SUPPRESS` (im Help versteckt).
+- **`doctor` als GUI-Tab statt CLI-Befehl.** GUI-Pilot-Tester nutzen
+  meistens das Tray-Icon, brauchen aber CLI-Fix-Anleitungen für
+  IT-Hotline-Anrufe. CLI ist universeller.
+- **Automatischer `doctor`-Lauf am Ende von `install`.** Würde Setup
+  um 3-5 s verlängern und im Erfolgsfall keine zusätzliche Information
+  liefern. Stattdessen wird der `doctor`-Befehl im `install`-Output
+  prominent als „Nächster Schritt" empfohlen.
+
+**Test-Coverage:** 16 Tests in `tests/test_doctor.py` —
+Status-Enum-Roundtrip, Profile-Detection (leer/nicht-leer),
+Roundtrip-Smoke gegen Throwaway- und Named-Profil, Backend-/Modell-
+Status-Returns, Report-Formatting (alle drei Status-Kombinationen),
+CLI-Argparse-Integration (`doctor` registriert, `--profile`,
+`--no-hotkeys` als neuer Default-Override).

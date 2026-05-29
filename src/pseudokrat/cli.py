@@ -291,12 +291,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Kein Default-Profil anlegen (nur Registry-Einträge).",
     )
     p_install.add_argument(
-        "--with-hotkeys",
+        "--no-hotkeys",
         action="store_true",
         help=(
-            "Hotkey-Daemon beim Login automatisch starten. "
-            "Hinweis: ohne dieses Flag bleibt der Hotkey-Daemon manuell startbar."
+            "Hotkey-Daemon NICHT beim Login automatisch starten. "
+            "Default ist 'an' — Strg+Shift+A/D werden global registriert."
         ),
+    )
+    # Beibehalten als alias fuer Skripte aus aelteren Versionen:
+    p_install.add_argument(
+        "--with-hotkeys",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     p_install.add_argument(
         "--status",
@@ -312,6 +318,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--yes",
         action="store_true",
         help="Ohne Rückfrage ausführen.",
+    )
+
+    # doctor — Selbst-Diagnose (Iter-8)
+    p_doctor = sub.add_parser(
+        "doctor",
+        help=(
+            "Selbst-Diagnose: prüft Profile, Anonymize-Roundtrip, "
+            "Hotkey-Backend und ML-Modell. Exit 0 = einsatzbereit."
+        ),
+    )
+    p_doctor.add_argument(
+        "--profile",
+        default=None,
+        help=(
+            "Profil-Name für den Roundtrip-Test. "
+            "Ohne Angabe wird ein Throwaway-Profil verwendet."
+        ),
     )
 
     return parser
@@ -1108,11 +1131,15 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
             ) from exc
         store.close()
 
+    # Default-Umkehr (PRL Iter-8): Hotkeys per Default AN. Tester sollen
+    # nach 'pseudokrat install' sofort Strg+Shift+A drücken können.
+    # --no-hotkeys schaltet aus; --with-hotkeys bleibt als Skript-Alias.
+    with_hotkeys = not bool(args.no_hotkeys)
     result = perform_install(
         backend=backend,
         create_profile=create_profile,
         profile_name=profile_name,
-        with_hotkeys=bool(args.with_hotkeys),
+        with_hotkeys=with_hotkeys,
         profile_creator=_create_default_profile if create_profile else None,
     )
 
@@ -1138,11 +1165,22 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
         print(f"  ℹ {note}")
     print()
     print("Nächste Schritte:")
-    print("  • Im Explorer eine PDF/DOCX/XLSX rechtsklicken → 'Mit Pseudokrat anonymisieren'")
+    if with_hotkeys:
+        print("  • Strg+Shift+A → Zwischenablage anonymisieren")
+        print("  • Strg+Shift+D → Anonymisierung zurücknehmen")
+    print("  • Im Explorer Rechtsklick auf PDF/DOCX/XLSX → 'Mit Pseudokrat anonymisieren'")
     print(f"  • CLI: pseudokrat anonymize --profile \"{profile_name}\" --text \"...\"")
-    if not args.with_hotkeys:
-        print("  • Hotkeys aktivieren: pseudokrat install --with-hotkeys")
+    print("  • Selbsttest:  pseudokrat doctor")
     return 0
+
+
+def _cmd_doctor(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """``pseudokrat doctor`` — Self-Check für Pilot-Tester (PRL Iter-8)."""
+    from pseudokrat.doctor import format_report, run_doctor
+
+    report = run_doctor(manager, profile_name=args.profile)
+    print(format_report(report))
+    return report.exit_code()
 
 
 def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
@@ -1212,6 +1250,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_install(args, manager)
     if args.command == "uninstall":
         return _cmd_uninstall(args, manager)
+    if args.command == "doctor":
+        return _cmd_doctor(args, manager)
     parser.error(f"Unbekannter Befehl: {args.command}")
     return 1  # type: ignore[unreachable]
 

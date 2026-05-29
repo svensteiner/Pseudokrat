@@ -1287,3 +1287,59 @@ activates session, rejects empty name).
   einschaltet (Power-User-Übergang ohne CLI).
 - **Icon-Assets:** PyInstaller-Build mit echtem `.ico` für Window-Icon,
   Tray-Icon und Context-Menu-Icon (`Icon`-REG_SZ-Feld in D-040).
+
+
+## D-043 — Kontext-basierter Geburtsdatum-Recognizer (PRL Iter-5)
+
+**Wahl:** Neuer `BirthDateRecognizer` in
+`src/pseudokrat/recognizers/birthdate.py` matched nur dann ein Datum,
+wenn ein Geburtskontext-Label (`Geburtsdatum`, `Geburtstag`,
+`geboren am`, `geb.`, `DOB`, `Date of Birth`) unmittelbar davor steht.
+Gap zwischen Label und Datum: max. 40 Zeichen, nur Whitespace und
+Trenner (`:` `-` `—` `–`) erlaubt.
+
+**Begründung:**
+
+Vor Iter-5 lag DATE im Recognizer-only-Eval bei **F1 = 0.0** — drei
+Fixtures mit Geburtsdaten (AT/DE/CH-Lohnkonten) wurden komplett
+verfehlt, weil das Privacy-Filter-Modell DATE liefert, im ML-off-
+Modus aber nichts da war. Naive Variante (blinder `DD.MM.YYYY`-Regex)
+würde zwar die FN schliessen, im Gegenzug aber jede Buchungs-,
+Erstellungs- und Eintrittszeile in Kanzleiakten als PII markieren —
+inakzeptabel für die Zielgruppe.
+
+Kontext-Anker löst beides: TP für die drei Geburtsdaten der
+Fixtures (DATE F1 0.0 → 1.0), null FP auf der bestehenden
+`false_positive_traps`-Fixture und auf den Eintritts-/Erstellt-am-
+Daten innerhalb `lohnkonto_at`.
+
+**Verworfen:**
+
+- **Generischer `DD.MM.YYYY`-Recognizer.** Liefert auf Lohnkonten
+  3-5× mehr Spans als Eval verlangt; FP-Rate würde Berufsträger sofort
+  vergraulen.
+- **DD/MM/YYYY und DD.MM.YY zulassen.** Mehrdeutig (US-Reihenfolge bzw.
+  Jahrhundertambiguität). Bewusst nur unzweideutige Formate:
+  `DD.MM.YYYY` mit 4-stelligem Jahr (19xx/20xx) und ISO `YYYY-MM-DD`.
+- **`geboren in <Ort>`-Kontext.** Schliesst Geburtsorte, nicht
+  Geburtsdaten. Out of scope für dieses Recognizer-Modul.
+
+**Eval-Effekt (recognizers-only, ohne ML):**
+
+| Kategorie | Vor Iter-5 | Nach Iter-5 |
+|---|---|---|
+| DATE Recall | 0.00 | 1.00 |
+| DATE Precision | 1.00 | 1.00 |
+| Gesamt-Recall | 0.52 | 0.62 |
+| Gesamt-F1 | 0.68 | 0.77 |
+
+PERSON und ADDRESS bleiben bewusst 0.0 — das sind genuine ML-
+Kategorien, die ohne Heuristiken nicht ohne FP-Schwemme abgreifbar
+sind. Sie schliessen erst, sobald der Endnutzer das Privacy-Filter-
+Modell installiert hat (`pseudokrat model download` + `--with-ml`-Eval).
+
+**Test-Coverage:** 20 Tests in `tests/test_birthdate_recognizer.py` —
+9 positive Fälle (DD.MM.YYYY in AT/DE/CH, ISO-Format, Label-Varianten),
+9 negative Fälle (Eintrittsdatum, Berichtdatum, Volltext zwischen
+Label und Datum, ungültiges Datum, zu kurzer Year-String, zu grosser
+Abstand), 2 Span-Offset-Tests, 1 Default-Bundle-Integration.

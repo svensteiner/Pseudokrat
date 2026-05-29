@@ -1155,14 +1155,65 @@ ist `RuntimeError`-Subklasse für generisches Exception-Handling.
   (`private_*`):** unnötiger Aufwand — `_LABEL_MAP` löst das Mapping
   schon zentral, und Fixtures sprechen unsere Domain-Sprache.
 
-**Folgearbeit (Phase D-2):**
+**PRL-Iteration 4 (Audit-Phase) — abgeschlossen:**
+
+`tools/audit_run.py` bündelt fünf statische Quality-Checks in einem
+Subprocess-Lauf:
+
+* **ruff** (`ruff check src/ tests/ tools/`)
+* **mypy** strict (`mypy src/pseudokrat`)
+* **pytest** mit/ohne `slow`-Marker
+* **bandit** -ll (High+Medium)
+* **pip-audit** (optional, `skipped` wenn nicht installiert)
+* **trust-boundary-coverage** — Heuristik: für jede `S<N>`-Boundary in
+  `SELF_AUDIT.md` muss mindestens ein Test entweder die ID oder einen
+  Title-Stem referenzieren.
+
+**Trust-Boundary-Heuristik-Design:** Title wird auf Whitespace UND
+Bindestriche zerlegt; jedes Token wird auf die ersten 5 Zeichen
+gekürzt (klassischer Stem) und im Test-Code gesucht. Damit matcht
+„Permutation" auch Tests, die `permute` oder `permutation` enthalten —
+sonst wäre die DP-Boundary (S5) gegen Tests, die `dp_permute` heißen,
+ungetestet erschienen. Stopwords (`der`, `die`, `und`, `security`,
+`model`, …) sind explizit gefiltert.
+
+**Erster Real-Audit-Lauf hat zwei echte Issues gefunden:**
+
+1. SIM108 in `tools/audit_run.py` selbst (if/else → ternary). Fix
+   inline.
+2. S5 (DP-Permutation) wurde anfangs als ungetestet gemeldet — falscher
+   Alarm der ursprünglich-zu-engen Heuristik (`Permutation` matchte
+   `permute` nicht). Heuristik-Fix mit Stem-Match löste das.
+
+**Test-Coverage:** 21 Tests in `tests/test_audit_run.py` —
+Subprocess-Wrapper mit gemockten Returncodes (5 Checks), Title-
+Stem-Tokenization (Hyphen-Split, Stopword-Filter, Inflexion-Match),
+Boundary-Heading-Parsing aus SELF_AUDIT.md, Aggregation, CLI-Exit-
+Codes (0 wenn pass, 1 wenn fail).
+
+**Real-Status auf main:** alle 4 Checks pass (ruff, mypy, bandit,
+trust-boundary-coverage). 7 Trust-Boundaries (S1-S7) — alle covered.
+
+**Verworfene Alternativen:**
+
+- **In-Process-Plugin-Loader:** wäre 5× schneller, aber riskiert
+  Import-Cache-Bias (Tests, die Module modifizieren, würden nachfolgende
+  Checks beeinflussen). Subprocess-Isolation ist die korrekte Form für
+  ein Audit-Tool.
+- **AST-basierte Trust-Boundary-Heuristik:** Overkill. Grep+Stem ist
+  präzise genug für die 7 Boundaries und braucht keine Pflege bei
+  Refactorings.
+
+**Folgearbeit (Phase D-3):**
 
 - ML-Eval-Lauf gegen die existierenden Fixtures, sobald Modell
   gecached (real-world Recall-Messung für PERSON/ADDRESS/DATE).
-- `tools/audit_run.py` für die Audit-Phase (Ruff/mypy/pytest/bandit/
-  pip-audit + Trust-Boundary-Coverage-Heuristik).
 - DOCX/XLSX/PDF-Fixture-Builder (binäre Formate).
-- Gap-Select-Tool mit Gate-Vergleich + Trendlinie über mehrere Läufe.
+- Gap-Select-Tool (`tools/gap_select.py`): liest eval+audit-Reports,
+  vergleicht gegen `PRODUCTION_READY_GATE.md`, schreibt einen
+  priorisierten `next_gap.md`.
+- CI-Workflow (`.github/workflows/audit.yml`), der `audit_run` bei
+  jedem Push laufen lässt.
 
 
 ## D-041 — GUI Simple-Mode: Profil-Chrome ausblenden, Auto-Open, Close-to-Tray

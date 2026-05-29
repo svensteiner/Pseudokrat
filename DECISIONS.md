@@ -1119,12 +1119,50 @@ sind alle ML-abhängig — der nächste Schritt ist nicht „noch ein
 Recognizer", sondern der Eval-Modus mit eingeschaltetem
 Privacy-Filter-Modell.
 
-**Folgearbeit:**
+**PRL-Iteration 3 (ML-Eval-Modus) — abgeschlossen:**
 
-- `tools/audit_run.py` für Audit-Phase.
-- ML-Lauf-Modus (`runner.py --with-ml`) inkl. Modell-Cache-Check.
-- DOCX/XLSX/PDF-Fixture-Builder (binäre Formate, Phase D-2).
-- Trust-Boundary-Coverage-Heuristik in der Audit-Phase.
+`runner.py --with-ml` lädt den `PrivacyFilterDetector` und misst damit
+auch PERSON, ADDRESS, DATE, URL und SECRET — Kategorien, die nur der
+ML-Pfad kennt. Der Detector-Output wird über `_LABEL_MAP` in
+`privacy_filter.py` auf unsere kanonischen Kategorienamen gemappt
+(`private_person` → `PERSON` etc.), sodass das Scoring identisch zum
+Recognizer-Pfad funktioniert.
+
+**Schutz vor versehentlichem 3-GB-Download:** Der ML-Modus prüft via
+`model_status(settings)` vor dem Lauf, ob das Modell im Cache liegt.
+Bei Cache-Miss wirft die Funktion `ModelNotCachedError` mit
+expliziter Anweisung (`pseudokrat model download` oder ohne `--with-ml`
+laufen). CLI `main()` mapt das auf Exit-Code 2 + stderr-Meldung. Kein
+silent download.
+
+**Mode-Marker im Report:** Der Output-JSON enthält jetzt
+`"mode": "with-ml"` oder `"mode": "recognizers-only"`, damit
+Gap-Selektoren wissen, gegen welchen Lauf sie vergleichen.
+
+Test-Coverage: 7 Tests in `tests/eval/test_runner_ml_mode.py` —
+Recognizers-Only-Pfad lädt kein Modell, Cache-Miss wirft mit
+korrekten Anweisungen, CLI-Exit-Code 2, ENV-Variable
+`PSEUDOKRAT_DISABLE_ML` wird im ML-Modus aktiv gelöscht (sonst
+landet Settings.load() im Null-Detector), `ModelNotCachedError`
+ist `RuntimeError`-Subklasse für generisches Exception-Handling.
+
+**Verworfene Alternativen:**
+
+- **Auto-Download im Runner:** Damit hätte der Loop alleine 3 GB Disk
+  + 5-10 min pro Lauf gefressen. Bewusste Geste mit explizitem
+  Download-Befehl ist die richtige Form.
+- **Eval-Lauf bewertet ML-Output gegen ML-Detector-eigenes Vokabular
+  (`private_*`):** unnötiger Aufwand — `_LABEL_MAP` löst das Mapping
+  schon zentral, und Fixtures sprechen unsere Domain-Sprache.
+
+**Folgearbeit (Phase D-2):**
+
+- ML-Eval-Lauf gegen die existierenden Fixtures, sobald Modell
+  gecached (real-world Recall-Messung für PERSON/ADDRESS/DATE).
+- `tools/audit_run.py` für die Audit-Phase (Ruff/mypy/pytest/bandit/
+  pip-audit + Trust-Boundary-Coverage-Heuristik).
+- DOCX/XLSX/PDF-Fixture-Builder (binäre Formate).
+- Gap-Select-Tool mit Gate-Vergleich + Trendlinie über mehrere Läufe.
 
 
 ## D-041 — GUI Simple-Mode: Profil-Chrome ausblenden, Auto-Open, Close-to-Tray

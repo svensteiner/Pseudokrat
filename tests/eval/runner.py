@@ -3,16 +3,23 @@ drauf laufen und schreibt einen Score-Report.
 
 Aufruf::
 
-    python -m tests.eval.runner            # Default-Fixtures-Dir, stdout
+    python -m tests.eval.runner                  # nur Recognizer, kein ML
+    python -m tests.eval.runner --with-ml        # plus Privacy-Filter
     python -m tests.eval.runner --json out.json
-    python -m tests.eval.runner --fixtures tests/eval/fixtures/lohnkonto_at
 
 Default: alle Fixtures unter ``tests/eval/fixtures/<name>/{input.txt,
 expected.json}``.
 
-ML-Detector wird in diesem Lauf **abgeschaltet** — Phase 1 misst nur
-die regelbasierten DACH-Recognizer (deterministisch, deshalb ist die
-Latte hier ``1.00``). ML-Recall ist Phase 2 (mit Modell-Download).
+**Zwei Eval-Modi:**
+
+* ``--with-ml`` aus (Default) → nur regelbasierte DACH-Recognizer.
+  Erwartung: F1=1.00 für alle deterministischen Kategorien (IBAN, SVNR,
+  TAX_ID, UID, AHV, EMAIL, PHONE, COMPANY, BIC). ML-Kategorien (PERSON,
+  ADDRESS, DATE) bleiben zwingend 0 — fließt in den Gap-Report.
+
+* ``--with-ml`` an → Privacy-Filter-Modell wird geladen (falls gecached;
+  sonst klare Fehlermeldung mit Download-Hinweis). Misst zusätzlich
+  PERSON/ADDRESS/DATE-Recall.
 """
 
 from __future__ import annotations
@@ -28,6 +35,9 @@ from pathlib import Path
 from typing import Any
 
 from pseudokrat.anonymizer import Anonymizer
+from pseudokrat.config import Settings
+from pseudokrat.pii.model_install import model_status
+from pseudokrat.pii.privacy_filter import PIIDetector, PrivacyFilterDetector
 from pseudokrat.recognizers import recognizers_for_store
 from pseudokrat.store.key_protector import InMemoryKeyringBackend
 from pseudokrat.store.profile import ProfileManager
@@ -49,22 +59,72 @@ class FixtureResult:
         return aggregate(self.scores.values())
 
 
-def _build_anonymizer(profile_name: str = "_eval_profile") -> Anonymizer:
-    """Baut einen Anonymizer mit nur den DACH-Recognizern (kein ML)."""
+class ModelNotCachedError(RuntimeError):
+    """``--with-ml`` angefordert, aber das Privacy-Filter-Modell ist
+    nicht im Cache. Der Runner soll **nicht** automatisch
+    nachdownloaden (3 GB!), sondern dem Aufrufer klar sagen, was zu tun
+    ist."""
+
+
+def _build_anonymizer(
+    *,
+    profile_name: str = "_eval_profile",
+    with_ml: bool = False,
+) -> Anonymizer:
+    """Baut einen Anonymizer mit DACH-Recognizern, optional plus ML.
+
+    Eval-Profil in einem Tempdir, damit der Hauptdaten-Ordner unangetastet
+    bleibt und der Lauf reproduzierbar ist.
+
+    ``with_ml=True`` lädt den ``PrivacyFilterDetector``. Wenn das Modell
+    nicht im Cache liegt, wirft die Funktion :class:`ModelNotCachedError`
+    statt einen Multi-GB-Download anzustoßen — der Eval-Loop soll
+    bewusst entscheiden, ob er das Modell vorab installiert oder den
+    ML-Lauf überspringt.
+    """
     # Eval-Profil in einem Tempdir, damit der Hauptdaten-Ordner unangetastet
     # bleibt und der Lauf reproduzierbar ist.
     tmp = Path(tempfile.mkdtemp(prefix="pseudokrat-eval-"))
     os.environ["PSEUDOKRAT_DATA_DIR"] = str(tmp)
-    os.environ["PSEUDOKRAT_DISABLE_ML"] = "1"
+    # Beim ML-Modus PSEUDOKRAT_DISABLE_ML NICHT setzen — der Detector
+    # läuft sonst durch den Null-Pfad.
+    if with_ml:
+        os.environ.pop("PSEUDOKRAT_DISABLE_ML", None)
+    else:
+        os.environ["PSEUDOKRAT_DISABLE_ML"] = "1"
+
     manager = ProfileManager()
     backend = InMemoryKeyringBackend()
     store, audit = manager.open_or_create_simple(profile_name, backend=backend)
+
+    detector: PIIDetector | None
+    model_version: str
+    if with_ml:
+        settings = Settings.load()
+        status = model_status(settings)
+        if not status.is_present:
+            raise ModelNotCachedError(
+                "Privacy-Filter-Modell ist nicht im Cache.\n"
+                f"  Erwartet unter: {status.cache_dir}\n"
+                f"  Aktuelle Größe: {status.gigabytes_on_disk:.2f} GB "
+                f"(Floor: 0.10 GB).\n"
+                "  Vorabinstallation: pseudokrat model download\n"
+                "  Oder ohne --with-ml laufen lassen (nur Recognizer)."
+            )
+        detector = PrivacyFilterDetector(
+            model_id=settings.model_id, cache_dir=str(settings.model_cache_dir)
+        )
+        model_version = f"ml:{settings.model_id}"
+    else:
+        detector = None  # Anonymizer akzeptiert None; verwendet dann keinen ML-Detektor
+        model_version = "eval-detector-only"
+
     return Anonymizer(
         store=store,
         recognizers=recognizers_for_store(store),
-        detector=None,
+        detector=detector,
         audit_log=audit,
-        model_version="eval-detector-only",
+        model_version=model_version,
     )
 
 
@@ -88,8 +148,8 @@ def iter_fixture_dirs(root: Path) -> Iterable[Path]:
             yield d
 
 
-def run(fixtures_root: Path) -> list[FixtureResult]:
-    anonymizer = _build_anonymizer()
+def run(fixtures_root: Path, *, with_ml: bool = False) -> list[FixtureResult]:
+    anonymizer = _build_anonymizer(with_ml=with_ml)
     return [evaluate_fixture(d, anonymizer) for d in iter_fixture_dirs(fixtures_root)]
 
 
@@ -180,10 +240,24 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="JSON-Report-Pfad (Default: stdout).",
     )
+    parser.add_argument(
+        "--with-ml",
+        action="store_true",
+        help=(
+            "Zusätzlich den Privacy-Filter-ML-Detector laufen lassen "
+            "(misst PERSON/ADDRESS/DATE). Modell muss vorab via "
+            "'pseudokrat model download' gecached sein."
+        ),
+    )
     args = parser.parse_args(argv)
 
-    results = run(args.fixtures)
+    try:
+        results = run(args.fixtures, with_ml=args.with_ml)
+    except ModelNotCachedError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     report = render_report(results)
+    report["mode"] = "with-ml" if args.with_ml else "recognizers-only"
     payload = json.dumps(report, indent=2, ensure_ascii=False)
     if args.json is None:
         sys.stdout.write(payload + "\n")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from pseudokrat.recognizers.address import AddressRecognizer
 from pseudokrat.recognizers.at_svnr import AustrianSVNRRecognizer
 from pseudokrat.recognizers.at_uid import AustrianUIDRecognizer
 from pseudokrat.recognizers.base import Recognizer, Span
@@ -43,6 +44,7 @@ def default_recognizers() -> list[Recognizer]:
         CompanyLegalFormRecognizer(),
         BirthDateRecognizer(),
         PersonRecognizer(),
+        AddressRecognizer(),
     ]
 
 
@@ -80,6 +82,7 @@ __all__ = [
     "InvalidMandantenPatternError",
     "Recognizer",
     "Span",
+    "AddressRecognizer",
     "AustrianSVNRRecognizer",
     "AustrianUIDRecognizer",
     "BICRecognizer",

@@ -1343,3 +1343,107 @@ Modell installiert hat (`pseudokrat model download` + `--with-ml`-Eval).
 9 negative Fälle (Eintrittsdatum, Berichtdatum, Volltext zwischen
 Label und Datum, ungültiges Datum, zu kurzer Year-String, zu grosser
 Abstand), 2 Span-Offset-Tests, 1 Default-Bundle-Integration.
+
+
+## D-044 — Anker-basierter PERSON-Recognizer (PRL Iter-6)
+
+**Wahl:** `PersonRecognizer` matched Personennamen nur, wenn vor dem
+Namensfeld ein **Anrede-Anker** (`Herr`, `Frau`, `Herrn`) oder ein
+**Rollen-Label** (`Dienstnehmer/in`, `Arbeitnehmer`, `Antragsteller`,
+`Mandant`, …) steht. Optional dazwischen akademische Titel (`Dr.`,
+`Prof.`, `Mag.`, `Dipl.-Ing.`, `MMag.`, `DDr.`). Second-Pass markiert
+exakte Wiedervorkommen des Namens im Resttext.
+
+**Begründung:**
+
+Personennamen ohne Anker sind ohne ML-Modell nicht zuverlässig
+unterscheidbar von Firmen-, Marken- und Ortsnamen ("Hofer", "Bauer",
+"Müller-Schiene"). Sobald aber Anrede oder Rollen-Label davorsteht, ist
+die Precision praktisch 100%. Im Kanzlei-Alltag steht vor jedem
+ernsthaft sensiblen Namen ein solcher Anker — sei es im Briefkopf
+("Sehr geehrter Herr …"), in Lohnkonten ("Arbeitnehmer: …") oder in
+Versicherungsanträgen ("Antragsteller: …").
+
+**Verworfen:**
+
+- **Bare-Name-Heuristik (ohne Anker).** Auf der `false_positive_traps`-
+  Fixture allein produziert das FP für "Hofer-Markt", "Müller-Schiene",
+  "Bauer-Land-Speck". Ein Steuerberater verliert dann sofort das
+  Vertrauen. Bare-Namen bleiben ML-Territorium.
+- **Wörterbuchbasierte Vornamenliste.** 50k+ Einträge, falsch bei
+  Namen wie "Beispielsohn", "Mustermann" (synthetisch), Migranten-
+  namen — und blockt nicht die FP-Klasse oben.
+- **Inter-Token-Whitespace `\s+`.** Zog "Anna Beispielsohn\nAnmerkungen"
+  in den Span. Fix: `[ \t]+` schliesst Newlines aus.
+
+**Second-Pass-Begründung:** Im Eval-Korpus erscheint jeder Name 2×
+(einmal an einem Anker, einmal als Volltextreferenz). Second-Pass
+schliesst die Wiedervorkommen ohne FP, weil nur exakte ganze-Wort-
+Matches des bereits validierten Namens zählen.
+
+**Eval-Effekt (recognizers-only, ohne ML):**
+
+| Kategorie | Vor Iter-6 | Nach Iter-6 |
+|---|---|---|
+| PERSON Recall | 0.00 | 1.00 |
+| PERSON Precision | 1.00 | 1.00 |
+| Gesamt-Recall | 0.62 | 0.83 |
+| Gesamt-F1 | 0.77 | 0.91 |
+
+**Test-Coverage:** 19 Tests in `tests/test_person_recognizer.py` —
+Anrede-Varianten (Herr/Frau/Herrn + Titel-Stapel), Rollen-Label-
+Varianten (Dienstnehmer/in/Arbeitnehmer/Antragsteller/Mandant),
+Second-Pass-Wiedervorkommen, Bindestrich-Namen,
+FP-Trap-Sätze (Hofer-Markt/Müller-Schiene), Span-Offset-Verifikation.
+
+
+## D-045 — DACH-ADDRESS-Recognizer (PRL Iter-7)
+
+**Wahl:** `AddressRecognizer` matched DACH-Postanschriften im
+hochregulären Format `<Strasse> <Nr>, <PLZ> <Ort>`. PLZ ist
+4-stellig (AT/CH) oder 5-stellig (DE). Strassen-Suffix kann
+verschmolzen (`Industriestraße`, `Königsallee`) oder eigenständig
+(`Mariahilfer Straße`) auftreten. Hausnummern erlauben
+Buchstaben-Suffix (`12a`) und Stiegen-Notation (`12/3`).
+
+**Begründung:**
+
+Im Gegensatz zu PERSON ist ADDRESS strukturell extrem klar. Die
+Komma-PLZ-Pflicht im Pattern eliminiert das gesamte FP-Spektrum
+("Goethestraße 5 (ohne PLZ und Ort)" wird **nicht** gematcht, weil
+keine PLZ folgt). Ein anker-basierter Ansatz wie bei PERSON ist hier
+unnötig — das Format selbst ist der Anker.
+
+**Verworfen:**
+
+- **Anker-basiertes Pattern (`Adresse:` / `Anschrift:` / `Wohnadresse:`).**
+  Würde Adressen in Briefkopf-Zeilen ohne Label verfehlen.
+- **Token-Wörterbuch für Strassen-Suffixe inklusive aller Varianten
+  (`-zeile`, `-pfad`, `-stiege`).** Premature optimization — die
+  9 häufigsten Suffixe decken >99% der DACH-Adressen ab.
+- **Kombination mit `geocoder`/`pyap`.** Externe Geodaten-Libraries
+  ziehen Cloud-Calls oder grosse Wörterbücher mit. Pseudokrat bleibt
+  bewusst offline.
+
+**Eval-Effekt (recognizers-only, ohne ML):**
+
+| Kategorie | Vor Iter-7 | Nach Iter-7 |
+|---|---|---|
+| ADDRESS Recall | 0.00 | 1.00 |
+| ADDRESS Precision | 1.00 | 1.00 |
+| Gesamt-Recall | 0.83 | **1.00** |
+| Gesamt-F1 | 0.91 | **1.00** |
+
+**100% F1 über alle 12 DACH-PII-Kategorien, ML-Modell nicht erforderlich.**
+
+**Test-Coverage:** 13 Tests in `tests/test_address_recognizer.py` —
+AT/DE/CH-Varianten, verschmolzene/eigenständige Strassen-Suffixe,
+Hausnummern mit Buchstaben/Stiegen-Notation, FP-Trap-Fixture
+(Strasse ohne PLZ darf nicht matchen), Default-Bundle-Integration.
+
+**Wichtiger Vorbehalt:** 100% F1 gilt für den synthetischen
+Eval-Korpus (3 Fixtures + FP-Trap). Realistische Kanzleitexte enthalten
+Adressen in Variationen (Mehrfamilienhaus-Suffixe, internationale
+Adressen, Postfach-Notation), die nicht abgedeckt sind und vom
+ML-Modell gegriffen werden. Trade-Off bewusst akzeptiert für Iter-7;
+Erweiterung in Folge-Iterationen sobald reale Pilot-Daten vorliegen.

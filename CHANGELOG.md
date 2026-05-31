@@ -7,6 +7,25 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-05-31, PRL Iter-9)
+- **`tools/gap_select.py` — PRL Gap-Phase automatisiert.** Liest
+  `eval_report.json` (von `tests.eval.runner`) und optional
+  `audit_report.json` (von `tools.audit_run`), vergleicht gegen die
+  Tier-1-Schwellen und die FP-Rate-Grenze aus
+  `PRODUCTION_READY_GATE.md`, und schreibt einen priorisierten
+  `next_gap.md`-Report mit genau einer Top-Lücke + Liste aller
+  weiteren. Severity-Modell: 1 = Tier-1-Erkennungs-Defizit, 2 =
+  globale FP-Rate über Limit, 3 = Tier-2/Tier-3-Audit-Fail oder
+  unbedeckte Trust-Boundary. Aliase: Gate-`ORG` → intern `COMPANY`.
+  ML-Kategorien (PERSON, ADDRESS, DATE) im `recognizers-only`-Mode
+  als Severity 3 statt 1, damit Phase-2-Ausstände den Loop nicht
+  blockieren. Exit 0 wenn keine Lücke offen, sonst 1.
+  22 Unit-Tests in `tests/test_gap_select.py` (Gate-Parsing inkl.
+  echte Datei, Tier-1-Defizit, ML-Kategorie-Sonderfall, FP-Rate,
+  Audit-Fail, Trust-Boundary-Missing, Rendering, CLI-Roundtrip).
+  Damit ist eine der vier Folgearbeiten aus D-042 geschlossen.
+  Siehe D-047.
+
 ### Hinzugefügt (2026-05-27, Phase C)
 - **GUI Simple-Mode: ein Profil, kein Passwort-Prompt, Close→Tray.**
   Wenn genau ein Profil existiert und im Simple-Mode angelegt wurde,

@@ -1499,3 +1499,68 @@ Roundtrip-Smoke gegen Throwaway- und Named-Profil, Backend-/Modell-
 Status-Returns, Report-Formatting (alle drei Status-Kombinationen),
 CLI-Argparse-Integration (`doctor` registriert, `--profile`,
 `--no-hotkeys` als neuer Default-Override).
+
+
+## D-047 — Gap-Select-Tool (PRL Iter-9)
+
+**Wahl:** `tools/gap_select.py` ist die priorisierende Brücke
+zwischen Eval-Phase und Close-Phase im PRL-Loop. Eingabe: ein
+`eval_report.json` (Pflicht) plus optional ein `audit_report.json`.
+Ausgabe: ein `next_gap.md` mit **einer** Top-Lücke + Liste der
+übrigen. Severity-Modell mit drei Stufen:
+
+1. **Tier-1-Erkennungsdefizit** — eine Kategorie aus dem Gate
+   liegt unter ihrer F1-Schwelle.
+2. **Globale FP-Rate** über dem Gate-Limit (Default `≤ 0.02`).
+3. **Tier-2/Tier-3** — Audit-Check-Fail oder ungetestete
+   Trust-Boundary.
+
+Die Sortierung wählt deterministisch die erste Tier-1-Lücke als
+nächste zu schließende — Close-Phase weiss damit ohne Diskussion,
+woran sie arbeitet.
+
+**Wichtige Mapping-Entscheidung:** Das Gate spricht von `ORG`,
+der Eval-Report (und damit der Production-Code) von `COMPANY`.
+Die Alias-Tabelle `CATEGORY_ALIASES = {"ORG": "COMPANY"}` ist die
+einzige Stelle, an der dieses Vokabular gebrückt wird; das Gate
+behält seinen externen Vertragsnamen.
+
+**ML-Kategorie-Sonderfall:** PERSON, ADDRESS, DATE können vom
+regelbasierten Pfad bedient oder vom ML-Detector kommen. Ist der
+Eval im `recognizers-only`-Mode und enthält den Score nicht, gilt
+das als **Severity 3** (Phase-2-Ausstand) — sonst würde der Loop
+in eine Endlos-Spirale gehen, weil das Modell 3 GB groß und nicht
+Teil der CI-Default-Schleife ist. Sind die Recognizer-Iterationen
+(Iter-5/6/7) auf 100 %, taucht hier gar keine Lücke auf — der
+aktuelle Stand des Repos demonstriert das (Lauf gegen Real-Eval
+ergibt „Keine offenen Lücken").
+
+**Verworfen:**
+
+- **Mehrere Top-Lücken pro Lauf.** Der PRL-Vertrag ist „eine
+  Lücke, ein Commit". Mehrere Top-Lücken hätten den Loop in
+  parallele Branches gezwungen; das gehörte zu einer DAG-PRL,
+  nicht zu unserem sequentiellen Modell (siehe D-042).
+- **Markdown-AST-Parser für das Gate.** Overkill — das Gate hat
+  zwei Regex-Anker (Tier-1-Tabellen-Zeile und FP-Rate-Inline),
+  das ist robuster als ein full-blown Parser, der bei Format-
+  Refactorings bricht.
+- **Auto-Anwendung des `fix_hint` durch einen Agenten.** Bewusste
+  Geste — der Hint ist ein Vorschlag, kein Befehl. Close-Phase ist
+  menschlich (oder LLM-supervidiert) gesteuert, damit subtile
+  Recognizer-Änderungen nicht ungeprüft landen.
+
+**Test-Coverage:** 22 Tests in `tests/test_gap_select.py` —
+Gate-Parsing (synthetisch + echte Datei), Tier-1-Schwelle, FP/FN-
+Dominanz-Hint, ML-Kategorie-Severity-Switch, FP-Rate über/unter
+Limit, Audit-Check-Fail, Trust-Boundary-Missing-Liste, Rendering
+(leer/single/multi), CLI-Roundtrip mit JSON-File-Input + Output-
+Datei.
+
+**Folgearbeit:**
+
+- CI-Workflow (`.github/workflows/prl.yml`), der `runner` → `audit`
+  → `gap_select` verkettet und das resultierende `next_gap.md` als
+  Job-Artefakt ablegt. Damit ist der Loop GitHub-Actions-fähig.
+- DOCX/XLSX/PDF-Fixture-Builder für binäre Formate (verbleibend
+  aus D-042).

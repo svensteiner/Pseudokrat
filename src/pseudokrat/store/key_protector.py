@@ -144,7 +144,7 @@ class SystemKeyringBackend:
 
     def _keyring(self) -> object:
         try:
-            import keyring  # type: ignore[import-not-found]
+            import keyring  # type: ignore[import-not-found, unused-ignore]
         except ImportError as exc:  # pragma: no cover - install-path
             raise RuntimeError(
                 "Simple-Mode benötigt die Keyring-Bibliothek. Installiere mit:\n"

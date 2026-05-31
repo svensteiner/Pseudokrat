@@ -78,18 +78,32 @@ def core_company_name(normalized: str) -> str:
     return ""
 
 
-#: Kategorien, bei denen Fuzzy-Merging zulässig ist. Alle anderen müssen exakt
-#: matchen — sonst kollabieren z. B. zwei UIDs, die sich nur in zwei Ziffern
-#: unterscheiden, zu einem Platzhalter und die Reverse-Auflösung liefert die
-#: falsche Original-ID zurück (Round-Trip-Bug). Siehe D-032.
-_FUZZY_MERGE_CATEGORIES: frozenset[str] = frozenset(
-    {"COMPANY", "ORG", "PERSON", "ADDRESS"}
-)
+#: Kategorien, bei denen Fuzzy-Merging (Levenshtein ≤ N) zulässig ist.
+#:
+#: **Nur Firmen.** Bei Firmennamen ist der Schreibvarianten-Spielraum echt
+#: (``Hofer Bau GmbH`` / ``Hofer-Bau GmbH`` / ``HoferBau GmbH``) und durch
+#: die Rechtsform-Endung zusätzlich abgesichert — zwei Firmen mit gleicher
+#: Rechtsform und Levenshtein-≤2-Kern sind praktisch dieselbe Firma.
+#:
+#: **PERSON und ADDRESS sind bewusst NICHT dabei** (geändert in D-048):
+#: Nachnamen wie ``Maier`` / ``Mayer`` / ``Meier`` / ``Meyer`` oder Adressen
+#: wie ``Hauptstraße 12`` / ``Hauptstraße 13`` liegen Levenshtein 1 auseinander,
+#: sind aber **verschiedene** Personen bzw. Anschriften. Fuzzy-Merge würde sie
+#: zu einem Platzhalter kollabieren → (a) Round-Trip-Bug (Deanonymisierung
+#: liefert den falschen Originalnamen zurück) und (b) Datenschutz-Korrektheits-
+#: fehler (zwei reale Mandanten verschmelzen in der KI-Eingabe).
+#:
+#: Echte Schreibvarianten DERSELBEN Person/Adresse (Umlaut, Groß/Klein,
+#: Bindestrich, Mehrfach-Whitespace) werden bereits durch :func:`normalize`
+#: gefaltet und matchen damit über den **Exact**-Pfad — Fuzzy ist dafür nicht
+#: nötig. Die sichere Richtung ist Über-Segmentierung (ein Pseudonym zu viel,
+#: voll reversibel) statt Falsch-Merge (irreversibel). Siehe D-032 + D-048.
+_FUZZY_MERGE_CATEGORIES: frozenset[str] = frozenset({"COMPANY", "ORG"})
 
 
 def is_fuzzy_merge_category(category: str) -> bool:
     """True für Kategorien, in denen Schreibvarianten zum selben Platzhalter
-    zusammengeführt werden dürfen (Firmen, Personen, Adressen)."""
+    zusammengeführt werden dürfen (nur Firmen — siehe D-048)."""
     return category in _FUZZY_MERGE_CATEGORIES
 
 

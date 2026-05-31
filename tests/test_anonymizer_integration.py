@@ -86,6 +86,26 @@ def test_case_6_reverse_round_trip(tmp_path: Path) -> None:
         store.close()
 
 
+def test_case_7_similar_persons_stay_distinct(tmp_path: Path) -> None:
+    """D-048: Maier ≠ Mayer — zwei verschiedene Personen, zwei Platzhalter.
+
+    Regressionsschutz gegen den Fuzzy-Merge-Bug, der beide Namen auf
+    <PERSON_001> kollabierte und beim Roundtrip „Mayer/Mayer" zurückgab.
+    """
+    store, log = _make(tmp_path)
+    try:
+        anon = Anonymizer(store, default_recognizers(), audit_log=log)
+        deanon = Deanonymizer(store, audit_log=log)
+        text = "Frau Maier und Herr Mayer kamen."
+        anonymized = anon.anonymize(text)
+        assert "<PERSON_001>" in anonymized.text
+        assert "<PERSON_002>" in anonymized.text
+        restored = deanon.deanonymize(anonymized.text)
+        assert restored.text == text
+    finally:
+        store.close()
+
+
 def test_audit_chain_integration(tmp_path: Path) -> None:
     """Audit-Log baut Hash-Kette automatisch auf."""
     store, log = _make(tmp_path)

@@ -1564,3 +1564,60 @@ Datei.
   Job-Artefakt ablegt. Damit ist der Loop GitHub-Actions-fähig.
 - DOCX/XLSX/PDF-Fixture-Builder für binäre Formate (verbleibend
   aus D-042).
+
+## D-048 — Fuzzy-Merge auf COMPANY/ORG beschränken (PERSON + ADDRESS raus)
+
+**Wahl:** `_FUZZY_MERGE_CATEGORIES` in `src/pseudokrat/fuzzy.py` von
+`{"COMPANY", "ORG", "PERSON", "ADDRESS"}` auf `{"COMPANY", "ORG"}`
+reduziert. PERSON und ADDRESS verlangen jetzt **Exact-Match nach
+Normalisierung**, kein Levenshtein-Fuzzy mehr.
+
+**Befund (adversariale Roundtrip-Probe):** Der Satz „Frau Maier
+und Herr Mayer kamen." kollabierte beide Namen auf `<PERSON_001>`
+und deanonymisierte zu „Frau Mayer und Herr Mayer". Zwei **reale,
+verschiedene** Personen (Levenshtein 1) wurden zu einem Platzhalter
+verschmolzen. Das ist gleichzeitig:
+
+1. **Roundtrip-Bug** — Deanonymisierung liefert den falschen
+   Originalnamen für den zweiten Treffer zurück.
+2. **Datenschutz-Korrektheitsfehler** — zwei verschiedene
+   Mandanten verschmelzen in der KI-Eingabe zu einer Identität.
+
+Gleiches gilt für Adressen (`Hauptstraße 12` / `Hauptstraße 13`
+liegen Levenshtein 1 auseinander, sind aber verschiedene
+Anschriften) und Nachnamen-Cluster (Maier/Mayer/Meier/Meyer).
+
+**Warum kein Verlust legitimer Konsistenz:** Echte Schreibvarianten
+**derselben** Person/Adresse (Umlaut, Groß/Klein, Bindestrich,
+Mehrfach-Whitespace) werden bereits von `normalize()` gefaltet
+(ä→ae, ö→oe, NFKD, Sonderzeichen→Space) und matchen damit über den
+**Exact**-Pfad. Fuzzy war für diese Fälle nie nötig — es fing
+ausschließlich die gefährlichen „fast-gleich-aber-verschieden"-Fälle.
+
+**Asymmetrie der Fehlerkosten:** Über-Segmentierung (ein Pseudonym
+zu viel für dieselbe Entität) ist voll reversibel und harmlos — die
+KI sieht zwei Platzhalter statt einem, der Roundtrip bleibt korrekt.
+Falsch-Merge (ein Pseudonym für zwei Entitäten) ist **irreversibel**
+und bricht beide oben genannten Eigenschaften. Bei Personen/Adressen
+ist die sichere Richtung daher Exact-only.
+
+**COMPANY/ORG bleiben Fuzzy:** Bei Firmennamen ist der
+Schreibvarianten-Spielraum echt (`Hofer Bau GmbH` / `Hofer-Bau GmbH`
+/ `HoferBau GmbH`) **und** durch die identische Rechtsform-Endung
+zusätzlich abgesichert — zwei Firmen mit gleicher Rechtsform und
+Levenshtein-≤2-Kern sind praktisch dieselbe Firma. Siehe D-032.
+
+**Verworfen:**
+
+- **Distanz-Schwelle auf 1 senken statt Kategorie streichen.** Maier
+  /Mayer ist Levenshtein 1 — jede Fuzzy-Schwelle ≥ 1 fängt sie. Nur
+  Exact (Distanz 0) ist sicher.
+- **Kontext-Heuristik (gleicher Vorname → mergen).** Fragil und löst
+  das Grundproblem nicht; „Herr Maier" vs. „Frau Mayer" hätte keinen
+  gemeinsamen Vornamen-Anker, „Anna Maier"/„Anna Mayer" könnten
+  trotzdem verschiedene Personen sein.
+
+**Test-Coverage:** Regressionstests in `tests/test_fuzzy.py`
+(Maier≠Mayer, Hauptstraße 12≠13 bekommen distinkte Platzhalter;
+Umlaut-/Whitespace-Varianten **derselben** Person mergen weiterhin
+via Exact-Normalisierung) plus Roundtrip-Assertion.

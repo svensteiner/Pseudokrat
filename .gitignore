@@ -67,6 +67,7 @@ pseudokrat.local.toml
 eval_report.json
 next_gap.md
 audit_report.json
+coverage.json
 
 # Claude Code harness state (user-local, never commit)
 .claude/

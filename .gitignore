@@ -63,5 +63,10 @@ pseudokrat.local.toml
 # Local verification logs (pytest/ruff/mypy/bandit output)
 *.log
 
+# PRL eval artifacts (regeneriert via tests.eval.runner + tools/gap_select.py)
+eval_report.json
+next_gap.md
+audit_report.json
+
 # Claude Code harness state (user-local, never commit)
 .claude/

@@ -1621,3 +1621,46 @@ Levenshtein-≤2-Kern sind praktisch dieselbe Firma. Siehe D-032.
 (Maier≠Mayer, Hauptstraße 12≠13 bekommen distinkte Platzhalter;
 Umlaut-/Whitespace-Varianten **derselben** Person mergen weiterhin
 via Exact-Normalisierung) plus Roundtrip-Assertion.
+
+## D-049 — Platzhalter-förmige Literale im Quelltext escapen (PRL Iter-11)
+
+**Wahl:** Neuer `EscapedPlaceholderRecognizer` (Kategorie `ESCAPED`,
+`src/pseudokrat/recognizers/escaped_placeholder.py`), erster Eintrag
+im `default_recognizers()`-Bundle, Score `1.0`.
+
+**Befund (adversariale Roundtrip-Probe):** Der Satz „Der Code
+`<PERSON_001>` ist ein Platzhalter, Herr Müller." brach den Roundtrip:
+das literale `<PERSON_001>` im Quelltext wurde beim Deanonymisieren
+als **echter** Platzhalter aufgelöst und mit „Müller" überschrieben →
+„Der Code Müller ist ein Platzhalter, Herr Müller."
+
+**Ursache:** Der Deanonymizer-Regex `<([A-Z_]+)_(\d{3,})>` kann nicht
+unterscheiden, ob ein platzhalter-förmiger Token von uns stammt oder
+bereits im Original stand.
+
+**Lösung:** Bei der Anonymisierung werden solche Token vorab erkannt
+(identisches Muster wie der Deanonymizer-Regex) und auf einen eigenen
+reservierten `ESCAPED`-Platzhalter abgebildet. Da der Deanonymizer in
+**einem** `re.sub`-Pass arbeitet und ersetzten Text nicht erneut
+scannt, lösen sich echte (`<PERSON_001>` → Müller) und escapete
+(`<ESCAPED_001>` → literal `<PERSON_001>`) Token unabhängig auf — der
+ursprüngliche Literaltext wird 1:1 wiederhergestellt.
+
+**Score 1.0:** Der Recognizer muss jeden Overlap gewinnen, damit ein
+platzhalter-förmiges Literal nie von einem anderen Recognizer
+teil-maskiert wird.
+
+**Verworfen:**
+
+- **Zähl-Suffix-Vergleich beim Deanonymisieren** (nur auflösen, wenn
+  Platzhalter im Store existiert). Halbe Lösung: ein zufällig
+  kollidierender literaler `<PERSON_001>`, der **auch** als echter
+  Platzhalter vergeben wurde, bliebe mehrdeutig. Escaping beim
+  Anonymisieren ist die einzige eindeutige Richtung.
+- **Backslash-Escaping im Text** (`\<PERSON_001\>`). Verändert den
+  sichtbaren KI-Eingabetext und wäre selbst nicht roundtrip-stabil,
+  wenn das Modell die Escapes umformatiert.
+
+**Test-Coverage:** `tests/test_escaped_placeholder.py` (Match/No-Match,
+Mehrfach-Token) plus Roundtrip-Integrationstest `test_case_8` in
+`tests/test_anonymizer_integration.py`.

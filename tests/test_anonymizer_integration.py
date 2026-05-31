@@ -106,6 +106,27 @@ def test_case_7_similar_persons_stay_distinct(tmp_path: Path) -> None:
         store.close()
 
 
+def test_case_8_literal_placeholder_in_source_roundtrips(tmp_path: Path) -> None:
+    """D-049: ein im Quelltext vorhandenes <PERSON_001> darf den Roundtrip nicht brechen.
+
+    Ohne Escaping würde die Deanonymisierung den literalen Token als echten
+    Platzhalter auflösen und mit einem Originaltext überschreiben.
+    """
+    store, log = _make(tmp_path)
+    try:
+        anon = Anonymizer(store, default_recognizers(), audit_log=log)
+        deanon = Deanonymizer(store, audit_log=log)
+        text = "Der Code <PERSON_001> ist ein Platzhalter, Herr Müller."
+        anonymized = anon.anonymize(text)
+        assert "<ESCAPED_001>" in anonymized.text
+        assert "<PERSON_001>" in anonymized.text  # der echte Müller-Platzhalter
+        restored = deanon.deanonymize(anonymized.text)
+        assert restored.text == text
+        assert restored.missing_placeholders == []
+    finally:
+        store.close()
+
+
 def test_audit_chain_integration(tmp_path: Path) -> None:
     """Audit-Log baut Hash-Kette automatisch auf."""
     store, log = _make(tmp_path)

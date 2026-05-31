@@ -16,6 +16,7 @@ from pseudokrat.recognizers.company import CompanyLegalFormRecognizer
 from pseudokrat.recognizers.de_steuer_id import GermanSteuerIdRecognizer
 from pseudokrat.recognizers.de_ust_id import GermanUStIdNrRecognizer
 from pseudokrat.recognizers.email import EmailRecognizer
+from pseudokrat.recognizers.escaped_placeholder import EscapedPlaceholderRecognizer
 from pseudokrat.recognizers.iban import IBANDachRecognizer
 from pseudokrat.recognizers.mandanten_nr import MandantenNummerRecognizer
 from pseudokrat.recognizers.person import PersonRecognizer
@@ -30,6 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def default_recognizers() -> list[Recognizer]:
     """Standard-Bundle aller eingebauten Recognizer (ohne MandantenNummer)."""
     return [
+        EscapedPlaceholderRecognizer(),
         IBANDachRecognizer(),
         BICRecognizer(),
         AustrianUIDRecognizer(),
@@ -89,6 +91,7 @@ __all__ = [
     "BirthDateRecognizer",
     "CompanyLegalFormRecognizer",
     "EmailRecognizer",
+    "EscapedPlaceholderRecognizer",
     "GermanSteuerIdRecognizer",
     "GermanUStIdNrRecognizer",
     "IBANDachRecognizer",

@@ -137,7 +137,17 @@ def check_bandit() -> CheckResult:
 
 def check_pip_audit() -> CheckResult:
     # pip-audit ist optional. Wenn nicht installiert -> skipped.
-    rc, out, err, dur = _run([PYTHON, "-m", "pip_audit", "--strict"], timeout=180)
+    #
+    # Wir auditieren das **Projekt** (pyproject.toml im Repo-Root), nicht
+    # die laufende venv. Grund: pseudokrat selbst ist als editable
+    # installiert, und ein env-Scan würde dadurch ``distribution marked
+    # as editable`` als Strict-Fehler werfen (D-050). Der Projekt-Scan
+    # erzeugt eine temporäre venv aus ``pyproject.toml``, in der genau
+    # die deklarierten Runtime-Deps landen — und nur diese sind für
+    # CVE-Audit relevant.
+    rc, out, err, dur = _run(
+        [PYTHON, "-m", "pip_audit", "--strict", str(REPO_ROOT)], timeout=300
+    )
     if rc == -1 or "No module named" in err or "No module named" in out:
         return CheckResult(
             name="pip-audit",

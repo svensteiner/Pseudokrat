@@ -1664,3 +1664,18 @@ teil-maskiert wird.
 **Test-Coverage:** `tests/test_escaped_placeholder.py` (Match/No-Match,
 Mehrfach-Token) plus Roundtrip-Integrationstest `test_case_8` in
 `tests/test_anonymizer_integration.py`.
+
+
+## D-050 — `pip-audit` auditiert das Projekt, nicht die laufende venv
+
+**Wahl:** Der PRL-Audit-Check ruft `pip-audit --strict <REPO_ROOT>` (Projekt-Pfad) statt `pip-audit --strict` (env-Scan).
+
+**Begründung:**
+- `pseudokrat` selbst ist in der Dev-venv via `pip install -e .` als editable installiert.
+- Ein env-weiter Scan wirft im `--strict`-Modus `distribution marked as editable` als harten Fehler, weil pip-audit für die lokale Editable keinen PyPI-Eintrag findet (D-049 hatte das als bekannten False Positive markiert).
+- `pip-audit <project_path>` baut intern eine isolierte venv aus der `pyproject.toml`, installiert genau die deklarierten Runtime-Deps darin und auditiert diese. Genau das wollen wir prüfen — die Supply-Chain, nicht die Dev-Werkzeuge.
+- Trade-Off: rund 30 s Setup-Zeit für die temporäre venv. Akzeptabel, da der Audit-Lauf ohnehin pytest (~150 s) enthält.
+
+**Alternative verworfen:** `--skip-editable` setzt zwar das editable-Paket aus, lässt aber den Exit-Code in `--strict` trotzdem auf 1 (es wertet das Skip als Collection-Fehler). Damit ergibt sich kein grüner Pfad.
+
+**Folgearbeit:** In CI muss der Audit-Step Netz-Zugriff zur PyPI-Index-API behalten; offline-Pinning via `--locked` lockfile ist optional und wird erst nötig, falls wir den Audit in einer luftleeren Pipeline laufen lassen wollen.

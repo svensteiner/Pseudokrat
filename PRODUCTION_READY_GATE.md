@@ -46,13 +46,17 @@ Beschreibung im Test-Body trifft.
 
 | Boundary | Aktueller Coverage-Status |
 |---|---|
-| S1 — Datei-Eingabe-Vektor | TBD (PRL Run 1) |
-| S2 — CLI/Server-Eingabe-Validierung | TBD |
-| S3 — Speicher-Hygiene Originaltexte | TBD |
-| S4 — Modell-Download | TBD |
-| S5 — Audit-Log-Integrität | TBD |
-| S6 — Simple-Mode/OS-Keyring | TBD |
-| S7 — Windows-Registry-Integration | TBD |
+| S1 — Fuzzy-Merge-Side-Channel | covered (PRL iter-13) |
+| S2 — Audit-Log-Manipulation | covered (PRL iter-13) |
+| S3 — XLSX-Formula-Injection | covered (PRL iter-13) |
+| S4 — Modell-Download | covered (PRL iter-13) |
+| S5 — DP-Permutation | covered (PRL iter-13) |
+| S6 — Simple-Mode / OS-Keyring | covered (PRL iter-13) |
+| S7 — Windows-Registry-Integration | covered (PRL iter-13) |
+
+> Quelle: `tools.audit_run` → `trust-boundary-coverage`. Titel-Liste
+> stammt aus den `S<N> — …`-Überschriften in `SELF_AUDIT.md` und wird
+> bei jeder PRL-Iteration automatisch geprüft.
 
 ## Tier-4 — Offene Folgearbeiten (DECISIONS.md)
 

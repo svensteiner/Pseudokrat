@@ -21,6 +21,38 @@ die Cloud-Nutzung ohne Anonymisierung de facto verbietet.
 
 ---
 
+## Zwei Wege — Installation oder Ordner-Lösung
+
+Pseudokrat ist **ein Produkt mit zwei Betriebsarten**. Beim ersten Start fragt
+`pseudokrat setup` (bzw. ein Doppelklick auf `START.bat`), welchen Weg Sie wollen:
+
+| Weg | Was es macht | Für wen |
+|-----|--------------|---------|
+| **1 · Installation** | Trägt im Explorer ein Rechtsklick-Menü „Mit Pseudokrat anonymisieren" ein. Schreibt **einen** Eintrag in die Registry (`HKCU`, keine Admin-Rechte). | Eigener PC, IT erlaubt Registry-Einträge. |
+| **2 · Ordner-Lösung** | Überwacht Ordner: Datei in `INPUT` ziehen → anonymisiert in `OUTPUT`; KI-Antwort in `ZURUECK_INPUT` → Klartext in `ZURUECK_OUTPUT`. **Kein** Registry-Eingriff, kein Autostart, kein Admin. | Gesperrte/überwachte Firmen-Rechner, auf denen Installationen blockiert sind. |
+
+Beide Wege nutzen dieselbe Engine (gleiche Erkennung, gleiches verschlüsseltes
+Mapping, gleiche reversible Rückübersetzung).
+
+```powershell
+pseudokrat setup            # interaktive Auswahl (Weg 1 oder 2)
+pseudokrat watch            # Weg 2 direkt: Ordner-Lösung im aktuellen Ordner starten
+pseudokrat watch --folder "D:\Anonymisierung"   # eigenen Basis-Ordner angeben
+```
+
+Die Ordner-Lösung verarbeitet TXT/CSV/DOCX/XLSX und **PDF layout-erhaltend**
+(Tabellen, Zahlen, Logos): erkannte PII wird im Original ersetzt, wiederkehrende
+**Logos werden entfernt**, und **Text in Bildern** (als Bild eingebettete
+Tabellen) wird per OCR gefunden und geschwärzt. Eine Datei `Begriffe.txt` im
+Basis-Ordner ergänzt mandanten-spezifische Begriffe (Vorlage:
+[`Begriffe.example.txt`](Begriffe.example.txt)).
+
+Zusatz-Abhängigkeiten der Ordner-Lösung:
+`pip install "pseudokrat[watcher,ocr]"` (PyMuPDF für PDF-Layout, RapidOCR für
+Text in Bildern — reines pip, läuft offline, kein Systemeingriff).
+
+---
+
 ## Was Pseudokrat anders macht
 
 * **Lokal-only.** Der Klartext verlässt Ihre Maschine nicht. Kein Telemetry,

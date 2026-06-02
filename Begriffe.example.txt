@@ -1,0 +1,20 @@
+# Eigene Begriffe, die IMMER anonymisiert werden sollen
+# -----------------------------------------------------
+# Vorlage. Fuer die Ordner-Schiene als "Begriffe.txt" in den Basis-Ordner legen.
+#
+# Trage hier mandanten-spezifische Namen/Marken ein, die der automatische
+# Erkenner nicht von allein findet (Marken, Kurzformen, Orte, Projektnamen,
+# Personennamen ohne Firmenbezug).
+#
+# - Ein Begriff pro Zeile.
+# - Gross-/Kleinschreibung egal.
+# - Zeilen, die mit # beginnen, werden ignoriert.
+# - Jeder Begriff wird ueberall im Text UND in PDFs (auch in Bildern, per OCR)
+#   durch <BEGRIFF_xxx> ersetzt.
+#
+# Aenderungen wirken beim naechsten Start der Ordner-Schiene.
+
+# Beispiele (anpassen/loeschen):
+# Muster & Partner
+# MusterMarke
+# Projekt Aurora

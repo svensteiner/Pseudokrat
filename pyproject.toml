@@ -58,6 +58,15 @@ gui = [
 clipboard = [
   "pyperclip>=1.9.0",
 ]
+watcher = [
+  # Ordner-Schiene: layout-erhaltende PDF-Redaction (Logos, Tabellen, Zahlen).
+  "pymupdf>=1.24.0",
+]
+ocr = [
+  # Text in Bildern (als Bild eingebettete Tabellen) erkennen und schwaerzen.
+  # Reines pip, laeuft offline, kein Systemeingriff (kein Tesseract noetig).
+  "rapidocr-onnxruntime>=1.3.0",
+]
 hotkeys = [
   "pyperclip>=1.9.0",
   "keyboard>=0.13.5; platform_system == 'Windows'",

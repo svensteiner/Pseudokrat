@@ -320,6 +320,51 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Ohne Rückfrage ausführen.",
     )
 
+    # watch — installationsfreie Ordner-Schiene
+    p_watch = sub.add_parser(
+        "watch",
+        help=(
+            "Ordner-Schiene ohne Installation: überwacht INPUT/ZURUECK_INPUT in "
+            "einem Ordner und anonymisiert bzw. übersetzt Dateien automatisch zurück."
+        ),
+    )
+    p_watch.add_argument(
+        "--folder",
+        type=Path,
+        default=None,
+        help="Basis-Ordner (Standard: aktuelles Verzeichnis). Unterordner werden angelegt.",
+    )
+    p_watch.add_argument(
+        "--profile",
+        default="Standard",
+        help="Profil-Name (Simple-Mode, wird bei Bedarf angelegt). Standard: 'Standard'.",
+    )
+    p_watch.add_argument(
+        "--no-logos",
+        action="store_true",
+        help="Logos (wiederkehrende Bilder) in PDFs NICHT entfernen.",
+    )
+    p_watch.add_argument(
+        "--no-ocr",
+        action="store_true",
+        help="Text in Bildern NICHT per OCR prüfen/schwärzen.",
+    )
+
+    # setup — Erstkonfiguration: Weg auswählen (Installation vs. Ordner)
+    p_setup = sub.add_parser(
+        "setup",
+        help=(
+            "Erstkonfiguration: fragt, ob die Installations-Schiene (Rechtsklick-"
+            "Menü) oder die Ordner-Schiene (ohne Installation) eingerichtet wird."
+        ),
+    )
+    p_setup.add_argument(
+        "--folder",
+        type=Path,
+        default=None,
+        help="Basis-Ordner für die Ordner-Schiene (Standard: aktuelles Verzeichnis).",
+    )
+
     # doctor — Selbst-Diagnose (Iter-8)
     p_doctor = sub.add_parser(
         "doctor",
@@ -1221,6 +1266,72 @@ def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
     return 0
 
 
+def _cmd_watch(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """Startet die installationsfreie Ordner-Schiene."""
+    from pseudokrat import watcher
+
+    base = args.folder if getattr(args, "folder", None) is not None else Path.cwd()
+    try:
+        return watcher.run(
+            base,
+            profile=args.profile,
+            remove_logos=not args.no_logos,
+            ocr_images=not args.no_ocr,
+        )
+    except KeyboardInterrupt:
+        print("\nBeendet.")
+        return 0
+
+
+def _cmd_setup(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """Erstkonfiguration: lässt den Nutzer zwischen den zwei Schienen wählen."""
+    base = args.folder if getattr(args, "folder", None) is not None else Path.cwd()
+    print()
+    print("=" * 64)
+    print("  Pseudokrat — Einrichtung")
+    print("=" * 64)
+    print()
+    print("Pseudokrat anonymisiert Ihre Dokumente lokal, BEVOR Sie sie an eine")
+    print("Cloud-KI (ChatGPT, Claude, Gemini) geben. Es gibt zwei Wege:")
+    print()
+    print("  [1] Installation (Rechtsklick-Menü im Explorer)")
+    print("      → Bequem: Datei rechtsklicken → 'Mit Pseudokrat anonymisieren'.")
+    print("      → Schreibt EINEN Eintrag in die Windows-Registry (nur Ihr")
+    print("        Benutzerkonto, keine Admin-Rechte). Manche Firmen-IT blockiert das.")
+    print()
+    print("  [2] Ordner-Lösung (OHNE Installation)")
+    print("      → Datei in einen INPUT-Ordner ziehen → anonymisiert in OUTPUT.")
+    print("      → KEIN Registry-Eingriff, kein Autostart, kein Admin. Ideal für")
+    print("        gesperrte/überwachte Rechner. Läuft, solange das Fenster offen ist.")
+    print()
+    print("  [3] Abbrechen")
+    print()
+    try:
+        choice = input("Welchen Weg möchten Sie einrichten? [1/2/3]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nAbgebrochen.")
+        return 0
+
+    if choice == "1":
+        print("\n→ Richte die Installations-Schiene ein ...\n")
+        install_args = argparse.Namespace(
+            profile=None, no_profile=False, no_hotkeys=True,
+            with_hotkeys=False, status=False,
+        )
+        return _cmd_install(install_args, manager)
+    if choice == "2":
+        print(f"\n→ Starte die Ordner-Lösung in: {base}\n")
+        from pseudokrat import watcher
+
+        try:
+            return watcher.run(base, profile="Standard")
+        except KeyboardInterrupt:
+            print("\nBeendet.")
+            return 0
+    print("Abgebrochen.")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -1250,6 +1361,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_install(args, manager)
     if args.command == "uninstall":
         return _cmd_uninstall(args, manager)
+    if args.command == "watch":
+        return _cmd_watch(args, manager)
+    if args.command == "setup":
+        return _cmd_setup(args, manager)
     if args.command == "doctor":
         return _cmd_doctor(args, manager)
     parser.error(f"Unbekannter Befehl: {args.command}")

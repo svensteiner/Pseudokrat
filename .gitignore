@@ -55,6 +55,15 @@ profiles/
 audit_logs/
 models_cache/
 
+# Ordner-Schiene (watch) — Laufzeit-Ordner + Mandantendaten, NIE committen
+INPUT/
+OUTPUT/
+ZURUECK_INPUT/
+ZURUECK_OUTPUT/
+Verarbeitet/
+Fehler/
+Begriffe.txt
+
 # Local config
 .env
 .env.local

@@ -20,6 +20,7 @@ from pseudokrat.recognizers.escaped_placeholder import EscapedPlaceholderRecogni
 from pseudokrat.recognizers.iban import IBANDachRecognizer
 from pseudokrat.recognizers.mandanten_nr import MandantenNummerRecognizer
 from pseudokrat.recognizers.person import PersonRecognizer
+from pseudokrat.recognizers.person_name import GazetteerNameRecognizer
 from pseudokrat.recognizers.phone import PhoneRecognizer
 from pseudokrat.recognizers.secret import SecretRecognizer
 from pseudokrat.recognizers.url import UrlRecognizer
@@ -46,6 +47,7 @@ def default_recognizers() -> list[Recognizer]:
         CompanyLegalFormRecognizer(),
         BirthDateRecognizer(),
         PersonRecognizer(),
+        GazetteerNameRecognizer(),
         AddressRecognizer(),
     ]
 

@@ -82,33 +82,55 @@ FIRST_NAMES: frozenset[str] = frozenset(
     }
 )
 
-#: Nachname-Token: Gross-Anfang (inkl. Umlaute), Bindestriche erlaubt.
-_SURNAME = r"[A-ZÄÖÜ][a-zäöüß']+(?:-[A-ZÄÖÜ][a-zäöüß']+)*"
-#: Vorname-Token (wird gegen FIRST_NAMES geprueft).
-_FIRST = r"[A-ZÄÖÜ][a-zäöüß']+"
+#: Ein Gross-geschriebenes Token (Wort), inkl. Umlaute, mit Bindestrich-Teilen.
+_TOKEN_RE = re.compile(r"[A-ZÄÖÜ][a-zäöüß']+(?:-[A-ZÄÖÜ][a-zäöüß']+)*")
 
-#: Vorname + 1-2 weitere Gross-Tokens (Zweitname/Nachname).
-_FULLNAME_RE = re.compile(rf"\b(?P<first>{_FIRST})(?P<rest>(?:[ \t]+{_SURNAME}){{1,2}})\b")
+#: Max. Anzahl Nachnamen-Token nach dem Vornamen (Zweitname + Nachname).
+_MAX_SURNAME_TOKENS = 2
 
 
 class GazetteerNameRecognizer:
-    """Erkennt ``Vorname Nachname`` anhand einer Vornamen-Liste (ML-frei)."""
+    """Erkennt ``Vorname Nachname`` anhand einer Vornamen-Liste (ML-frei).
+
+    Token-basiert (nicht eine grosse Regex), damit ein vorangestelltes,
+    gross geschriebenes Wort (z. B. ``Ansprechpartner``) den nachfolgenden
+    Namen nicht "verschluckt".
+    """
 
     name = "person_gazetteer"
     category = "PERSON"
 
     def analyze(self, text: str) -> list[Span]:
+        tokens = [(m.group(0), m.start(), m.end()) for m in _TOKEN_RE.finditer(text)]
         spans: list[Span] = []
-        for match in _FULLNAME_RE.finditer(text):
-            if match.group("first").lower() not in FIRST_NAMES:
+        consumed_until = -1
+        for idx, (tok, start, end) in enumerate(tokens):
+            if start < consumed_until:
+                continue  # bereits Teil eines vorherigen Namens
+            if tok.lower() not in FIRST_NAMES:
                 continue
-            spans.append(
-                Span(
-                    start=match.start(),
-                    end=match.end(),
-                    category=self.category,
-                    text=match.group(0),
-                    score=0.6,
+            # Folge-Tokens (Nachname) sammeln, solange sie auf derselben Zeile
+            # direkt (nur durch Leerzeichen/Tab getrennt) anschliessen.
+            name_end = end
+            surname_count = 0
+            j = idx + 1
+            while j < len(tokens) and surname_count < _MAX_SURNAME_TOKENS:
+                _ntok, nstart, nend = tokens[j]
+                gap = text[name_end:nstart]
+                if gap.strip(" \t") != "":  # Zeilenumbruch/anderes Zeichen -> Ende
+                    break
+                name_end = nend
+                surname_count += 1
+                j += 1
+            if surname_count >= 1:  # mindestens Vorname + Nachname
+                spans.append(
+                    Span(
+                        start=start,
+                        end=name_end,
+                        category=self.category,
+                        text=text[start:name_end],
+                        score=0.6,
+                    )
                 )
-            )
+                consumed_until = name_end
         return spans

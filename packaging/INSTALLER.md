@@ -28,8 +28,17 @@ pwsh -File packaging\build_windows.ps1
 ```
 
 Ergebnis:
-* `dist\Pseudokrat\Pseudokrat.exe` — ungesignierter onedir-Build
+* `dist\Pseudokrat\Pseudokrat.exe` — Konsolen-CLI (Einstieg für Kunden ohne
+  Python): `Pseudokrat.exe setup` fragt Installation vs. Ordner-Lösung,
+  `Pseudokrat.exe watch` startet die Ordner-Lösung.
+* `dist\Pseudokrat\Pseudokrat-GUI.exe` — das PySide6-Hauptfenster.
 * `dist\installer\PseudokratSetup-0.1.0.exe` — ungesignierter Installer
+
+> Der Build bündelt auch die Ordner-Schiene inkl. **PyMuPDF** (PDF-Layout)
+> und **RapidOCR** (Text in Bildern). RapidOCR bringt ONNX-Modelle mit; falls
+> die EXE beim ersten PDF einen OCR-Importfehler zeigt, im Spec die
+> `collect_all`-Liste prüfen (`rapidocr_onnxruntime`, `onnxruntime`, `cv2`).
+> ML (torch/transformers) wird bewusst NICHT gebündelt.
 
 > Ungesignierte Installer werden von Windows SmartScreen blockiert. Für
 > Endnutzer-Distribution ist Signing **zwingend**.

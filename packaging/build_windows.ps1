@@ -45,11 +45,12 @@ foreach ($dir in @('build', 'dist')) {
     }
 }
 
-# 2. Bauwerkzeuge
-Write-Host "==> Installiere pyinstaller (in aktuellem venv)" -ForegroundColor Cyan
+# 2. Bauwerkzeuge + Laufzeit-Abhaengigkeiten (inkl. Ordner-Schiene + OCR)
+Write-Host "==> Installiere Abhaengigkeiten + pyinstaller (in aktuellem venv)" -ForegroundColor Cyan
 python -m pip install --upgrade pip pyinstaller | Out-Null
+python -m pip install -e ".[gui,simple-mode,clipboard,watcher,ocr]" | Out-Null
 
-# 3. PyInstaller
+# 3. PyInstaller (baut Pseudokrat.exe = CLI/Ordner UND Pseudokrat-GUI.exe)
 Write-Host "==> PyInstaller-Bundle" -ForegroundColor Cyan
 python -m PyInstaller packaging\pseudokrat.spec --noconfirm --clean
 if ($LASTEXITCODE -ne 0) {
@@ -60,6 +61,18 @@ if (-not (Test-Path $exePath)) {
     throw "Erwartete EXE nicht gefunden: $exePath"
 }
 Write-Host "    OK: $exePath" -ForegroundColor Green
+$guiPath = Join-Path $RepoRoot 'dist\Pseudokrat\Pseudokrat-GUI.exe'
+if (Test-Path $guiPath) {
+    Write-Host "    OK: $guiPath" -ForegroundColor Green
+}
+else {
+    Write-Warning "GUI-EXE nicht gefunden ($guiPath) — nur die CLI wurde gebaut."
+}
+Write-Host "    Test: '$exePath' --version" -ForegroundColor DarkGray
+& $exePath --version
+if ($LASTEXITCODE -ne 0) {
+    throw "Smoke-Test der EXE fehlgeschlagen (Exit $LASTEXITCODE)."
+}
 
 # 4. Inno Setup
 if (-not (Test-Path $InnoSetupPath)) {

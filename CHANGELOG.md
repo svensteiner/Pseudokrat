@@ -7,6 +7,20 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert (2026-06-03, PRL Iter-14)
+- **Tier-4-Closure: Folgearbeiten in `DECISIONS.md` geklärt.** Alle
+  sechs offenen `**Folgearbeit:**`-Blöcke (D-039, D-040, D-041, D-042,
+  D-047, D-050) wurden gemäß `PRODUCTION_READY_GATE.md` Tier-4 in
+  Erledigt-Notizen (für inzwischen umgesetzte Punkte) oder in
+  `**Vertagt nach 6.x — …:**`-Blöcke mit explizit benanntem
+  Reaktivierungs-Trigger überführt. Erledigt vermerkt: D-039 Phase B/C,
+  D-042 Gap-Select-Tool/ML-Eval-Flag/CI-Audit. Vertagt mit Trigger:
+  Bestandsnutzer-Migration (D-039), Signed-Release & macOS-Pfad
+  (D-040, D-041), binäre Eval-Fixtures (D-042, D-047), PRL-Chain in CI
+  (D-047), Air-gapped CI (D-050). Damit ist die letzte Tier-Lücke
+  gegen das Production-Ready-Gate geschlossen — alle vier Tiers
+  signalisieren `pass`.
+
 ### Hinzugefügt (2026-05-31, PRL Iter-9)
 - **`tools/gap_select.py` — PRL Gap-Phase automatisiert.** Liest
   `eval_report.json` (von `tests.eval.runner`) und optional

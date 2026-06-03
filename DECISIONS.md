@@ -896,12 +896,17 @@ werden, sobald Phase B/C landet).
 (Determinismus, Profilisolation, Tampering, Marker-Write-Order,
 Auto-Detect-Pfad, Cross-Mode-Rejection).
 
-**Folgearbeit (nicht in D-039):**
+**Erledigt:**
 
-- Phase B: `pseudokrat install`-Befehl, der ein Default-Profil im
-  Simple-Mode anlegt + Explorer-Context-Menu + Hotkey-Autostart.
-- Phase C: GUI versteckt Profil-Selector im Simple-Mode-Default;
-  Tray-First-Workflow ohne Hauptfenster.
+- Phase B (`pseudokrat install`): geliefert in D-040.
+- Phase C (GUI versteckt Profil-Selector + Tray-Workflow): geliefert in D-041.
+
+**Vertagt nach 6.x — Bestandsnutzer-Migration:** Trigger ist der erste
+reale Wunsch eines Nutzers, sein bestehendes Passwort-Profil auf den
+Simple-Mode (OS-Keyring) zu migrieren. Aktuell ist Simple-Mode der
+Default für Neuanlagen — die Migration ist ein UX-Feature, keine
+Korrektheits-Anforderung, und wartet auf einen konkreten Pilotnutzer.
+
 - Migration: `pseudokrat profiles migrate --to=simple --profile X` mit
   Passwort-Prompt + Re-Encryption-Pfad.
 
@@ -990,7 +995,12 @@ allen Permutationen (`create_profile` × `with_hotkeys`),
 - `WinRegistryBackend` schreibt nur in HKCU — kein Privilege-
   Escalation-Vektor.
 
-**Folgearbeit:**
+**Vertagt nach 6.x — Signed-Release-Vorbereitung:** Trigger ist die
+Vorbereitung des ersten signierten Builds (Phase-6 Distribution gemäß
+Megaprompt §11). Vor dieser Schwelle bleibt die Dev-CLI/Dev-GUI
+funktionsfähig ohne macOS-Pfad und ohne Icon-Asset; der HKCU-Eintrag
+auf Windows trägt aktuell leeres `Icon`-Feld (siehe D-040 Bewusste
+Trade-offs).
 
 - macOS-Install-Pfad: FinderSync-Extension oder Services-Plist.
 - Icon-Asset für Context-Menu + Tray (.ico unter `packaging/icons/`).
@@ -1204,16 +1214,23 @@ trust-boundary-coverage). 7 Trust-Boundaries (S1-S7) — alle covered.
   präzise genug für die 7 Boundaries und braucht keine Pflege bei
   Refactorings.
 
-**Folgearbeit (Phase D-3):**
+**Erledigt:**
 
-- ML-Eval-Lauf gegen die existierenden Fixtures, sobald Modell
-  gecached (real-world Recall-Messung für PERSON/ADDRESS/DATE).
-- DOCX/XLSX/PDF-Fixture-Builder (binäre Formate).
-- Gap-Select-Tool (`tools/gap_select.py`): liest eval+audit-Reports,
-  vergleicht gegen `PRODUCTION_READY_GATE.md`, schreibt einen
-  priorisierten `next_gap.md`.
-- CI-Workflow (`.github/workflows/audit.yml`), der `audit_run` bei
-  jedem Push laufen lässt.
+- Gap-Select-Tool (`tools/gap_select.py`): geliefert in D-047.
+- ML-Eval-Flag (`tests.eval.runner --with-ml`): in eval-iter-3 ergänzt
+  (siehe Commit `ba60888`). Ein realer ML-Lauf gegen Fixtures wird im
+  `recognizers-only`-Gate aktuell nicht eingefordert (alle Tier-1-
+  Kategorien werden regelbasiert erfüllt, siehe D-046).
+- Audit-CI: `.github/workflows/ci.yml` führt Ruff, Mypy, Pytest,
+  Bandit und pip-audit bei jedem Push aus (deckt Tier-2 ab).
+
+**Vertagt nach 6.x — Binäre Fixtures:** Trigger ist ein Bugreport oder
+Pilot-Feedback, das eine PII-Erkennung im DOCX/XLSX/PDF-Eingabepfad
+isoliert reproduzierbar macht. Aktuell reichen Plain-Text-Fixtures, um
+Tier-1 zu erfüllen; die XLSX-Pipeline aus Phase 4 hat eigenständige
+Pytest-Coverage.
+
+- DOCX/XLSX/PDF-Fixture-Builder für `tests/eval/fixtures/`.
 
 
 ## D-041 — GUI Simple-Mode: Profil-Chrome ausblenden, Auto-Open, Close-to-Tray
@@ -1277,16 +1294,22 @@ state, force-full-mode-override, auto-open-session, close-to-tray,
 close-quits-in-full-mode), Controller-API (open_simple_profile
 activates session, rejects empty name).
 
-**Folgearbeit:**
+**Vertagt nach 6.x — Signed-Release & Power-User-Feedback:** Trigger
+sind entweder (a) der Build-Schritt des ersten signierten PyInstaller-
+Pakets, das echte `.ico`-Assets benötigt, oder (b) konkretes
+Pilot-Feedback, das das Erweitert-Menü oder das ausgebaute Tray-Menü
+als Blocker nennt. Die aktuelle Tray-Basis aus Phase-2 deckt
+Auto-Open + Close-to-Tray bereits ab; die fehlenden Menü-Punkte sind
+Convenience, kein Korrektheits-Pfad.
 
-- **Tray-Menü ausbauen:** Aktuell hat das Tray-Icon nur die Basis-
-  Funktionen aus Phase-2. Phase D sollte hinzufügen: „Hauptfenster
-  zeigen", „Zwischenablage anonymisieren", „Zwischenablage deanonymisieren",
-  „Beenden" (echtes Quit statt nur Hide).
+- **Tray-Menü ausbauen:** „Hauptfenster zeigen", „Zwischenablage
+  anonymisieren", „Zwischenablage deanonymisieren", „Beenden"
+  (echtes Quit statt nur Hide).
 - **„Erweitert"-Menüpunkt** in der Menüleiste, der `force_full_mode=True`
   einschaltet (Power-User-Übergang ohne CLI).
 - **Icon-Assets:** PyInstaller-Build mit echtem `.ico` für Window-Icon,
-  Tray-Icon und Context-Menu-Icon (`Icon`-REG_SZ-Feld in D-040).
+  Tray-Icon und Context-Menu-Icon (`Icon`-REG_SZ-Feld in D-040;
+  Trigger geteilt mit D-040-Vertagung).
 
 
 ## D-043 — Kontext-basierter Geburtsdatum-Recognizer (PRL Iter-5)
@@ -1557,11 +1580,17 @@ Limit, Audit-Check-Fail, Trust-Boundary-Missing-Liste, Rendering
 (leer/single/multi), CLI-Roundtrip mit JSON-File-Input + Output-
 Datei.
 
-**Folgearbeit:**
+**Vertagt nach 6.x — PRL-Chain in CI:** Trigger ist ein PR, der das
+PRL-Gate vor Merge automatisch im CI prüfen soll (PR-Reviewer will
+`next_gap.md` als Artefakt sehen). Aktuell wird der Loop lokal
+gefahren, die Tier-2-Checks laufen bereits via `ci.yml`; die
+PRL-Verkettung (`runner` → `audit_run` → `gap_select`) ist nur die
+Orchestrierung obendrauf. Binär-Fixture-Trigger geteilt mit
+D-042-Vertagung.
 
-- CI-Workflow (`.github/workflows/prl.yml`), der `runner` → `audit`
+- CI-Workflow (`.github/workflows/prl.yml`), der `runner` → `audit_run`
   → `gap_select` verkettet und das resultierende `next_gap.md` als
-  Job-Artefakt ablegt. Damit ist der Loop GitHub-Actions-fähig.
+  Job-Artefakt ablegt.
 - DOCX/XLSX/PDF-Fixture-Builder für binäre Formate (verbleibend
   aus D-042).
 
@@ -1678,4 +1707,10 @@ Mehrfach-Token) plus Roundtrip-Integrationstest `test_case_8` in
 
 **Alternative verworfen:** `--skip-editable` setzt zwar das editable-Paket aus, lässt aber den Exit-Code in `--strict` trotzdem auf 1 (es wertet das Skip als Collection-Fehler). Damit ergibt sich kein grüner Pfad.
 
-**Folgearbeit:** In CI muss der Audit-Step Netz-Zugriff zur PyPI-Index-API behalten; offline-Pinning via `--locked` lockfile ist optional und wird erst nötig, falls wir den Audit in einer luftleeren Pipeline laufen lassen wollen.
+**Vertagt nach 6.x — Air-gapped CI:** Trigger ist die Anforderung,
+den Audit-Lauf in einer luftleeren Pipeline ohne PyPI-Index-Zugriff
+zu fahren (z. B. Kanzlei-On-Premise-CI). Aktuelle CI
+(`.github/workflows/ci.yml`) hat Netzzugang.
+
+- Offline-Pinning via `--locked` lockfile, sobald CI keinen PyPI-
+  Zugriff mehr haben darf.

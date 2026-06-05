@@ -1714,3 +1714,77 @@ zu fahren (z. B. Kanzlei-On-Premise-CI). Aktuelle CI
 
 - Offline-Pinning via `--locked` lockfile, sobald CI keinen PyPI-
   Zugriff mehr haben darf.
+
+
+## D-051 — Doctor-Sandbox, Profile-Health & Profile-Remove (PRL Iter-14)
+
+**Kontext:** Pilot-Tester-Feedback hat drei verbundene Lücken im
+Pre-Iter-14-Setup gezeigt:
+
+1. Der Doctor-Smoke-Test (`check_anonymize_roundtrip`) legte ein Profil
+   `_doctor_smoke.sqlite` direkt im echten `profiles_dir` an, hielt das
+   Keyring-Secret aber nur im RAM. Nach App-Neustart blieb die DB liegen,
+   das Secret war weg — Folge-Doctor-Runs scheiterten beim Entschlüsseln,
+   und `profiles list` zeigte ein gespenstisches Profil ohne Besitzer.
+2. Backup-Restore eines Profils auf einem neuen Windows-Konto verlor den
+   OS-Keyring-Eintrag — das Profil war unbenutzbar, ohne dass der Nutzer
+   wusste, warum. Doctor sagte „Profile: OK" obwohl nichts ging.
+3. Ein einmal angelegtes Profil ließ sich nicht sauber wegräumen: DB,
+   Salt-Sidecar, Keyring-Marker und der OS-Keyring-Eintrag blieben
+   alle erhalten, weil das CLI keinen Remove-Pfad hatte.
+
+**Wahl:**
+
+* **Echte TempDir-Sandbox für `check_anonymize_roundtrip`** — eigener
+  `ProfileManager` auf `tempfile.TemporaryDirectory`. Smoke-Profil heißt
+  schlicht `smoke`, kein Underscore-Prefix nötig, weil der Sandbox-Pfad
+  beim finally-Cleanup mit allen Artefakten verschwindet.
+* **`_purge_legacy_sandbox_artifacts`** als einmalige Migration, die
+  Bestandsleichen (`_doctor_smoke.sqlite`, `doctor_smoke.sqlite` + Salt
+  + Marker) aus echten `profiles_dir`-Installationen entfernt. Greift
+  zu Beginn von `run_doctor`, damit `check_profiles` keine Leichen mehr
+  als User-Profile sieht.
+* **`RESERVED_PROFILE_SLUG_PREFIX = "_"`** in `ProfileManager.list_profiles`
+  als zweite Verteidigungslinie: Profile mit Slug-Prefix `_` werden im
+  CLI/GUI ausgeblendet (Override via `include_reserved=True` für
+  Cleanup-Tools). Verhindert künftige Sandbox-Leck-Klassen, falls neue
+  interne Smoke-Tests doch wieder im Echt-Dir landen sollten.
+* **Neuer Doctor-Check `check_profile_health`** öffnet jedes Simple-Mode-
+  Profil über den echten OS-Keyring und meldet WARN (nicht FAIL) mit
+  Namen und konkretem Fix-Befehl, wenn der Roundtrip scheitert. Passwort-
+  Profile werden als „nicht offline prüfbar" gezählt, nicht als kaputt
+  markiert — wir können das User-Passwort nicht erfragen.
+* **Neues CLI-Subkommando `pseudokrat profiles remove <name>`** mit
+  interaktiver Bestätigung (überspringbar via `--force`). Löscht
+  best-effort DB, Salt-Sidecar, Keyring-Marker und den OS-Keyring-
+  Eintrag in einem Aufruf. Berichtet am Ende, welche Artefakte
+  tatsächlich entfernt wurden.
+* **`InstallResult.profile_error`** trennt „Profil-Anlage angefragt und
+  gescheitert" von „Profil existierte schon" — das CLI rendert das jetzt
+  mit ✗ statt einer schwachen ℹ-Note ganz unten und setzt den Exit-Code
+  auf ungleich 0, damit Skripte die Fehlerursache erkennen.
+
+**Begründung:**
+- Doctor muss idempotent sein. Wenn er Artefakte hinterlässt, die er beim
+  nächsten Lauf nicht mehr öffnen kann, ist er das Problem, das er
+  diagnostizieren sollte.
+- Pilot-Tester-Mantra „eine klare Anlaufstelle, ein konkreter nächster
+  Schritt": jeder neue WARN nennt den genauen Befehl (`pseudokrat
+  profiles remove`), den der Nutzer braucht.
+- Best-Effort-Remove statt Transaktion: ein fehlender Sidecar (Halb-
+  Migration aus Pre-Iter-14) darf den Rest der Löschung nicht blockieren.
+
+**Test-Coverage:**
+- `tests/test_doctor.py`: Sandbox-Roundtrip in TempDir, Leak-Test (kein
+  Residuum im echten `profiles_dir`), Migration alter Sandbox-Stems,
+  Profile-Health für gesund/kaputt/leer/Passwort-Modus.
+- `tests/test_cli.py`: `profiles remove` mit/ohne `--force`, mit
+  fehlendem Profil, mit fehlenden Sidecars, Keyring-Eintrag-Cleanup.
+- `tests/test_install.py`: `profile_error` propagiert korrekt,
+  `has_critical_failure` triggert, Exit-Code ungleich 0.
+
+**Alternative verworfen:** Sandbox-Profil weiterhin im echten
+`profiles_dir` belassen und nur die `_*`-Filterung in `list_profiles`
+einbauen würde das User-sichtbare Symptom beheben, aber Folge-Doctor-
+Runs würden weiter an der nicht-entschlüsselbaren DB scheitern. Echte
+TempDir-Trennung ist die einzig saubere Lösung.

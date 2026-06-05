@@ -182,6 +182,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Mandantenprofil (Standard: default).",
     )
 
+    p_remove = p_prof_sub.add_parser(
+        "remove",
+        help=(
+            "Profil komplett löschen: DB, Salt-Sidecar, Keyring-Marker und "
+            "den OS-Keyring-Eintrag (im Simple-Mode). Ohne --force wird "
+            "interaktiv bestätigt."
+        ),
+    )
+    p_remove.add_argument(
+        "name",
+        help="Name des zu löschenden Profils.",
+    )
+    p_remove.add_argument(
+        "--force",
+        action="store_true",
+        help="Bestätigung überspringen (für Skripte).",
+    )
+
     # server
     p_srv = sub.add_parser(
         "server",
@@ -719,8 +737,105 @@ def _cmd_profiles(args: argparse.Namespace, manager: ProfileManager) -> int:
         return _cmd_profile_show_pattern(args, manager)
     if sub == "set-mandanten-pattern":
         return _cmd_profile_set_pattern(args, manager)
+    if sub == "remove":
+        return _cmd_profile_remove(args, manager)
     print(f"Fehler: Unbekanntes profiles-Subkommando '{sub}'", file=sys.stderr)
     return 1
+
+
+def _cmd_profile_remove(args: argparse.Namespace, manager: ProfileManager) -> int:
+    """Löscht ein Profil komplett: DB + Salt + Keyring-Marker + OS-Keyring-Eintrag.
+
+    Designentscheidungen:
+
+    * **Confirm-Prompt by default**: Verlust unwiederbringlich, also
+      lieber doppelt nachfragen. ``--force`` für CI/Skripte.
+    * **Best-Effort-Löschung**: jeder Schritt wird einzeln gewrappt, ein
+      fehlender Sidecar (z. B. eine Halb-Migration) blockiert nicht den
+      Rest. Am Ende wird gemeldet, welche Artefakte tatsächlich entfernt
+      wurden.
+    * **OS-Keyring-Eintrag wird mit-gelöscht**, wenn das Profil im Simple-
+      Mode angelegt war (Marker existiert) — sonst hinterlassen wir einen
+      Zombie-Eintrag im Credential Manager.
+    """
+    from pseudokrat.store.key_protector import (
+        KEYRING_SERVICE,
+        SystemKeyringBackend,
+    )
+    from pseudokrat.store.secure_db import profile_uses_keyring
+
+    try:
+        path = manager.profile_path(args.name)
+    except ValueError as exc:
+        print(f"Fehler: {exc}", file=sys.stderr)
+        return 11
+    if not path.exists():
+        print(f"Fehler: Profil '{args.name}' existiert nicht.", file=sys.stderr)
+        return 13
+
+    is_simple = profile_uses_keyring(path)
+    salt_path = path.with_suffix(path.suffix + ".salt")
+    marker_path = path.with_suffix(path.suffix + ".keyring")
+
+    if not args.force:
+        artefacts = [path]
+        if salt_path.exists():
+            artefacts.append(salt_path)
+        if marker_path.exists():
+            artefacts.append(marker_path)
+        artefact_list = "\n  ".join(str(p) for p in artefacts)
+        keyring_hint = (
+            f"\n  + OS-Keyring-Eintrag ({KEYRING_SERVICE}/{args.name})"
+            if is_simple
+            else ""
+        )
+        print(
+            f"Folgendes wird unwiederbringlich gelöscht:\n  {artefact_list}"
+            f"{keyring_hint}\n"
+            "Bestätigen mit 'ja' (oder --force zum Überspringen):"
+        )
+        try:
+            confirmation = input("> ").strip().lower()
+        except EOFError:
+            print("Abgebrochen (keine Eingabe möglich).", file=sys.stderr)
+            return 14
+        if confirmation not in ("ja", "j", "yes", "y"):
+            print("Abgebrochen.")
+            return 0
+
+    removed: list[str] = []
+    failures: list[str] = []
+    for target in (path, salt_path, marker_path):
+        if not target.exists():
+            continue
+        try:
+            target.unlink()
+            removed.append(target.name)
+        except OSError as exc:
+            failures.append(f"{target.name}: {exc}")
+
+    if is_simple:
+        try:
+            SystemKeyringBackend().delete(KEYRING_SERVICE, args.name)
+            removed.append(f"OS-Keyring-Eintrag ({args.name})")
+        except RuntimeError:
+            # ``keyring``-Lib nicht installiert → es gibt sowieso keinen
+            # OS-Keyring-Eintrag zu löschen. Kein Fehler.
+            pass
+        except Exception as exc:  # noqa: BLE001 — best-effort Cleanup
+            failures.append(f"OS-Keyring-Eintrag: {exc}")
+
+    if removed:
+        print(f"Gelöscht: {', '.join(removed)}.")
+    if failures:
+        print(
+            "Warnung: einige Artefakte konnten nicht entfernt werden:",
+            file=sys.stderr,
+        )
+        for fail in failures:
+            print(f"  {fail}", file=sys.stderr)
+        return 15
+    return 0
 
 
 def _cmd_profile_show_pattern(args: argparse.Namespace, manager: ProfileManager) -> int:
@@ -1192,6 +1307,16 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
     if create_profile:
         if result.profile_created:
             print(f"  ✓ Default-Profil '{result.profile_name}' angelegt (Simple-Mode)")
+        elif result.profile_error is not None:
+            # Inline-Fail: das Profil wurde explizit angefragt und konnte
+            # nicht angelegt werden. Nicht als sanftes „—" tarnen, sondern
+            # als ✗ neben dem Grund — sonst denkt der Pilot-Tester, alles
+            # ist OK und stolpert beim ersten ``anonymize``-Aufruf.
+            print(
+                f"  ✗ Default-Profil '{result.profile_name}' KONNTE NICHT angelegt "
+                f"werden: {result.profile_error}",
+                file=sys.stderr,
+            )
         else:
             print(f"  — Default-Profil '{result.profile_name}' nicht neu angelegt")
     else:
@@ -1209,6 +1334,21 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
     for note in result.notes:
         print(f"  ℹ {note}")
     print()
+    if result.has_critical_failure:
+        # Konkreter Rat statt nur „happy path"-Liste — sonst weiß der User
+        # nicht, was als nächstes hilft.
+        print("Behebung:")
+        print(
+            "  • Simple-Mode-Bibliothek installieren:\n"
+            "        pip install pseudokrat[simple-mode]\n"
+            "    danach 'pseudokrat install' erneut ausführen."
+        )
+        print(
+            "  • ODER ohne Default-Profil installieren und manuell anlegen:\n"
+            "        pseudokrat install --no-profile\n"
+            f"        pseudokrat init --simple --profile \"{profile_name}\""
+        )
+        return 16
     print("Nächste Schritte:")
     if with_hotkeys:
         print("  • Strg+Shift+A → Zwischenablage anonymisieren")

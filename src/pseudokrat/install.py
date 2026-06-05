@@ -265,6 +265,17 @@ class InstallResult:
     profile_created: bool
     profile_name: str
     notes: tuple[str, ...] = ()
+    #: Wenn das Default-Profil **angefragt** war (``create_profile=True``),
+    #: aber die Anlage scheiterte, steht hier der Grund. Sonst ``None``.
+    #: Inline-Failure-Signal — die CLI rendert das mit ✗ statt mit einer
+    #: schwachen ℹ-Note ganz unten und setzt den Exit-Code auf ungleich 0.
+    profile_error: str | None = None
+
+    @property
+    def has_critical_failure(self) -> bool:
+        """``True``, wenn ein vom Nutzer explizit angefragter Schritt
+        scheiterte (aktuell: Profil-Anlage). Treibt den CLI-Exit-Code."""
+        return self.profile_error is not None
 
 
 def _context_menu_subkey(ext: str) -> str:
@@ -405,6 +416,7 @@ def perform_install(
     """
     notes: list[str] = []
     created = False
+    profile_error: str | None = None
     if create_profile and profile_creator is not None:
         try:
             profile_creator(profile_name)
@@ -412,7 +424,9 @@ def perform_install(
         except FileExistsError:
             notes.append(f"Profil '{profile_name}' existierte bereits — nicht überschrieben.")
         except Exception as exc:  # pragma: no cover - vorsichtig
-            notes.append(f"Profil '{profile_name}' konnte nicht angelegt werden: {exc}")
+            # Hartes Failure-Signal — User hat das Profil angefragt, wir
+            # konnten es nicht liefern. Wird in CLI/Tests inspiziert.
+            profile_error = str(exc)
 
     registered, skipped = install_context_menu(backend)
 
@@ -431,6 +445,7 @@ def perform_install(
         profile_created=created,
         profile_name=profile_name,
         notes=tuple(notes),
+        profile_error=profile_error,
     )
 
 

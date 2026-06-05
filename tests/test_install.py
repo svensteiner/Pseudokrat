@@ -6,6 +6,8 @@ echte Windows-Registry läuft (CI auf Linux/macOS).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pseudokrat.install import (
@@ -261,6 +263,87 @@ def test_perform_install_existing_profile_noted() -> None:
     assert any("existierte bereits" in note for note in result.notes)
     # Aber Context-Menu wurde dennoch registriert
     assert len(result.extensions_registered) == len(SUPPORTED_EXTENSIONS)
+
+
+def test_cli_install_returns_nonzero_when_profile_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """End-to-End: CLI muss bei Profil-Failure Exit != 0 zurückgeben,
+    sonst werten Skripte/CI Install fälschlich als success."""
+    import pseudokrat.cli as cli_mod
+    import pseudokrat.install as install_mod
+
+    monkeypatch.setenv("PSEUDOKRAT_DATA_DIR", str(tmp_path))
+
+    def fake_perform_install(**kwargs):  # type: ignore[no-untyped-def]
+        return InstallResult(
+            extensions_registered=SUPPORTED_EXTENSIONS,
+            extensions_skipped=(),
+            autostart_registered=False,
+            profile_created=False,
+            profile_name=kwargs["profile_name"],
+            notes=(),
+            profile_error="Simple-Mode benötigt die Keyring-Bibliothek.",
+        )
+
+    # cli importiert ``perform_install``/``default_backend`` lokal aus
+    # ``pseudokrat.install`` — also dort patchen.
+    monkeypatch.setattr(install_mod, "perform_install", fake_perform_install)
+    monkeypatch.setattr(install_mod, "default_backend", InMemoryRegistryBackend)
+
+    rc = cli_mod.main(["install", "--no-hotkeys"])
+    assert rc == 16
+    stderr = capsys.readouterr().err
+    assert "KONNTE NICHT angelegt" in stderr
+
+
+def test_perform_install_profile_failure_is_critical() -> None:
+    """Iter-14: Wenn das angefragte Profil nicht angelegt werden kann,
+    ist das ein hartes Failure — nicht eine ℹ-Note unten am Output.
+
+    Treiber: `pseudokrat install` ohne `[simple-mode]`-Extra scheiterte
+    leise mit Exit 0; Doctor schlug danach Alarm und der Pilot-Tester
+    verstand nicht, warum.
+    """
+    backend = InMemoryRegistryBackend()
+
+    def creator(name: str) -> None:
+        raise RuntimeError(
+            "Simple-Mode benötigt die Keyring-Bibliothek. Installiere mit:\n"
+            "  pip install pseudokrat[simple-mode]"
+        )
+
+    result = perform_install(
+        backend=backend,
+        create_profile=True,
+        profile_name="Mein Konto",
+        with_hotkeys=False,
+        profile_creator=creator,
+    )
+    assert result.profile_created is False
+    assert result.profile_error is not None
+    assert "Keyring-Bibliothek" in result.profile_error
+    assert result.has_critical_failure is True
+    # Note-Slot bleibt sauber — wir tarnen den Fehler nicht als ℹ-Note.
+    assert not any("konnte nicht angelegt" in note for note in result.notes)
+    # Context-Menu wird trotzdem registriert (best-effort).
+    assert set(result.extensions_registered) == set(SUPPORTED_EXTENSIONS)
+
+
+def test_perform_install_successful_profile_has_no_error() -> None:
+    backend = InMemoryRegistryBackend()
+    result = perform_install(
+        backend=backend,
+        create_profile=True,
+        profile_name="OK",
+        with_hotkeys=False,
+        profile_creator=lambda _name: None,
+    )
+    assert result.profile_created is True
+    assert result.profile_error is None
+    assert result.has_critical_failure is False
 
 
 def test_perform_uninstall_removes_everything() -> None:

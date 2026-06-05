@@ -233,3 +233,158 @@ def test_cli_wrong_password_fails(
         ]
     )
     assert rc2 == 2
+
+
+# ---------------------------------------------------------------------------
+# profiles remove (Iter-14)
+# ---------------------------------------------------------------------------
+
+
+class TestProfilesRemove:
+    """``pseudokrat profiles remove`` — Self-Service-Löschung mit Confirm.
+
+    Pilot-Tester braucht ein klares Kommando, sobald Doctor ein Profil
+    als kaputt meldet. Vorher zeigte der Doctor-Hint auf ein
+    nicht-existierendes Kommando — das war Inkonsistenz pur."""
+
+    @staticmethod
+    def _make_simple_profile(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str = "Wegwerf"
+    ) -> Path:
+        monkeypatch.setenv("PSEUDOKRAT_DATA_DIR", str(tmp_path))
+        # Init im Simple-Mode geht über init --simple ohne Passwort.
+        # Wir umgehen das hier mit direktem ProfileManager-Setup für
+        # determined Backend-Injection.
+        from pseudokrat.config import Settings
+        from pseudokrat.store.key_protector import InMemoryKeyringBackend
+        from pseudokrat.store.profile import ProfileManager
+
+        settings = Settings(
+            data_dir=tmp_path,
+            profiles_dir=tmp_path / "profiles",
+            model_cache_dir=tmp_path / "models",
+            model_id="dummy/model",
+            disable_ml=True,
+        )
+        settings.ensure_dirs()
+        mgr = ProfileManager(settings=settings)
+        store, _ = mgr.open_or_create_simple(name, backend=InMemoryKeyringBackend())
+        store.close()
+        return mgr.profile_path(name)
+
+    def test_remove_nonexistent_profile_fails_cleanly(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("PSEUDOKRAT_DATA_DIR", str(tmp_path))
+        rc = main(["profiles", "remove", "ExistiertNicht", "--force"])
+        assert rc == 13
+        err = capsys.readouterr().err
+        assert "existiert nicht" in err
+
+    def test_remove_with_force_deletes_all_artifacts(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        db_path = self._make_simple_profile(tmp_path, monkeypatch, "ZuLöschen")
+        salt = db_path.with_suffix(db_path.suffix + ".salt")
+        marker = db_path.with_suffix(db_path.suffix + ".keyring")
+        assert db_path.exists() and salt.exists() and marker.exists()
+
+        rc = main(["profiles", "remove", "ZuLöschen", "--force"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Gelöscht" in out
+        assert not db_path.exists()
+        assert not salt.exists()
+        assert not marker.exists()
+
+    def test_remove_without_force_prompts_and_can_abort(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        db_path = self._make_simple_profile(tmp_path, monkeypatch, "Bleibt")
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "nein")
+        rc = main(["profiles", "remove", "Bleibt"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Abgebrochen" in out
+        # Datei darf nicht gelöscht worden sein.
+        assert db_path.exists()
+
+    def test_remove_without_force_prompts_and_can_confirm(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        db_path = self._make_simple_profile(tmp_path, monkeypatch, "Bestätigt")
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "ja")
+        rc = main(["profiles", "remove", "Bestätigt"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Gelöscht" in out
+        assert not db_path.exists()
+
+    def test_remove_invalid_name_rejected(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("PSEUDOKRAT_DATA_DIR", str(tmp_path))
+        rc = main(["profiles", "remove", "../evil", "--force"])
+        assert rc == 11
+        err = capsys.readouterr().err
+        assert "ungültige Zeichen" in err
+
+    def test_remove_password_profile_does_not_touch_os_keyring(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Passwort-Profile haben keinen Keyring-Marker — wir dürfen den
+        OS-Keyring-Eintrag dann NICHT anfassen (potentiell anderes
+        Pseudokrat-Profil mit demselben Account-Namen)."""
+        monkeypatch.setenv("PSEUDOKRAT_DATA_DIR", str(tmp_path))
+        rc = main(["init", "--profile", "pwprof", "--password", "ein-sicheres-pw"])
+        assert rc == 0
+        capsys.readouterr()
+        from pseudokrat.config import Settings
+        from pseudokrat.store.profile import ProfileManager
+
+        settings = Settings.load()
+        mgr = ProfileManager(settings=settings)
+        db_path = mgr.profile_path("pwprof")
+        marker = db_path.with_suffix(db_path.suffix + ".keyring")
+        assert not marker.exists()
+
+        # Inject ein Sentinel-Keyring-Backend; assert dass es NICHT gerufen wird.
+        deleted_accounts: list[str] = []
+
+        class _SpyBackend:
+            def get(self, service: str, account: str) -> str | None:
+                return None
+
+            def set(self, service: str, account: str, secret: str) -> None:
+                pass
+
+            def delete(self, service: str, account: str) -> None:
+                deleted_accounts.append(account)
+
+        monkeypatch.setattr(
+            "pseudokrat.cli.SystemKeyringBackend",
+            _SpyBackend,
+            raising=False,
+        )
+        rc = main(["profiles", "remove", "pwprof", "--force"])
+        assert rc == 0
+        assert not db_path.exists()
+        assert deleted_accounts == []

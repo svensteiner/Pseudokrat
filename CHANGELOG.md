@@ -7,6 +7,32 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-06-05, PRL Iter-14b)
+- **Doctor-Sandbox-Härtung + Profile-Health + Profile-Remove.** Drei
+  miteinander verzahnte Pilot-Tester-Bugs geschlossen
+  (siehe D-051):
+  - `doctor` legt den Smoke-Test jetzt in einer echten
+    `TemporaryDirectory`-Sandbox an statt im realen `profiles_dir`;
+    Bestandsleichen (`_doctor_smoke.sqlite` + Sidecars) aus Pre-Iter-14-
+    Versionen werden beim ersten Lauf einmalig migriert/gelöscht.
+  - Neuer Doctor-Check `Profile-Health` öffnet jedes Simple-Mode-Profil
+    über den OS-Keyring; meldet WARN mit Profilnamen und konkretem
+    Fix-Befehl, wenn ein Profil unöffenbar ist (typischer Backup-
+    Restore-Pfad auf neuem Konto). Passwort-Profile werden als „nicht
+    offline prüfbar" markiert, nicht als kaputt.
+  - Neues CLI-Subkommando `pseudokrat profiles remove <name>` löscht
+    DB, Salt-Sidecar, Keyring-Marker und OS-Keyring-Eintrag in einem
+    Befehl, mit interaktiver Bestätigung und `--force`-Override für
+    Skripte. Best-Effort-Semantik — fehlende Sidecars blockieren nicht.
+  - `ProfileManager.list_profiles` blendet ab sofort Profile mit
+    Slug-Prefix `_` aus (Override via `include_reserved=True` für
+    Diagnose-/Cleanup-Tools). Defense-in-Depth gegen künftige
+    Sandbox-Leck-Klassen.
+  - `InstallResult.profile_error` + `has_critical_failure` trennen
+    „Profil-Anlage explizit angefragt und gescheitert" von
+    „Profil existierte schon"; das CLI rendert das nun mit ✗ statt einer
+    schwachen ℹ-Note und setzt den Exit-Code ungleich 0.
+
 ### Geändert (2026-06-03, PRL Iter-14)
 - **Tier-4-Closure: Folgearbeiten in `DECISIONS.md` geklärt.** Alle
   sechs offenen `**Folgearbeit:**`-Blöcke (D-039, D-040, D-041, D-042,

@@ -17,6 +17,15 @@ if TYPE_CHECKING:
 
 _PROFILE_NAME_RE = re.compile(r"^[A-Za-zÄÖÜäöüß0-9 _\-]{1,64}$")
 
+#: Slug-Prefix für reservierte Profile (interne Smoke-Tests, Doctor-Sandbox-
+#: Leichen aus Bestandsinstallationen vor Iter-14). User-sichtbare APIs
+#: blenden diese standardmäßig aus, damit kein Pilot-Tester über sie
+#: stolpert. Reine Underscore-Prefix-Konvention — User können selbst keine
+#: solchen Profile via :meth:`profile_path` anlegen, weil der zugehörige
+#: Profilname „_…" durch :data:`_PROFILE_NAME_RE` zwar erlaubt ist, der
+#: Slug nach :func:`_safe_slug` mit ``strip("_")`` aber bereinigt würde.
+RESERVED_PROFILE_SLUG_PREFIX = "_"
+
 #: Schlüssel in ``profile_metadata`` für den per-Profil konfigurierbaren
 #: Mandanten-Nummern-Regex (§7 Megaprompt). Wird unverschlüsselt gespeichert,
 #: weil der Regex selbst keine PII enthält und ohne Master-Passwort lesbar
@@ -95,9 +104,24 @@ class ProfileManager:
     def settings(self) -> Settings:
         return self._settings
 
-    def list_profiles(self) -> list[Profile]:
+    def list_profiles(self, *, include_reserved: bool = False) -> list[Profile]:
+        """Alle Profile im konfigurierten ``profiles_dir``.
+
+        ``include_reserved=False`` (Default) blendet Profile mit einem
+        Slug-Prefix von ``_`` aus — das sind interne Sandbox-Profile
+        (Doctor-Smoke-Test vor Iter-14, Migrations-Leichen). Echte
+        Pilot-Tester sollen sie weder im CLI-``profiles list`` noch im
+        GUI sehen.
+
+        ``include_reserved=True`` ist für Diagnose-/Cleanup-Pfade
+        gedacht (Doctor-Migration, Backup-Tooling).
+        """
         profiles: list[Profile] = []
         for db in sorted(self._settings.profiles_dir.glob("*.sqlite")):
+            if not include_reserved and db.stem.startswith(
+                RESERVED_PROFILE_SLUG_PREFIX
+            ):
+                continue
             name = _read_profile_name(db)
             profiles.append(Profile(name=name, db_path=db))
         return profiles

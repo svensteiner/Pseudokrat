@@ -184,6 +184,70 @@ def build_versicherung_ch(rng: random.Random) -> None:
     )
 
 
+def build_kanzlei_adel(rng: random.Random) -> None:
+    """Anwaltliches Mandatsschreiben mit Adelsprädikaten im Namen.
+
+    Probt den PERSON-Recognizer gegen DACH-typische nobiliary particles
+    (``von``, ``van der``, ``zu``). Diese kleingeschriebenen Partikel
+    zerrissen vor PRL Iter-15 das Namensfeld — ein abgeschnittener Span
+    leakt den Restnamen ins Cloud-KI-Prompt. Jeder Name kommt zweimal vor
+    (Anker + Second-Pass), damit auch die Wiederfindung getestet wird.
+    """
+    b = FixtureBuilder()
+    mandant = "Maximilian von Sonnenberg"
+    anwalt = "Anna zu Falkenstein"
+    sachverstaendiger = "Markus Van der Velde"
+    addr = "Schlossallee 1, 1010 Wien"
+    company = "Falkenstein Immobilien GmbH"
+    iban = generate_at_iban(rng)
+    email = "kanzlei@mustermann-partner-at.example"
+    birth = "09.12.1968"
+
+    b.add_slot("mandant1", mandant, "PERSON")
+    b.add_slot("mandant2", mandant, "PERSON")
+    b.add_slot("anwalt1", anwalt, "PERSON")
+    b.add_slot("anwalt2", anwalt, "PERSON")
+    b.add_slot("gutachter1", sachverstaendiger, "PERSON")
+    b.add_slot("gutachter2", sachverstaendiger, "PERSON")
+    b.add_slot("addr", addr, "ADDRESS")
+    b.add_slot("company", company, "COMPANY")
+    b.add_slot("iban", iban, "IBAN")
+    b.add_slot("email", email, "EMAIL")
+    b.add_slot("birth", birth, "DATE")
+
+    template = (
+        "Kanzlei Mustermann & Partner\n"
+        "============================================\n"
+        "\n"
+        "Mandant:               {mandant1}\n"
+        "Wohnadresse:           {addr}\n"
+        "Geburtsdatum:          {birth}\n"
+        "Kontakt:               {email}\n"
+        "\n"
+        "Gegenständlich vertreten wir {mandant2} in der Sache gegen\n"
+        "die {company}.\n"
+        "\n"
+        "Treuhandkonto:         {iban}\n"
+        "\n"
+        "Sachbearbeiterin:      Frau Dr. {anwalt1}\n"
+        "Sachverständiger:      Herr {gutachter1}\n"
+        "\n"
+        "Rückfragen zur Causa richten Sie bitte an {anwalt2}; das\n"
+        "Gutachten von {gutachter2} liegt bei.\n"
+    )
+    out = _FIXTURES_DIR / "kanzlei_adel"
+    b.write_fixture(
+        directory=out,
+        template=template,
+        description=(
+            "Anwaltliches Mandatsschreiben mit Adelsprädikaten "
+            "(von/van der/zu) im Personennamen — probt den PERSON-"
+            "Recognizer gegen abgeschnittene bzw. verfehlte Namensspans."
+        ),
+        seed=404,
+    )
+
+
 def build_false_positive_traps(rng: random.Random) -> None:
     """Texte, die Recognizer KEINE PII-Spans erzeugen sollten.
 
@@ -221,6 +285,7 @@ def main() -> None:
     build_lohnkonto_at(rng)
     build_lohnkonto_de(rng)
     build_versicherung_ch(rng)
+    build_kanzlei_adel(rng)
     build_false_positive_traps(rng)
     print(f"Fixtures geschrieben unter {_FIXTURES_DIR}")
 

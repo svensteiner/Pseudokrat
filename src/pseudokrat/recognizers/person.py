@@ -55,9 +55,33 @@ _TITLES = (
 # (``O'Brien``). Mindestens 2 Buchstaben — schliesst „K." als Initial aus.
 _NAME_TOKEN = r"[A-ZÄÖÜ][a-zäöüß']+(?:-[A-ZÄÖÜ][a-zäöüß']+)*"
 
+# Adelsprädikate / nobiliary particles — in DACH allgegenwärtig
+# (``Alexander Van der Bellen``, ``Frau von der Leyen``,
+# ``Carl von und zu Liechtenstein``). Die Partikel sind kleingeschrieben
+# und würden ohne Sonderbehandlung das Namensfeld zerreissen — entweder
+# als kompletter Miss (``Herr von Habsburg``) oder als abgeschnittener
+# Span (``Alexander Van der Bellen`` → nur ``Alexander Van``), was den
+# Restnamen ins Cloud-KI-Prompt leaken liesse.
+#
+# Mehrwort-Formen MÜSSEN longest-first stehen, damit ``von der`` vor
+# ``von`` greift. Die kurzen Konnektoren (``der``/``den``/``dem``) sind
+# bewusst nur ZWISCHEN bzw. VOR Namens-Tokens erlaubt (siehe ``_NAME_FIELD``),
+# nie freistehend — das hält den FP-Pfad eng: ``Herr Müller und Frau Meier``
+# bleibt zwei getrennte Treffer, kein ``Müller und … Meier``-Sammelspan.
+_PARTICLE = (
+    r"von[ \t]+und[ \t]+zu|von[ \t]+der|von[ \t]+dem|van[ \t]+der|van[ \t]+den"
+    r"|von|van|vom|zu|zur|zum|der|den|dem|de|del|della|di|da"
+)
+
 # 1-3 Namens-Tokens — typisch ``Vorname Nachname`` oder
-# ``Vorname Zweitname Nachname``.
-_NAME_FIELD = rf"{_NAME_TOKEN}(?:[ \t]+{_NAME_TOKEN}){{0,2}}"
+# ``Vorname Zweitname Nachname`` — mit optionalem Adelsprädikat als
+# führendem Element (``von Habsburg``) und als Konnektor zwischen Tokens
+# (``Van der Bellen``, ``zu Guttenberg``).
+_NAME_FIELD = (
+    rf"(?:(?:{_PARTICLE})[ \t]+)?"
+    rf"{_NAME_TOKEN}"
+    rf"(?:[ \t]+(?:(?:{_PARTICLE})[ \t]+)?{_NAME_TOKEN}){{0,2}}"
+)
 
 # Anrede-Anker: ``Herr <Titel>* <Name>`` — Whitespace reicht als Trenner.
 _SALUTATION_RE = re.compile(

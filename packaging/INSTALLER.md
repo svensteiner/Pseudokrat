@@ -43,6 +43,28 @@ Ergebnis:
 > Ungesignierte Installer werden von Windows SmartScreen blockiert. Für
 > Endnutzer-Distribution ist Signing **zwingend**.
 
+### Gumroad-Verkaufspaket (portables ZIP, kein Inno Setup nötig)
+
+Das Verkaufs-Artefakt für Gumroad ist **kein Installer**, sondern ein
+portables ZIP — passt zur Zielgruppe (gesperrte Kanzlei-PCs) und
+braucht kein Inno Setup:
+
+```powershell
+# 1. PyInstaller-Bundle bauen (falls noch nicht geschehen):
+python -m PyInstaller packaging\pseudokrat.spec --noconfirm --clean
+# 2. ZIP schnüren:
+pwsh -File packaging\build_gumroad_zip.ps1
+```
+
+Ergebnis: `dist\gumroad\Pseudokrat-<version>-Windows.zip` — enthält
+`START.bat` (Doppelklick-Einstieg), `ANLEITUNG.txt` (Käufer-Anleitung
+inkl. SmartScreen-Hinweis), `Begriffe.example.txt`, `LIZENZ.txt` und
+das EXE-Bundle. Listing-Text und Live-Gang-Checkliste:
+[`gumroad/GUMROAD_LISTING.md`](gumroad/GUMROAD_LISTING.md).
+
+Das EXE-Icon wird aus `packaging/icon.ico` gelesen (generierbar via
+`python packaging\make_icon.py`, ersetzbar durch ein Designer-Icon).
+
 ### Bauen mit Signing (Release)
 
 ```powershell

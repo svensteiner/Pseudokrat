@@ -87,10 +87,67 @@ excludes = [
     "tkinter",
     "pytest",
     "mypy",
+    # Qt-Module, die die GUI nicht nutzt (nur QtCore/QtGui/QtWidgets noetig).
+    # Spart >100 MB ungepackt (QML/Quick/Designer/OpenGL/Netzwerk).
+    "PySide6.QtQml",
+    "PySide6.QtQuick",
+    "PySide6.QtQuickWidgets",
+    "PySide6.QtQuickControls2",
+    "PySide6.QtOpenGL",
+    "PySide6.QtOpenGLWidgets",
+    "PySide6.QtNetwork",
+    "PySide6.QtDesigner",
+    "PySide6.QtPdf",
+    "PySide6.QtPdfWidgets",
+    "PySide6.QtSvg",
+    "PySide6.QtSvgWidgets",
+    "PySide6.QtMultimedia",
+    "PySide6.QtMultimediaWidgets",
+    "PySide6.QtWebChannel",
+    "PySide6.QtWebEngineCore",
+    "PySide6.QtWebEngineWidgets",
+    "PySide6.QtWebSockets",
+    "PySide6.QtDBus",
+    "PySide6.QtConcurrent",
+    "PySide6.QtHelp",
+    "PySide6.QtPrintSupport",
+    "PySide6.QtSql",
+    "PySide6.QtTest",
+    "PySide6.QtUiTools",
+    "PySide6.QtXml",
+    "PySide6.Qt3DCore",
+    "PySide6.Qt3DRender",
 ]
 
+
+def _prune_toc(toc):
+    """Entfernt Ballast, den die Qt-/OpenCV-Hooks trotz excludes mitschleppen.
+
+    * opengl32sw.dll      — Software-GL-Fallback (~20 MB); QtWidgets rendert
+                            per Raster-Engine, OpenGL wird nicht genutzt.
+    * opencv ffmpeg-DLL   — Video-Codec (~28 MB); OCR verarbeitet nur Bilder.
+    * PySide6/qml/        — QML-Plugins; die GUI ist reines QtWidgets.
+    * Qt-Uebersetzungen   — bis auf Deutsch (App-Sprache).
+    """
+    pruned = []
+    for entry in toc:
+        dest = entry[0].replace("\\", "/").lower()
+        name = dest.rsplit("/", 1)[-1]
+        if "opengl32sw" in name:
+            continue
+        if name.startswith("opencv_videoio_ffmpeg"):
+            continue
+        if "/qml/" in dest or dest.startswith("pyside6/qml"):
+            continue
+        if "/translations/" in dest and not name.startswith(("qt_de", "qtbase_de")):
+            continue
+        pruned.append(entry)
+    return pruned
+
 is_windows = sys.platform.startswith("win")
-icon = str(ROOT / "packaging" / "icon.ico") if is_windows else None
+_icon_path = ROOT / "packaging" / "icon.ico"
+# Icon nur setzen, wenn die Datei existiert — sonst bricht PyInstaller ab.
+icon = str(_icon_path) if (is_windows and _icon_path.exists()) else None
 
 # ---- Analyse 1: Konsolen-CLI ----------------------------------------------
 a_cli = Analysis(
@@ -110,7 +167,10 @@ a_gui = Analysis(
     pathex=[str(SRC)],
     binaries=binaries,
     datas=datas,
-    hiddenimports=hidden + collect_submodules("PySide6"),
+    # Nur die tatsaechlich genutzten Qt-Module (kein collect_submodules:
+    # das zieht QML/Quick/Designer & Co. mit — >100 MB Ballast).
+    hiddenimports=hidden
+    + ["PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets"],
     excludes=excludes,
     noarchive=False,
     cipher=block_cipher,
@@ -151,13 +211,13 @@ exe_gui = EXE(
 
 coll = COLLECT(
     exe_cli,
-    a_cli.binaries,
+    _prune_toc(a_cli.binaries),
     a_cli.zipfiles,
-    a_cli.datas,
+    _prune_toc(a_cli.datas),
     exe_gui,
-    a_gui.binaries,
+    _prune_toc(a_gui.binaries),
     a_gui.zipfiles,
-    a_gui.datas,
+    _prune_toc(a_gui.datas),
     strip=False,
     upx=False,
     upx_exclude=[],

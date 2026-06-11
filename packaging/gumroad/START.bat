@@ -4,11 +4,11 @@ title Pseudokrat - Einrichtung
 setlocal
 set "HERE=%~dp0"
 
-rem Fallback-Reihenfolge:
-rem   1. EXE-Bundle im Unterordner Pseudokrat\ (Gumroad-ZIP-Layout)
+rem Diese START.bat liegt im entpackten Gumroad-ZIP und startet die
+rem mitgelieferte EXE (kein Python noetig). Fallback-Reihenfolge:
+rem   1. EXE-Bundle im Unterordner Pseudokrat\ (ZIP-Layout)
 rem   2. EXE direkt daneben (flaches Layout)
-rem   3. Mitgelieferte Laufzeit-Umgebung (env\)
-rem   4. System-Python (Entwickler-Checkout)
+rem   3. Python-Quellcode (Entwickler-Checkout)
 
 if exist "%HERE%Pseudokrat\Pseudokrat.exe" (
     "%HERE%Pseudokrat\Pseudokrat.exe" setup --folder "%HERE%."

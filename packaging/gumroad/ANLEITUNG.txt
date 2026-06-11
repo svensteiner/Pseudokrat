@@ -1,0 +1,122 @@
+================================================================
+  PSEUDOKRAT — Anleitung (bitte zuerst lesen)
+================================================================
+
+Vielen Dank für Ihren Kauf!
+
+Pseudokrat entfernt Mandanten- und Personendaten aus Ihren
+Dokumenten, BEVOR Sie sie an ChatGPT, Claude oder Gemini geben.
+Die KI-Antwort übersetzen Sie danach mit einem Klick zurück.
+
+Alles läuft zu 100 % auf Ihrem Rechner. Es werden keine Daten
+ins Internet geschickt — Pseudokrat braucht nicht einmal eine
+Internetverbindung.
+
+
+----------------------------------------------------------------
+SCHNELLSTART (3 Schritte, ca. 2 Minuten)
+----------------------------------------------------------------
+
+1.  Entpacken Sie das heruntergeladene ZIP an einen Ort Ihrer
+    Wahl, z. B. auf den Desktop oder nach
+    "Dokumente\Pseudokrat".
+    (Rechtsklick auf die ZIP-Datei -> "Alle extrahieren ...")
+
+2.  Doppelklicken Sie im entpackten Ordner auf:   START.bat
+
+3.  Folgen Sie der Auswahl im Fenster:
+
+    [1] Installation
+        Fügt im Windows-Explorer ein Rechtsklick-Menü hinzu:
+        "Mit Pseudokrat anonymisieren". Bequemster Weg auf
+        dem eigenen PC.
+
+    [2] Ordner-Lösung (ohne Installation)
+        Pseudokrat legt vier Ordner an:
+          INPUT           -> Datei hineinziehen
+          OUTPUT          -> anonymisierte Datei herausnehmen
+          ZURUECK_INPUT   -> KI-Antwort hineinlegen
+          ZURUECK_OUTPUT  -> Klartext-Ergebnis herausnehmen
+        Nichts wird installiert, nichts verändert. Ideal für
+        Kanzlei-Rechner, auf denen Installationen gesperrt sind.
+
+    Unsicher? Nehmen Sie [2] — das können Sie jederzeit
+    rückstandsfrei wieder löschen.
+
+
+----------------------------------------------------------------
+WICHTIG: WINDOWS-SICHERHEITSHINWEIS BEIM ERSTEN START
+----------------------------------------------------------------
+
+Beim ersten Start zeigt Windows eventuell einen blauen Hinweis
+"Der Computer wurde durch Windows geschützt" (SmartScreen).
+Das ist normal bei neuer Software kleiner Anbieter und bedeutet
+NICHT, dass etwas gefunden wurde — nur, dass Windows das
+Programm noch nicht kennt.
+
+So fahren Sie fort:
+
+    1. Klicken Sie auf "Weitere Informationen"
+    2. Klicken Sie auf "Trotzdem ausführen"
+
+Der Hinweis erscheint nur beim ersten Mal.
+
+
+----------------------------------------------------------------
+TYPISCHER ARBEITSABLAUF (Ordner-Lösung)
+----------------------------------------------------------------
+
+1. Mandanten-Dokument (Word, Excel, PDF, Text, CSV) in den
+   Ordner INPUT ziehen.
+2. Anonymisierte Datei aus OUTPUT nehmen und in die Cloud-KI
+   hochladen oder den Text einfügen.
+3. Die Antwort der KI als Datei in ZURUECK_INPUT legen.
+4. Das Ergebnis mit den echten Namen steht in ZURUECK_OUTPUT.
+
+Unterstützte Formate: TXT, CSV, DOCX (Word), XLSX (Excel),
+PDF (layout-erhaltend, inkl. Text in eingescannten Bildern).
+
+
+----------------------------------------------------------------
+EIGENE BEGRIFFE ERGÄNZEN
+----------------------------------------------------------------
+
+Pseudokrat erkennt Namen, Firmen, IBANs, Steuer-IDs,
+Sozialversicherungsnummern, Adressen, E-Mails u. v. m.
+automatisch. Mandanten-spezifische Begriffe (z. B. interne
+Projektnamen) ergänzen Sie in der Datei "Begriffe.txt" im
+Pseudokrat-Ordner — eine Vorlage mit Beispielen liegt bei
+("Begriffe.example.txt"). Einfach umbenennen und ausfüllen.
+
+
+----------------------------------------------------------------
+HÄUFIGE FRAGEN
+----------------------------------------------------------------
+
+F: Werden meine Daten irgendwohin geschickt?
+A: Nein. Pseudokrat arbeitet vollständig offline auf Ihrem
+   Rechner. Es gibt keine Cloud-Komponente und keine Telemetrie.
+
+F: Wie komme ich vom anonymisierten Text zurück zum Original?
+A: Pseudokrat merkt sich die Zuordnung (verschlüsselt, lokal).
+   KI-Antwort in ZURUECK_INPUT legen (Ordner-Lösung) oder die
+   Rückübersetzen-Funktion nutzen — fertig.
+
+F: Brauche ich Admin-Rechte?
+A: Nein. Weg [1] schreibt einen einzigen Eintrag in Ihr
+   Benutzerprofil; Weg [2] verändert gar nichts am System.
+
+F: Wie deinstalliere ich Pseudokrat?
+A: Weg [2]: Ordner löschen, fertig. Weg [1]: START.bat
+   ausführen und im Menü die Deinstallation wählen, oder im
+   entpackten Ordner "Pseudokrat\Pseudokrat.exe uninstall"
+   ausführen.
+
+
+----------------------------------------------------------------
+HILFE & KONTAKT
+----------------------------------------------------------------
+
+Bei Fragen oder Problemen antworten Sie einfach auf Ihre
+Gumroad-Kaufbestätigung — Sie erreichen damit direkt den
+Entwickler.

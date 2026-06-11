@@ -1,0 +1,42 @@
+{
+  "description": "Deutsche Rechnung mit gruppierten Nummern-Anzeigeformen (Steuer-ID 2-3-3-3, IBAN 4er-Gruppen) — probt die Leerzeichen-Toleranz der deterministischen Recognizer.",
+  "seed": 505,
+  "spans": [
+    {
+      "start": 92,
+      "end": 121,
+      "category": "COMPANY",
+      "text": "Steuerkanzlei Mustermann GmbH"
+    },
+    {
+      "start": 145,
+      "end": 173,
+      "category": "ADDRESS",
+      "text": "Hauptstraße 5, 80331 München"
+    },
+    {
+      "start": 202,
+      "end": 220,
+      "category": "PERSON",
+      "text": "Friedrich Beispiel"
+    },
+    {
+      "start": 245,
+      "end": 259,
+      "category": "TAX_ID",
+      "text": "85 021 613 415"
+    },
+    {
+      "start": 283,
+      "end": 310,
+      "category": "IBAN",
+      "text": "DE13 5446 6301 1890 3022 09"
+    },
+    {
+      "start": 334,
+      "end": 378,
+      "category": "EMAIL",
+      "text": "rechnung@steuerkanzlei-mustermann-de.example"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+RECHNUNG Nr. 2026-0815
+============================================
+
+Aussteller:            Steuerkanzlei Mustermann GmbH
+                       Hauptstraße 5, 80331 München
+Rechnung an:           Herr Friedrich Beispiel
+
+Steuer-ID:             85 021 613 415
+Bankverbindung:        DE13 5446 6301 1890 3022 09
+Rückfragen:            rechnung@steuerkanzlei-mustermann-de.example
+
+Zahlbar binnen 14 Tagen. Beleg-Nr. 12 345 678 901 ist keine
+Steuer-ID und darf nicht getaggt werden.

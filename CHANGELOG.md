@@ -7,6 +7,39 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-06-11, PRL Iter-16)
+- **Steuer-ID in amtlicher Gruppen-Anzeigeform `47 036 892 816`
+  (2-3-3-3) wird jetzt erkannt.** Bis Iter-16 fand das Scan-Regex des
+  `GermanSteuerIdRecognizer` nur 11 *zusammenhängende* Ziffern — die
+  offizielle BMF-Darstellung mit Leerzeichen (so steht die Steuer-ID auf
+  Bescheiden und Lohnsteuerkarten) blieb komplett unerkannt und wäre als
+  Klartext-PII ins Cloud-KI-Prompt geleakt. Der Validator strippte
+  Leerzeichen bereits, lief aber nie auf einem gruppierten Kandidaten —
+  ein latentes, halb-implementiertes Feature. Fix: Alternation im Regex
+  für die 2-3-3-3-Form; die strikte § 139b-Struktur- plus
+  ISO-7064-Prüfung schließt zufällige Zahlengruppierungen
+  (Rechnungs-/Belegnummern) als False Positive aus (siehe D-053).
+- **Neues Eval-Fixture `rechnung_de`.** Probt die Leerzeichen-Toleranz
+  der deterministischen Recognizer (Steuer-ID 2-3-3-3, DE-IBAN
+  4er-Gruppen) und enthält einen FP-Trap (`Beleg-Nr. 12 345 678 901`),
+  der nicht getaggt werden darf. F1=1.00.
+
+### Hinzugefügt (2026-06-10, PRL Iter-15)
+- **PERSON-Recognizer erkennt Adelsprädikate / nobiliary particles.**
+  DACH-typische kleingeschriebene Namenspartikel (`von`, `van der`, `zu`,
+  `von und zu`, …) zerrissen vorher das Namensfeld — entweder kompletter
+  Miss (`Herr von Habsburg`) oder abgeschnittener Span
+  (`Alexander Van der Bellen` → nur `Alexander Van`), was den Restnamen
+  ins Cloud-KI-Prompt leakte. Fix: `_PARTICLE`-Klasse (longest-first,
+  damit `von der` vor `von` greift) als optionales führendes Element und
+  als Konnektor zwischen Namens-Tokens in `_NAME_FIELD`. Die kurzen
+  Konnektoren bleiben bewusst nur zwischen/vor Tokens erlaubt, nie
+  freistehend, damit `Herr Müller und Frau Meier` zwei getrennte Treffer
+  bleibt (siehe D-052).
+- **Neues Eval-Fixture `kanzlei_adel`.** Anwaltliches Mandatsschreiben
+  mit Adelsprädikaten (`von`/`van der`/`zu`); jeder Name kommt zweimal
+  vor (Anker + Second-Pass). F1=1.00.
+
 ### Hinzugefügt (2026-06-05, PRL Iter-14b)
 - **Doctor-Sandbox-Härtung + Profile-Health + Profile-Remove.** Drei
   miteinander verzahnte Pilot-Tester-Bugs geschlossen

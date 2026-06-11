@@ -1,0 +1,72 @@
+{
+  "description": "Anwaltliches Mandatsschreiben mit Adelsprädikaten (von/van der/zu) im Personennamen — probt den PERSON-Recognizer gegen abgeschnittene bzw. verfehlte Namensspans.",
+  "seed": 404,
+  "spans": [
+    {
+      "start": 98,
+      "end": 123,
+      "category": "PERSON",
+      "text": "Maximilian von Sonnenberg"
+    },
+    {
+      "start": 147,
+      "end": 172,
+      "category": "ADDRESS",
+      "text": "Schlossallee 1, 1010 Wien"
+    },
+    {
+      "start": 196,
+      "end": 206,
+      "category": "DATE",
+      "text": "09.12.1968"
+    },
+    {
+      "start": 230,
+      "end": 267,
+      "category": "EMAIL",
+      "text": "kanzlei@mustermann-partner-at.example"
+    },
+    {
+      "start": 298,
+      "end": 323,
+      "category": "PERSON",
+      "text": "Maximilian von Sonnenberg"
+    },
+    {
+      "start": 347,
+      "end": 374,
+      "category": "COMPANY",
+      "text": "Falkenstein Immobilien GmbH"
+    },
+    {
+      "start": 400,
+      "end": 420,
+      "category": "IBAN",
+      "text": "AT496648728304624064"
+    },
+    {
+      "start": 454,
+      "end": 473,
+      "category": "PERSON",
+      "text": "Anna zu Falkenstein"
+    },
+    {
+      "start": 502,
+      "end": 522,
+      "category": "PERSON",
+      "text": "Markus Van der Velde"
+    },
+    {
+      "start": 566,
+      "end": 585,
+      "category": "PERSON",
+      "text": "Anna zu Falkenstein"
+    },
+    {
+      "start": 605,
+      "end": 625,
+      "category": "PERSON",
+      "text": "Markus Van der Velde"
+    }
+  ]
+}

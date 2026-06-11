@@ -1,0 +1,18 @@
+Kanzlei Mustermann & Partner
+============================================
+
+Mandant:               Maximilian von Sonnenberg
+Wohnadresse:           Schlossallee 1, 1010 Wien
+Geburtsdatum:          09.12.1968
+Kontakt:               kanzlei@mustermann-partner-at.example
+
+Gegenständlich vertreten wir Maximilian von Sonnenberg in der Sache gegen
+die Falkenstein Immobilien GmbH.
+
+Treuhandkonto:         AT496648728304624064
+
+Sachbearbeiterin:      Frau Dr. Anna zu Falkenstein
+Sachverständiger:      Herr Markus Van der Velde
+
+Rückfragen zur Causa richten Sie bitte an Anna zu Falkenstein; das
+Gutachten von Markus Van der Velde liegt bei.

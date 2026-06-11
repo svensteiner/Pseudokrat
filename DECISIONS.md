@@ -1788,3 +1788,98 @@ Pre-Iter-14-Setup gezeigt:
 einbauen würde das User-sichtbare Symptom beheben, aber Folge-Doctor-
 Runs würden weiter an der nicht-entschlüsselbaren DB scheitern. Echte
 TempDir-Trennung ist die einzig saubere Lösung.
+
+
+## D-052 — PERSON-Recognizer erkennt Adelsprädikate (PRL Iter-15)
+
+**Kontext:** Der ML-freie `PersonRecognizer` ankert Namen an Anreden
+(`Herr`/`Frau`) und Rollen-Labels (`Mandant:`), matcht das Namensfeld
+dann über `_NAME_FIELD`. Die Token-Definition kannte aber keine
+nobiliary particles. DACH-Dokumente sind voll davon — `von`, `van der`,
+`zu`, `von und zu`. Folge: das Namensfeld wurde zerrissen. Entweder
+kompletter Miss (`Herr von Habsburg` → kein Treffer, weil `von`
+kleingeschrieben kein `_NAME_TOKEN` ist) oder — schlimmer — ein
+abgeschnittener Span (`Alexander Van der Bellen` → nur `Alexander Van`).
+Ein abgeschnittener PERSON-Span ist der gefährlichste Fall: der Anwender
+glaubt, der Name sei maskiert, aber der Restname (`der Bellen`) bleibt im
+Klartext und leakt beim Paste ins Cloud-KI-Prompt.
+
+**Wahl:**
+
+* **`_PARTICLE`-Alternation**, longest-first geordnet (`von und zu` vor
+  `von der` vor `von`), damit der Regex die längste Partikelkette greift
+  statt vorzeitig bei `von` abzubrechen.
+* Partikel als **optionales führendes Element** (`von Habsburg`) UND als
+  **Konnektor zwischen Namens-Tokens** (`Van der Bellen`, `zu
+  Guttenberg`) in `_NAME_FIELD`.
+* Die kurzen Konnektoren (`der`/`den`/`dem`/`de`/…) sind bewusst **nur
+  zwischen bzw. vor Namens-Tokens** erlaubt, nie freistehend. Das hält
+  den FP-Pfad eng: `Herr Müller und Frau Meier` bleibt zwei getrennte
+  Treffer und wird nicht zu einem `Müller und … Meier`-Sammelspan.
+
+**Begründung:**
+- Ein halb-maskierter Name ist schädlicher als ein gar nicht erkannter,
+  weil er falsche Sicherheit suggeriert. Adelsprädikate sind in der
+  DACH-Mandantschaft (Anwälte, Notare, Vermögensverwalter) keine
+  Randerscheinung.
+- Longest-first ist nötig, weil Regex-Alternation den ersten passenden
+  Zweig nimmt — `von` würde `von der` sonst verschlucken.
+
+**Test-Coverage:**
+- Eval-Fixture `tests/eval/fixtures/kanzlei_adel/`: Mandatsschreiben mit
+  `Maximilian von Sonnenberg`, `Anna zu Falkenstein`, `Markus Van der
+  Velde`; jeder Name zweimal (Anker + Second-Pass). F1=1.00.
+
+**Alternative verworfen:** Partikel global als `_NAME_TOKEN`-Variante
+(kleingeschriebene Tokens generell erlauben) würde unzählige
+Funktionswörter als Namensbestandteil zulassen und die FP-Rate sprengen.
+Eine geschlossene Partikel-Whitelist ist die präzisere Lösung.
+
+
+## D-053 — Steuer-ID in gruppierter Anzeigeform (PRL Iter-16)
+
+**Kontext:** Der `GermanSteuerIdRecognizer` scannte mit
+`(?<!\d)\d{11}(?!\d)` — also nur 11 *zusammenhängende* Ziffern. Die
+deutsche Steuer-Identifikationsnummer wird amtlich (BMF, Finanzamt-
+Bescheide, Lohnsteuerkarten) aber in der Gruppen-Form `47 036 892 816`
+(2-3-3-3) dargestellt. Diese Form blieb komplett unerkannt — ein
+Klartext-PII-Leak. Auffällig: `is_valid_de_steuer_id` rief bereits
+`candidate.replace(" ", "")` auf, war also auf gruppierte Kandidaten
+vorbereitet — nur lieferte das Scan-Regex nie einen. Ein latentes,
+halb-implementiertes Feature. (Zum Vergleich: IBAN, AHV und SVNR
+tolerieren Trennzeichen bereits im Scan-Regex.)
+
+**Wahl:**
+
+* Regex-Alternation:
+  `(?<!\d)(?:\d{11}|\d{2} \d{3} \d{3} \d{3})(?!\d)`. Die gruppierte
+  Variante akzeptiert genau die amtliche 2-3-3-3-Form mit
+  Einzel-Leerzeichen, kein beliebiges Whitespace-Muster.
+* Keine Änderung am Validator — er strippte Leerzeichen schon.
+
+**Begründung:**
+- FP-Risiko ist minimal: jede gematchte Kette läuft durch die strikte
+  § 139b-Strukturprüfung (genau eine Ziffer 2x/3x in den ersten zehn) UND
+  die ISO-7064-Prüfziffer. Eine zufällige Beleg-/Rechnungsnummer in
+  2-3-3-3-Form müsste beide Tests bestehen, um getaggt zu werden — die
+  identische Hürde gilt bereits für die zusammenhängende Form.
+* Tight statt permissiv (`\s+` o. Ä. abgelehnt): die amtliche Form hat
+  exakt diese Gruppierung; alles Weitere würde nur FP-Fläche schaffen.
+
+**Test-Coverage:**
+- `tests/test_recognizers_de.py`:
+  `test_steuer_id_recognizer_finds_grouped_form` (gruppiert wird
+  erkannt) + `test_steuer_id_grouped_invalid_checksum_rejected`
+  (`12 345 678 901` als Beleg-Nr. wird NICHT getaggt).
+- Eval-Fixture `tests/eval/fixtures/rechnung_de/` mit gruppierter
+  Steuer-ID, gruppierter DE-IBAN (Regression-Guard) und einem
+  FP-Trap-Beleg. F1=1.00.
+
+**Bewusst nicht im Scope (Folgearbeit):** Die AT-UID `ATU 12345678` mit
+Leerzeichen nach dem Präfix wird weiterhin nicht erkannt. Anders als die
+Steuer-ID ist die *amtliche* UID-Form leerzeichen-los (`ATU12345678`);
+die Leerzeichen-Variante ist Tipp-Konvention, kein Standard, und der
+`is_valid_at_uid`-Validator müsste zusätzlich angepasst werden (er
+strippt aktuell keine Leerzeichen). **Reaktivierungs-Trigger:** ein
+Pilot-Fixture mit realer leerzeichen-getrennter UID, das einen Miss
+zeigt.

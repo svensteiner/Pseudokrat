@@ -6,7 +6,14 @@ import re
 
 from pseudokrat.recognizers.base import Span
 
-_DE_STEUER_ID_RE = re.compile(r"(?<!\d)\d{11}(?!\d)")
+# Erkennt zwei Schreibweisen:
+#   1. 11 zusammenhängende Ziffern  ("47036892816")
+#   2. die offizielle BMF-Anzeigeform 2-3-3-3 mit Leerzeichen
+#      ("47 036 892 816") — so steht die Steuer-ID auf Bescheiden und
+#      Lohnsteuerkarten. Der Validator strippt Leerzeichen ohnehin; die
+#      strikte § 139b-Struktur- plus ISO-7064-Prüfung schließt zufällige
+#      gruppierte Zahlenketten als False Positive aus.
+_DE_STEUER_ID_RE = re.compile(r"(?<!\d)(?:\d{11}|\d{2} \d{3} \d{3} \d{3})(?!\d)")
 
 
 def is_valid_de_steuer_id(candidate: str) -> bool:

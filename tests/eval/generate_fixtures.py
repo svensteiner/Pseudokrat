@@ -248,6 +248,65 @@ def build_kanzlei_adel(rng: random.Random) -> None:
     )
 
 
+def build_rechnung_de(rng: random.Random) -> None:
+    """Deutsche Rechnung mit gruppierten Nummern-Schreibweisen.
+
+    Probt die Format-Toleranz der deterministischen Recognizer gegen die
+    *amtlichen Anzeigeformen* mit Leerzeichen-Gruppierung, wie sie real auf
+    Bescheiden und Rechnungen stehen:
+
+    * Steuer-ID in BMF-Form ``47 036 892 816`` (2-3-3-3) — bis PRL Iter-16
+      ein kompletter Miss, weil das Scan-Regex nur 11 zusammenhängende
+      Ziffern fand (der Validator strippte Leerzeichen bereits, lief aber
+      nie auf einem gruppierten Kandidaten).
+    * DE-IBAN in 4er-Gruppen ``DExx xxxx …`` — Regression-Guard für die
+      bereits vorhandene IBAN-Leerzeichen-Toleranz.
+    """
+    b = FixtureBuilder()
+    raw_steuer_id = generate_de_steuer_id(rng)
+    steuer_id = f"{raw_steuer_id[:2]} {raw_steuer_id[2:5]} {raw_steuer_id[5:8]} {raw_steuer_id[8:11]}"
+    raw_iban = generate_de_iban(rng)
+    iban = f"{raw_iban[:4]} {raw_iban[4:8]} {raw_iban[8:12]} {raw_iban[12:16]} {raw_iban[16:20]} {raw_iban[20:]}"
+    company = "Steuerkanzlei Mustermann GmbH"
+    company_addr = "Hauptstraße 5, 80331 München"
+    kunde = "Friedrich Beispiel"
+    email = "rechnung@steuerkanzlei-mustermann-de.example"
+
+    b.add_slot("company", company, "COMPANY")
+    b.add_slot("company_addr", company_addr, "ADDRESS")
+    b.add_slot("kunde", kunde, "PERSON")
+    b.add_slot("steuer_id", steuer_id, "TAX_ID")
+    b.add_slot("iban", iban, "IBAN")
+    b.add_slot("email", email, "EMAIL")
+
+    template = (
+        "RECHNUNG Nr. 2026-0815\n"
+        "============================================\n"
+        "\n"
+        "Aussteller:            {company}\n"
+        "                       {company_addr}\n"
+        "Rechnung an:           Herr {kunde}\n"
+        "\n"
+        "Steuer-ID:             {steuer_id}\n"
+        "Bankverbindung:        {iban}\n"
+        "Rückfragen:            {email}\n"
+        "\n"
+        "Zahlbar binnen 14 Tagen. Beleg-Nr. 12 345 678 901 ist keine\n"
+        "Steuer-ID und darf nicht getaggt werden.\n"
+    )
+    out = _FIXTURES_DIR / "rechnung_de"
+    b.write_fixture(
+        directory=out,
+        template=template,
+        description=(
+            "Deutsche Rechnung mit gruppierten Nummern-Anzeigeformen "
+            "(Steuer-ID 2-3-3-3, IBAN 4er-Gruppen) — probt die "
+            "Leerzeichen-Toleranz der deterministischen Recognizer."
+        ),
+        seed=505,
+    )
+
+
 def build_false_positive_traps(rng: random.Random) -> None:
     """Texte, die Recognizer KEINE PII-Spans erzeugen sollten.
 
@@ -287,6 +346,9 @@ def main() -> None:
     build_versicherung_ch(rng)
     build_kanzlei_adel(rng)
     build_false_positive_traps(rng)
+    # Neue Fixtures ans Ende — hält den geteilten RNG-Stream der
+    # bestehenden Fixtures byteidentisch.
+    build_rechnung_de(rng)
     print(f"Fixtures geschrieben unter {_FIXTURES_DIR}")
 
 

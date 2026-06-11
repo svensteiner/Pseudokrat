@@ -45,6 +45,27 @@ def test_steuer_id_recognizer_finds_match() -> None:
     assert spans[0].category == "TAX_ID"
 
 
+def test_steuer_id_recognizer_finds_grouped_form() -> None:
+    """Offizielle BMF-Anzeigeform 2-3-3-3 mit Leerzeichen (47 036 892 816)."""
+    recognizer = GermanSteuerIdRecognizer()
+    grouped = "47 036 892 816"
+    text = f"Steuer-ID: {grouped} (siehe Bescheid)"
+    spans = recognizer.analyze(text)
+    assert len(spans) == 1
+    assert spans[0].category == "TAX_ID"
+    assert spans[0].text == grouped
+
+
+def test_steuer_id_grouped_invalid_checksum_rejected() -> None:
+    """Eine gruppierte 11-Ziffern-Kette ohne gültige Prüfziffer/Struktur
+    darf NICHT als Steuer-ID matchen (kein False Positive auf beliebigen
+    Zahlengruppierungen wie Rechnungs-/Ordnungsnummern)."""
+    recognizer = GermanSteuerIdRecognizer()
+    # 12 345 678 901: Prüfziffer/Struktur ungültig (vgl. test_invalid_steuer_id)
+    text = "Beleg-Nr.: 12 345 678 901 vom 03.06.2026"
+    assert recognizer.analyze(text) == []
+
+
 def test_valid_ust_id() -> None:
     assert is_valid_de_ust_id(VALID_UST_ID)
 

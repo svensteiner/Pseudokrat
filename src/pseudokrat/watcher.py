@@ -330,7 +330,7 @@ def run(
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}"
         print(line, flush=True)
         try:
-            with open(log_file, "a", encoding="utf-8") as handle:
+            with log_file.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
         except OSError:
             pass

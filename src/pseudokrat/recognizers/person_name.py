@@ -48,7 +48,7 @@ FIRST_NAMES: frozenset[str] = frozenset(
         "roman", "wilhelm", "ludwig", "otto", "bruno", "kurt", "erwin", "gustav",
         # weiblich (erweitert)
         "agnes", "amelie", "annemarie", "antonia", "astrid", "beate", "bianca",
-        "carmen", "caroline", "charlotte", "christa", "clara", "claudia", "diana",
+        "carmen", "caroline", "charlotte", "christa", "clara", "diana",
         "edith", "elena", "elfriede", "elke", "emilia", "ella", "erika", "esther",
         "evelyn", "franziska", "frieda", "gisela", "gudrun", "hanna", "hedwig",
         "heidi", "heike", "helene", "henriette", "hermine", "hildegard", "ilse",
@@ -75,10 +75,10 @@ FIRST_NAMES: frozenset[str] = frozenset(
         "sven", "theodor", "theo", "tim", "timo", "tom", "ulrich", "urban",
         "valentin", "viktor", "vincent", "volker", "willibald", "xaver",
         # international / in Oesterreich gebraeuchlich
-        "aleksandar", "ali", "amir", "ana", "ante", "denis", "dragan", "emir",
+        "aleksandar", "ali", "amir", "ana", "ante", "dragan", "emir",
         "fatima", "filip", "goran", "hasan", "ivan", "ivana", "luka", "marko",
         "mehmet", "milan", "mohammed", "murat", "nina", "petar", "sara",
-        "stefano", "tobias", "vladimir", "zoran",
+        "stefano", "vladimir", "zoran",
     }
 )
 

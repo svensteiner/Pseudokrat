@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import getpass
 import os
 import sys
@@ -30,6 +31,21 @@ from pseudokrat.store.secure_db import InvalidPasswordError
 
 DEFAULT_PROFILE = "default"
 MIN_PASSWORD_LENGTH = 8
+
+
+def _ensure_utf8_console() -> None:
+    """Verhindert UnicodeEncodeError auf cp1252-Konsolen (deutsches Windows).
+
+    Die CLI gibt Umlaute und Pfeile (→) aus; ohne UTF-8-Stream stirbt die
+    gefrorene EXE beim ersten print(). `errors="replace"` statt Crash —
+    schlimmstenfalls erscheint ein Ersatzzeichen.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            # Exotische Konsolen duerfen den Start nicht verhindern.
+            with contextlib.suppress(OSError, ValueError):
+                reconfigure(encoding="utf-8", errors="replace")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1473,6 +1489,7 @@ def _cmd_setup(args: argparse.Namespace, manager: ProfileManager) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    _ensure_utf8_console()
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)

@@ -9,6 +9,32 @@ import pytest
 from pseudokrat.cli import main
 
 
+def test_ensure_utf8_console_repariert_cp1252_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Auf cp1252-Konsolen (deutsches Windows) darf kein print() der CLI
+    an Umlauten oder Pfeilen (→) sterben — die gefrorene EXE crashte
+    sonst direkt im Setup-Menü."""
+    import io
+    import sys
+
+    from pseudokrat.cli import _ensure_utf8_console
+
+    raw = io.BytesIO()
+    cp1252_stdout = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", cp1252_stdout)
+
+    # Vorbedingung: ohne Fix wirft cp1252 bei '→' einen UnicodeEncodeError.
+    with pytest.raises(UnicodeEncodeError):
+        cp1252_stdout.write("→")
+
+    _ensure_utf8_console()
+
+    print("Pseudokrat — Einrichtung → läuft")  # darf nicht mehr werfen
+    sys.stdout.flush()
+    assert b"Einrichtung" in raw.getvalue()
+
+
 def test_cli_anonymize_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

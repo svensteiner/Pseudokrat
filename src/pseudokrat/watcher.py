@@ -42,7 +42,7 @@ from pseudokrat.store.profile import ProfileManager
 
 #: Dateiendungen, die der Watcher verarbeitet.
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
-    {".pdf", ".docx", ".xlsx", ".csv", ".txt", ".tsv", ".md", ".log"}
+    {".pdf", ".docx", ".xlsx", ".csv", ".txt", ".tsv", ".md", ".log", ".html", ".htm"}
 )
 
 #: Platzhalter-Muster fuer die PDF-Rueckuebersetzung.

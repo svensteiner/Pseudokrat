@@ -17,6 +17,7 @@ from pseudokrat.formats.base import (
     UnsupportedFormatError,
 )
 from pseudokrat.formats.csv_handler import CSVHandler
+from pseudokrat.formats.html_handler import HtmlHandler
 from pseudokrat.formats.txt_handler import TextHandler
 
 # Optionale Handler — importiere defensiv, damit fehlende Extras nicht
@@ -45,6 +46,8 @@ _HANDLERS_BY_SUFFIX: dict[str, Callable[[], FormatHandler]] = {
     ".md": TextHandler,
     ".csv": CSVHandler,
     ".tsv": CSVHandler,
+    ".html": HtmlHandler,
+    ".htm": HtmlHandler,
 }
 
 if DocxHandler is not None:  # pragma: no branch
@@ -78,6 +81,7 @@ __all__ = [
     "DocxHandler",
     "FormatHandler",
     "FormatProcessResult",
+    "HtmlHandler",
     "PdfHandler",
     "TextHandler",
     "UnsupportedFormatError",

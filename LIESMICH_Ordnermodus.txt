@@ -1,0 +1,98 @@
+PSEUDOKRAT - ORDNER-ANONYMISIERUNG (ohne Installation)
+=======================================================
+
+Diese Variante braucht KEINE Installation im System:
+- kein Eintrag im Windows-Explorer-Kontextmenue
+- kein Registry-Eingriff
+- kein Autostart
+- keine Admin-Rechte
+
+Sie laeuft nur, solange das schwarze Fenster offen ist - ideal fuer
+Rechner, auf denen die IT Installationen blockiert.
+
+
+SO BENUTZT DU ES
+----------------
+1. Doppelklick auf  "Anonymisierung starten.bat"
+
+   WICHTIG: Der erste Start dauert 2-3 MINUTEN, weil das Programm vom
+   Netzlaufwerk geladen wird. Das Fenster zeigt sofort:
+       "Starte ... lade Programm"
+   und etwas spaeter "BEREIT." - DANN erst ist es einsatzbereit.
+   Das Fenster ist also NICHT haengengeblieben, es laedt nur. Bitte offen
+   lassen und warten, bis "BEREIT." erscheint.
+   (Beim allerersten Start legt es automatisch ein Profil "Standard" an.)
+
+2. Sobald "BEREIT." dasteht: eine Datei (PDF, DOCX, XLSX, CSV, TXT) in den
+   Ordner  INPUT  ziehen.
+
+3. Nach wenigen Sekunden erscheint die anonymisierte Kopie im Ordner  OUTPUT
+   (z. B.  brief.pdf  ->  brief.anon.pdf).
+
+4. Die Original-Datei wird nach  Verarbeitet  verschoben.
+   Falls etwas schiefgeht, landet sie in  Fehler  (Details in watch.log).
+
+5. Den Inhalt aus OUTPUT kannst du jetzt in ChatGPT / Claude / Gemini einfuegen.
+
+
+ORDNER-UEBERSICHT
+-----------------
+INPUT        <- hier Dateien hineinziehen
+OUTPUT       -> hier liegt das anonymisierte Ergebnis
+Verarbeitet  -> Original-Dateien nach erfolgreicher Verarbeitung
+Fehler       -> Dateien, die nicht verarbeitet werden konnten
+watch.log    -> Protokoll aller Vorgaenge
+
+
+WAS WIRD ERKANNT (WICHTIG!)
+---------------------------
+Diese installationsfreie Variante laeuft OHNE das KI-Sprachmodell (zu gross
+fuer gesperrte Rechner). Automatisch erkannt und ersetzt werden:
+
+  IBAN, oesterr. UID + SVNR, dt. Steuer-ID + USt-IdNr, Schweizer AHV,
+  Firmen mit Rechtsform (GmbH, AG, KG, e.U. ...), E-Mail, Telefon, URL,
+  API-Keys/Tokens, Mandantennummern.
+
+PLUS: deine eigenen Begriffe aus der Datei  Begriffe.txt  (siehe unten).
+
+NICHT automatisch erkannt werden (dafuer braucht es das KI-Modell):
+  - Personennamen ohne Firmenbezug (z. B. "Herr Maier")
+  - frei geschriebene Adressen / Geburtsdaten
+  -> Solche Namen am besten in Begriffe.txt eintragen.
+
+=> Pruefe das Ergebnis in OUTPUT, BEVOR du es an die Cloud-KI gibst.
+
+
+EIGENE BEGRIFFE (Begriffe.txt)
+------------------------------
+Marken, Kurzformen oder Namen, die der Automatik-Erkenner nicht kennt
+(z. B. "M&D", "Dunkin", ein Projektname), traegst du in die Datei
+Begriffe.txt ein - ein Begriff pro Zeile. Sie werden dann ueberall im Text
+UND in PDFs durch <BEGRIFF_xxx> ersetzt. Aenderungen wirken nach einem
+Neustart (Fenster schliessen und "Anonymisierung starten" neu oeffnen).
+
+
+PDF: LAYOUT BLEIBT ERHALTEN
+---------------------------
+PDFs werden layout-erhaltend anonymisiert: Tabellen, Zahlen, Schrift und
+farbige Elemente bleiben, nur die erkannten PII-Stellen werden im Original
+ueberschrieben.
+
+LOGOS werden entfernt: Bilder, die auf MEHREREN Seiten wiederkehren (typisch
+Briefkopf/Logo), werden geloescht - ein Logo identifiziert den Mandanten
+genauso wie der Name. Einzelne Bilder (z. B. ein Diagramm nur auf einer Seite)
+bleiben erhalten.
+
+TEXT IN BILDERN (OCR): Manche Tabellen sind als BILD eingebettet (der Text ist
+dann Pixel, kein echter Text). Das Tool liest solche Bilder per OCR und
+schwaerzt darin den Firmennamen / die eigenen Begriffe - die Zahlen und die
+Tabelle bleiben sichtbar. Deshalb dauert die Verarbeitung von PDFs mit Bildern
+etwas laenger (die OCR-Modelle werden beim ersten PDF einmalig geladen).
+
+Reine Scan-PDFs (die GANZE Seite ist nur ein Bild) werden ebenfalls per OCR
+nach Namen/Begriffen durchsucht und an den Treffern geschwaerzt.
+
+
+BEENDEN
+-------
+Einfach das schwarze Fenster schliessen.

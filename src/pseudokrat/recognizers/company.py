@@ -54,6 +54,19 @@ _LEGAL_FORMS_ORDERED: tuple[str, ...] = (
     "Inc",
     "Corp.",
     "Corp",
+    # Internationale Rechtsformen (Beteiligungen, Komplementaer/Kommanditist).
+    "S.P.R.L.",
+    "SPRL",
+    "S.R.L.",
+    "SRL",
+    "Sp. z o.o.",
+    "d.o.o.",
+    "B.V.",
+    "N.V.",
+    "S.L.",
+    "S.A.",
+    "plc",
+    "PLC",
 )
 
 # Häufige deutsche Artikel/Präpositionen, die nicht Teil eines Firmennamens sein dürfen.

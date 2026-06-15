@@ -40,6 +40,10 @@ _ROLE_LABELS = (
     r"|Versicherter|Versicherte|Bevollmächtigter|Bevollmächtigte"
     r"|Geschäftsführer|Geschäftsführerin|Inhaber|Inhaberin"
     r"|Vertragspartner|Patient|Patientin|Auftraggeber|Auftragnehmer"
+    # Gesellschaftsrechtliche Funktionen (Jahresabschluss „Rechtsverhältnisse").
+    r"|Komplementär|Komplementärin|Kommanditist|Kommanditistin"
+    r"|Funktionsträger|Funktionsträgerin|Prokurist|Prokuristin"
+    r"|Gesellschafter|Gesellschafterin"
 )
 
 # Akademische Titel — können sich stapeln (``Frau Prof. Dr. med.``).

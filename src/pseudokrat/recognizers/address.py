@@ -49,8 +49,11 @@ _SUFFIX_STANDALONE = (
 #   Suffix verschmolzen mit Token.
 # Strassen-Variante 2: ``Mariahilfer Straße`` —
 #   Suffix als eigenes Token, vorne ein Adjektiv-/Eigenname-Token.
-_ADDRESS_RE = re.compile(
-    rf"""
+# Trenner zwischen Strassen- und PLZ-Block: Komma ODER Pipe (Briefkopf:
+# „Hegelgasse 8 | 1010 Wien"). Whitespace rundherum erlaubt.
+_SEP = r"\s* [,|] \s*"
+
+_STREET = rf"""
     (?P<street>
         {_TOKEN}{_SUFFIX_INLINE}
         |
@@ -58,7 +61,13 @@ _ADDRESS_RE = re.compile(
     )
     [ \t]+
     (?P<num>{_HOUSE_NUMBER})
-    \s* , \s*
+"""
+
+# Normalform: „Strasse Nr , PLZ Ort".
+_ADDRESS_RE = re.compile(
+    rf"""
+    {_STREET}
+    {_SEP}
     (?P<plz>\d{{4,5}})
     [ \t]+
     (?P<city>{_TOKEN}(?:[ \t]+{_TOKEN}){{0,2}})
@@ -66,25 +75,41 @@ _ADDRESS_RE = re.compile(
     re.VERBOSE,
 )
 
+# Umgekehrte Form: „PLZ Ort , Strasse Nr" (oesterr. Briefkoepfe, Stempel).
+_ADDRESS_REVERSED_RE = re.compile(
+    rf"""
+    (?P<plz>\d{{4,5}})
+    [ \t]+
+    (?P<city>{_TOKEN})
+    {_SEP}
+    {_STREET}
+    """,
+    re.VERBOSE,
+)
+
 
 class AddressRecognizer:
-    """DACH-Postanschriften (Strasse Nr, PLZ Ort)."""
+    """DACH-Postanschriften (Strasse Nr, PLZ Ort) — beide Reihenfolgen."""
 
     name = "address"
     category = "ADDRESS"
 
     def analyze(self, text: str) -> list[Span]:
         spans: list[Span] = []
-        for m in _ADDRESS_RE.finditer(text):
-            start = m.start()
-            end = m.end()
-            spans.append(
-                Span(
-                    start=start,
-                    end=end,
-                    category=self.category,
-                    text=text[start:end],
-                    score=0.85,
+        seen: set[tuple[int, int]] = set()
+        for regex in (_ADDRESS_RE, _ADDRESS_REVERSED_RE):
+            for m in regex.finditer(text):
+                key = (m.start(), m.end())
+                if key in seen:
+                    continue
+                seen.add(key)
+                spans.append(
+                    Span(
+                        start=m.start(),
+                        end=m.end(),
+                        category=self.category,
+                        text=text[m.start() : m.end()],
+                        score=0.85,
+                    )
                 )
-            )
         return spans

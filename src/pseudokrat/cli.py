@@ -383,6 +383,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Text in Bildern NICHT per OCR prüfen/schwärzen.",
     )
+    p_watch.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Lokalen LLM-Erkenner (Ollama) NICHT verwenden.",
+    )
+    p_watch.add_argument(
+        "--llm-model",
+        default="mistral:latest",
+        help="Ollama-Modell für die generische Namens-Erkennung (Standard: mistral:latest).",
+    )
 
     # setup — Erstkonfiguration: Weg auswählen (Installation vs. Ordner)
     p_setup = sub.add_parser(
@@ -1433,6 +1443,8 @@ def _cmd_watch(args: argparse.Namespace, manager: ProfileManager) -> int:
             profile=args.profile,
             remove_logos=not args.no_logos,
             ocr_images=not args.no_ocr,
+            use_llm=not args.no_llm,
+            llm_model=args.llm_model,
         )
     except KeyboardInterrupt:
         print("\nBeendet.")

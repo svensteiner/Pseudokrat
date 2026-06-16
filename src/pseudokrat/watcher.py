@@ -196,6 +196,17 @@ def redact_pdf(
                 if removed:
                     page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE)
 
+        # Dokument-Eigenschaften entfernen: /Title /Author /Subject /Keywords
+        # /Creator /Producer sowie XMP-Metadaten (enthalten oft Mandant/Verfasser).
+        try:
+            doc.set_metadata({})
+        except Exception:  # noqa: BLE001 - Metadaten duerfen den Lauf nicht stoppen
+            pass
+        try:
+            doc.set_xml_metadata("")
+        except Exception:  # noqa: BLE001
+            pass
+
         doc.save(str(dst), garbage=4, deflate=True)
     finally:
         doc.close()
@@ -299,12 +310,75 @@ def _file_is_stable(path: Path) -> bool:
         return False
 
 
+#: In Windows-Dateinamen unzulaessige Zeichen (inkl. der Platzhalter-Klammern).
+_FILENAME_BAD = '<>:"/\\|?*'
+
+
+def safe_anonymized_stem(stem: str, anonymizer: Anonymizer) -> str:
+    """Anonymisiert einen Dateinamen-Stamm und macht ihn Windows-sicher.
+
+    Erkannte PII (Firmen, Namen, eigene Begriffe …) wird durch Platzhalter
+    ersetzt; die Platzhalter-Klammern ``<>`` und andere unzulaessige Zeichen
+    werden entschaerft. So enthaelt der Ausgabe-Dateiname keinen Klartext mehr.
+    """
+    anonymized = anonymizer.anonymize(stem).text
+    for ch in _FILENAME_BAD:
+        anonymized = anonymized.replace(ch, "_" if ch not in "<>" else "")
+    cleaned = "_".join(anonymized.split())  # Whitespace zusammenfassen
+    return cleaned.strip("_") or "dokument"
+
+
+def strip_office_metadata(path: Path) -> None:
+    """Entfernt Dokument-Eigenschaften aus XLSX/DOCX/PPTX (Office Open XML).
+
+    Schreibt ``docProps/core.xml`` und ``docProps/app.xml`` neutral neu
+    (Autor, Titel, Firma, "Zuletzt gespeichert von" … verschwinden).
+    """
+    import zipfile
+
+    suffix = path.suffix.lower()
+    if suffix not in (".xlsx", ".docx", ".pptx"):
+        return
+
+    neutral = {
+        "docProps/core.xml": (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<cp:coreProperties '
+            'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+            'xmlns:dcterms="http://purl.org/dc/terms/" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+            "</cp:coreProperties>"
+        ),
+        "docProps/app.xml": (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Properties '
+            'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
+            "</Properties>"
+        ),
+    }
+
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(
+        tmp, "w", zipfile.ZIP_DEFLATED
+    ) as zout:
+        for item in zin.infolist():
+            data = neutral.get(item.filename)
+            if data is not None:
+                zout.writestr(item.filename, data)
+            else:
+                zout.writestr(item, zin.read(item.filename))
+    tmp.replace(path)
+
+
 def run(
     base: Path,
     *,
     profile: str = "Standard",
     remove_logos: bool = True,
     ocr_images: bool = True,
+    use_llm: bool = True,
+    llm_model: str = "mistral:latest",
     poll_seconds: float = 3.0,
 ) -> int:
     """Startet den Ordner-Watcher (laeuft, bis der Prozess beendet wird)."""
@@ -350,6 +424,20 @@ def run(
         recognizers.append(TermRecognizer(terms))
         log(f"{len(terms)} eigene Begriffe aus Begriffe.txt geladen.")
 
+    # Lokaler LLM-Erkenner (Ollama) — erkennt Firmen-/Personen-/Markennamen
+    # generisch, laeuft nur auf localhost (kein Cloud-Leck).
+    if use_llm:
+        from pseudokrat.pii.ollama_detector import OllamaDetector, ollama_available
+
+        if ollama_available():
+            recognizers.append(OllamaDetector(model=llm_model, log=log))
+            log(f"Lokaler LLM-Erkenner aktiv (Ollama, Modell {llm_model}).")
+        else:
+            log(
+                "Ollama nicht erreichbar — LLM-Erkennung uebersprungen "
+                "(nur regelbasiert + Begriffe). Start: 'ollama serve'."
+            )
+
     ocr = _OcrEngine(log) if ocr_images else None
 
     with store:
@@ -376,8 +464,10 @@ def run(
                 target = back_out / f"{path.stem}.klartext{path.suffix}"
                 log(f"Ruckuebersetze: {path.name}")
             else:
-                target = outbox / f"{path.stem}.anon{path.suffix}"
-                log(f"Anonymisiere: {path.name}")
+                # Dateiname mit-anonymisieren (Klartext-Name -> Platzhalter).
+                safe_stem = safe_anonymized_stem(path.stem, anonymizer)
+                target = outbox / f"{safe_stem}.anon{path.suffix}"
+                log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {safe_stem})")
             try:
                 if reverse and is_pdf:
                     n = deanon_pdf(path, target, deanonymizer)
@@ -392,12 +482,13 @@ def run(
                         path, target, anonymizer, store,
                         remove_logos=remove_logos, ocr=ocr, log=log,
                     )
-                    log(f"  -> OK ({n} PII-Stellen ersetzt, Layout erhalten) -> {target.name}")
+                    log(f"  -> OK ({n} PII-Stellen ersetzt, Layout+Metadaten bereinigt) -> {target.name}")
                 else:
                     res = handler_for(path).process(
                         path, target, transform=lambda t: anonymizer.anonymize(t).text
                     )
-                    log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
+                    strip_office_metadata(target)  # Dokument-Eigenschaften entfernen
+                    log(f"  -> OK ({res.segments_processed} Segmente, Metadaten bereinigt) -> {target.name}")
                 relocate(path, done)
             except Exception as exc:  # noqa: BLE001 - im Watcher alles abfangen
                 log(f"  -> FEHLER bei {path.name}: {exc}")

@@ -27,11 +27,12 @@ Optionale Abhaengigkeiten:
 
 from __future__ import annotations
 
+import contextlib
 import re
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pseudokrat.anonymizer import Anonymizer
 from pseudokrat.deanonymizer import Deanonymizer
@@ -131,7 +132,7 @@ class _OcrEngine:
             self._log("Lade OCR-Modelle (einmalig, dauert kurz) ...")
             self._engine = RapidOCR()
         result, _elapsed = self._engine(image_bytes)
-        return result
+        return cast("list[Any] | None", result)
 
 
 def redact_pdf(
@@ -198,14 +199,11 @@ def redact_pdf(
 
         # Dokument-Eigenschaften entfernen: /Title /Author /Subject /Keywords
         # /Creator /Producer sowie XMP-Metadaten (enthalten oft Mandant/Verfasser).
-        try:
+        # Metadaten duerfen den Lauf nicht stoppen -> Fehler bewusst schlucken.
+        with contextlib.suppress(Exception):
             doc.set_metadata({})
-        except Exception:  # noqa: BLE001 - Metadaten duerfen den Lauf nicht stoppen
-            pass
-        try:
+        with contextlib.suppress(Exception):
             doc.set_xml_metadata("")
-        except Exception:  # noqa: BLE001
-            pass
 
         doc.save(str(dst), garbage=4, deflate=True)
     finally:

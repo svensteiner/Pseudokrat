@@ -36,13 +36,18 @@ def _isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_recognizers_only_mode_default(tmp_path: Path) -> None:
     """Ohne ``with_ml=True`` darf NIEMALS versucht werden, ein Modell zu
-    laden — auch nicht, um die Cache-Existenz zu prüfen."""
+    laden — auch nicht, um die Cache-Existenz zu prüfen.
+
+    Beweis über den tatsächlichen Mechanismus: der ML-Privacy-Detektor bleibt
+    ungesetzt (``None``). (Die frühere Proxy-Annahme „PERSON/ADDRESS nur via
+    ML" gilt nicht mehr — der ML-freie Gazetteer-Recognizer erkennt bekannte
+    Vornamen wie „Erika" auch ohne Modell.) Der Cache ist via Fixture leer;
+    mit ``with_ml=True`` würde der Aufbau hier mit ``ModelNotCachedError``
+    scheitern — ohne ML gelingt er und lädt nichts."""
     anon = _build_anonymizer(with_ml=False)
-    # Anonymizer-API exponiert _detector nicht direkt; wir prüfen via
-    # public ``detect`` auf einem Text, der nur ML-Kategorien enthält.
-    spans = anon.detect("Erika Mustermann wohnt in München.")
-    # Person + Adresse sind ML-Kategorien — ohne ML keine Treffer.
-    assert all(s.category not in ("PERSON", "ADDRESS") for s in spans)
+    assert anon._detector is None
+    # Die regelbasierte Pipeline funktioniert trotzdem.
+    assert isinstance(anon.detect("Beliebiger Text ohne Modell-Abhängigkeit."), list)
 
 
 def test_ml_mode_raises_when_model_not_cached(tmp_path: Path) -> None:

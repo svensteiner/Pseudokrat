@@ -51,7 +51,24 @@ class TestStripOfficeMetadata:
         watcher.strip_office_metadata(path)
 
         wb2 = load_workbook(path)
-        assert not wb2.properties.creator
+        # Entscheidend ist, dass kein eingebetteter Mandanten-/Autorenname
+        # ueberlebt — NICHT, dass jedes Feld leer ist: openpyxl setzt bei
+        # fehlendem <dc:creator> den generischen Default "openpyxl" (kein PII).
+        # Der Roh-XML-Nachweis liegt in test_core_xml_has_no_author.
+        leftover = " ".join(
+            str(v)
+            for v in (
+                wb2.properties.creator,
+                wb2.properties.lastModifiedBy,
+                wb2.properties.title,
+                wb2.properties.subject,
+                wb2.properties.description,
+                wb2.properties.keywords,
+            )
+            if v
+        )
+        assert "Hankook" not in leftover
+        assert "Max Mustermann" not in leftover
         assert not wb2.properties.lastModifiedBy
         assert not wb2.properties.title
         # Datei bleibt eine gueltige, lesbare XLSX.

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -52,12 +53,26 @@ _PROMPT = (
 )
 
 
+def _http_urlopen(
+    target: str | urllib.request.Request, *, timeout: float
+) -> Any:
+    """``urlopen``, das ausschliesslich ``http``/``https`` zulaesst.
+
+    Schliesst aus, dass eine manipulierte Host-Konfiguration über ``file://``
+    oder ein Custom-Scheme lokale Dateien liest (SSRF/LFI). Nach dieser Prüfung
+    ist der Aufruf auf Netzwerk-Schemes beschränkt."""
+    url = target.full_url if isinstance(target, urllib.request.Request) else target
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        raise ValueError(f"Nur http/https erlaubt: {url!r}")
+    return urllib.request.urlopen(target, timeout=timeout)  # nosec B310 - Scheme geprüft
+
+
 def ollama_available(host: str = _DEFAULT_HOST, timeout: float = 3.0) -> bool:
     """True, wenn ein Ollama-Server erreichbar ist."""
     try:
-        with urllib.request.urlopen(f"{host}/api/tags", timeout=timeout) as resp:
-            return resp.status == 200
-    except (urllib.error.URLError, OSError):
+        with _http_urlopen(f"{host}/api/tags", timeout=timeout) as resp:
+            return bool(resp.status == 200)
+    except (urllib.error.URLError, OSError, ValueError):
         return False
 
 
@@ -99,7 +114,7 @@ class OllamaDetector:
             data=payload,
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+        with _http_urlopen(req, timeout=self._timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
         raw = body.get("response", "")
         try:

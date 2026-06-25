@@ -28,12 +28,10 @@ from __future__ import annotations
 import io
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
-import textwrap
 import traceback
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 # Frische Umgebung: kompletter Walkthrough nutzt ein einziges tmp-Verzeichnis
@@ -285,7 +283,7 @@ def step_09_multi_session() -> None:
     second = [line for line in out2.splitlines() if "<COMPANY_" in line][0]
     if "<COMPANY_001>" not in first or "<COMPANY_001>" not in second:
         raise AssertionError(f"Konsistenz fehlgeschlagen: {first!r} vs {second!r}")
-    print(f"   /OK beide Calls bekamen <COMPANY_001>")
+    print("   /OK beide Calls bekamen <COMPANY_001>")
 
 
 def step_10_fuzzy_merge() -> None:
@@ -307,7 +305,7 @@ def step_10_fuzzy_merge() -> None:
         raise AssertionError(f"Erwartet 3x <COMPANY_001>, war {count} in:\n{line}")
     if "<COMPANY_002>" in line:
         raise AssertionError("Fuzzy-Merge versagte — <COMPANY_002> aufgetaucht")
-    print(f"   /OK alle drei Schreibweisen → <COMPANY_001>")
+    print("   /OK alle drei Schreibweisen → <COMPANY_001>")
 
 
 def step_11_audit() -> None:
@@ -329,7 +327,7 @@ def step_12_profiles_list() -> None:
     assert_eq(rc, 0, "Exit-Code")
     for name in ("Mandant Hofer", "Session-Test", "Fuzzy-Test"):
         assert_in(name, out, f"Profil '{name}' fehlt")
-    print(f"   /OK alle drei Profile gelistet")
+    print("   /OK alle drei Profile gelistet")
 
 
 def step_13_gui_headless() -> None:
@@ -338,7 +336,8 @@ def step_13_gui_headless() -> None:
 
     from pseudokrat.gui.main_window import MainWindow, build_application
 
-    app = QApplication.instance() or build_application(["walkthrough"])
+    # Referenz festhalten (_app): wird die QApplication GC'd, stürzt die GUI ab.
+    _app = QApplication.instance() or build_application(["walkthrough"])
 
     win = MainWindow()
     try:
@@ -465,7 +464,7 @@ def step_16_pdf_pipeline() -> None:
     deanon_text = "\n".join((p.extract_text() or "") for p in PdfReader(str(deanon)).pages)
     assert_in("Hofer Bau GmbH", deanon_text, "PDF-Round-Trip-Firma")
     assert_in("AT611904300234573201", deanon_text, "PDF-Round-Trip-IBAN")
-    print(f"   /OK PDF Round-Trip: <COMPANY_001>/<IBAN_001> ↔ Original wiederhergestellt")
+    print("   /OK PDF Round-Trip: <COMPANY_001>/<IBAN_001> ↔ Original wiederhergestellt")
 
 
 def step_17_audit_pdf_export() -> None:
@@ -546,7 +545,7 @@ def step_18_mandanten_pattern() -> None:
     )
     assert_eq(rc4, 0, "Deanon-Exit")
     assert_in("M-12345", out4, "Deanonymize stellt Mandantennummer wieder her")
-    print(f"   /OK Pattern aktiv & Round-Trip: M-12345 ↔ <MANDANT_NR_001>")
+    print("   /OK Pattern aktiv & Round-Trip: M-12345 ↔ <MANDANT_NR_001>")
 
 
 # --- Driver ----------------------------------------------------------------

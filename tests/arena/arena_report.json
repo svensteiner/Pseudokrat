@@ -1,0 +1,1743 @@
+{
+  "core": {
+    "passed": true,
+    "seed": 0,
+    "total_docs": 1500,
+    "total_secrets": 9750,
+    "leak_count": 0,
+    "roundtrip_failures": 0,
+    "by_mode": {
+      "clean": {
+        "secrets": 2457,
+        "leaks": 0
+      },
+      "labelbreak": {
+        "secrets": 2418,
+        "leaks": 0
+      },
+      "spacing": {
+        "secrets": 2457,
+        "leaks": 0
+      },
+      "table": {
+        "secrets": 2418,
+        "leaks": 0
+      }
+    },
+    "by_category": {
+      "ADDRESS": {
+        "secrets": 1500,
+        "leaks": 0
+      },
+      "BIC": {
+        "secrets": 500,
+        "leaks": 0
+      },
+      "BIRTHDATE": {
+        "secrets": 750,
+        "leaks": 0
+      },
+      "COMPANY": {
+        "secrets": 1000,
+        "leaks": 0
+      },
+      "EMAIL": {
+        "secrets": 1000,
+        "leaks": 0
+      },
+      "IBAN": {
+        "secrets": 1250,
+        "leaks": 0
+      },
+      "PERSON": {
+        "secrets": 2250,
+        "leaks": 0
+      },
+      "PHONE": {
+        "secrets": 500,
+        "leaks": 0
+      },
+      "STEUER_ID": {
+        "secrets": 250,
+        "leaks": 0
+      },
+      "SVNR": {
+        "secrets": 500,
+        "leaks": 0
+      },
+      "UID": {
+        "secrets": 250,
+        "leaks": 0
+      }
+    },
+    "leaks": []
+  },
+  "reflow": {
+    "passed": false,
+    "seed": 1000,
+    "total_docs": 300,
+    "total_secrets": 1950,
+    "leak_count": 229,
+    "roundtrip_failures": 0,
+    "by_mode": {
+      "reflow": {
+        "secrets": 1950,
+        "leaks": 229
+      }
+    },
+    "by_category": {
+      "ADDRESS": {
+        "secrets": 300,
+        "leaks": 0
+      },
+      "BIC": {
+        "secrets": 100,
+        "leaks": 0
+      },
+      "BIRTHDATE": {
+        "secrets": 150,
+        "leaks": 0
+      },
+      "COMPANY": {
+        "secrets": 200,
+        "leaks": 0
+      },
+      "EMAIL": {
+        "secrets": 200,
+        "leaks": 0
+      },
+      "IBAN": {
+        "secrets": 250,
+        "leaks": 146
+      },
+      "PERSON": {
+        "secrets": 450,
+        "leaks": 0
+      },
+      "PHONE": {
+        "secrets": 100,
+        "leaks": 0
+      },
+      "STEUER_ID": {
+        "secrets": 50,
+        "leaks": 26
+      },
+      "SVNR": {
+        "secrets": 100,
+        "leaks": 57
+      },
+      "UID": {
+        "secrets": 50,
+        "leaks": 0
+      }
+    },
+    "leaks": [
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "2338081185"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT964488134653359714"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "9028090985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE62920877292663993514"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "16592074282"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH8593527805223424363"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE28934315132816940067"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH4274727320283172066"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT679532764821405575"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH0250328539890088889"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH8525778283341026788"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "8813150985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT156313705410719371"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH3038771515761072238"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "8201241085"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "6623210685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT447800468913402296"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT921242023072431355"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "89355241606"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH8976388674609731782"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "8463090985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH9866812965568893658"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "1773271085"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT054699115919191588"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH4870057146412166943"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "6298130285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT652314406715033772"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT136480677852208091"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH5720776449321070431"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "8599020185"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT649728237853996435"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH8578792850510223738"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1088250585"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "3205210785"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "10273565852"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH4705030274823772804"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "9324270585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT305757303145642400"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH0421863349338813921"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "2642190685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH8015623250783643902"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT184323850608811742"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "36208400597"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH4045126649505276002"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "5197060885"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE68756276331243957721"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7000497846659744624"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT592087038437026739"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "54249807139"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH1288757065266075136"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "7333241285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT974606473242543196"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT260765080847660704"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH6812848754060009350"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "4488240785"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE51650415764703999515"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH3555755497887683694"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT962704966306207283"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH5472290416811417897"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "8910140885"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE58966790267224770628"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "3276110685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT560752692845438300"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT246226692391979042"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "3232250985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH3344735923382033409"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "9467130985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT126838446621281221"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "30089265071"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1581180285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE78565201398010259009"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT028596274295605366"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "79245310566"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH7604140742694911538"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "4740160585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7491177775153926957"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT803605646629663163"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH0297210306641706585"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1841211085"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE76166701356607183765"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH1662831819151129931"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "8638100285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT041408354063013988"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT449524879246481830"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "95346755020"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH3839715724602119372"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "3609240585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE14449745399318269698"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH4825819374350694956"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT719474219206589814"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT757385052572640421"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH0509659708301532427"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "5904010685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE50369955851025346164"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH9756001730349750117"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "9387230185"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "63481375206"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH0454118538322865808"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "6963240485"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH5815970076846105617"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT614167948710233786"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "20500639817"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2714753572092413019"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "7636130785"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE77123900876632217129"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "7222251085"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT669577349163876375"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT473507714416017249"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "69994082759"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE29258921488343850626"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH0838164168992438442"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "9806190385"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT449934187324107265"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "37961806420"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH5371921560761614597"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "19370546858"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT343066457351302032"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH5140582950050640370"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1631221285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT891472775502295819"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2420962538626042510"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE48166224567760193419"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "7313090985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH5107636213609219604"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "2485190285"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "4236110685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT717922845616837499"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "86106524737"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH7216985314333975666"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1739120785"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH0959592651782308036"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "1424140685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT289887998646497234"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT127448336287350197"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH8786720281074327997"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "5685060585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE22169148545644486224"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7405643106303631634"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT174846055886310046"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "79414382467"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "8875240185"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE96075838667447943218"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH6485594080509484172"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT827250907246293873"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "72956163488"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2668241434337404796"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "7534030185"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE08482574584749100058"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH5108863179578251427"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT733294259231833402"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT667699012445796609"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "73920775811"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH1804174766484468275"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "4218010285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE23551355878467795018"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH4037032581967702550"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "3326130685"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT580689822774954563"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE14379461297155657988"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "8967020585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT301086111240320708"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT492108198205481138"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "11018324655"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "2620081285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE83081240799089113117"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7279173089288390535"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "7743160285"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "14857023868"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2835408994492097444"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT762556700245538559"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT037722925675194801"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE50238943085484544208"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH6462391278510067036"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT131160584655935853"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT481861506875418481"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH4406002609772458068"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "5195110885"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE19848315050057764359"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT828354469214910731"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2746464706068069526"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "9966131085"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE23554614982617977853"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH3176540902620615327"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT155028917952259125"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "40792351112"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2435272678853779075"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE27082577437621000114"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT962196669689001289"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "15095637480"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH2414893584877793907"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "2792210485"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE72391937120506612946"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH0214048850622336202"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "7550080385"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT306778503092822758"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH2656378829937518139"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT870431577208764446"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "86973071747"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "9189060285"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE91935145146025710346"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7468907812154311505"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "9208130585"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT766299452852088827"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH3352301901169974988"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "6359150985"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE98707097641203738880"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "8021090785"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT955787511830866363"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "60419925878"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH8240404231916903528"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "6874270885"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE24904532060185536322"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT614699761633216011"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH4547547618039850117"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT345806990619860481"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "15009372606"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH6299538850453748442"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "6539050885"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE17637584390088502536"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "rechnung",
+        "value": "CH7505772800656609208"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT231185744965792767"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT078315076476895099"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "39208651443"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "9245131085"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "lohnabrechnung",
+        "value": "AT797254746606593382"
+      },
+      {
+        "category": "STEUER_ID",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "steuerbescheid",
+        "value": "37210581496"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "CH",
+        "template": "mandantenbrief",
+        "value": "CH3233450101716975895"
+      },
+      {
+        "category": "SVNR",
+        "mode": "reflow",
+        "country": "AT",
+        "template": "arztbrief",
+        "value": "1291110385"
+      },
+      {
+        "category": "IBAN",
+        "mode": "reflow",
+        "country": "DE",
+        "template": "anwaltsschriftsatz",
+        "value": "DE93810215958020098888"
+      }
+    ]
+  },
+  "generated": "2026-06-25T06:57:38.737567+00:00",
+  "python": "3.12.8",
+  "platform": "Windows"
+}

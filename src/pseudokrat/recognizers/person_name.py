@@ -88,6 +88,29 @@ _TOKEN_RE = re.compile(r"[A-ZÄÖÜ][a-zäöüß']+(?:-[A-ZÄÖÜ][a-zäöüß']
 #: Max. Anzahl Nachnamen-Token nach dem Vornamen (Zweitname + Nachname).
 _MAX_SURNAME_TOKENS = 2
 
+#: Adelsprädikate (nobiliary particles) zwischen Vor- und Nachnamen —
+#: kleingeschrieben und daher KEIN ``_TOKEN_RE``-Token. Ohne Sonderbehandlung
+#: reisst der Partikel die Token-Adjazenz auf, der Nachname fällt aus dem
+#: Namensfeld und leakt (``Birgit zu Schmid`` → nur ``Birgit`` erkannt).
+#: Bewusst eng auf echte Prädikate begrenzt (nicht der Artikel ``der``),
+#: damit der Konnektor-Pfad keine Funktionswörter einsammelt. Mehrwort-Formen
+#: erlaubt (``van der``); Vergleich case-insensitiv über kollabierten Abstand.
+_PARTICLES: frozenset[str] = frozenset(
+    {
+        "von", "van", "zu", "vom",
+        "von der", "von dem", "van der", "van den", "von und zu",
+    }
+)
+
+#: Kollabiert internen Abstand eines Partikel-Kandidaten ("von   der" → "von der").
+_GAP_WS_RE = re.compile(r"\s+")
+
+
+def _is_particle(gap: str) -> bool:
+    """Ob der Zwischenraum zweier Tokens ein Adelsprädikat ist (``von``,
+    ``van der`` …). Abstand wird kollabiert und kleingeschrieben verglichen."""
+    return _GAP_WS_RE.sub(" ", gap).strip().lower() in _PARTICLES
+
 
 class GazetteerNameRecognizer:
     """Erkennt ``Vorname Nachname`` anhand einer Vornamen-Liste (ML-frei).
@@ -117,8 +140,12 @@ class GazetteerNameRecognizer:
             while j < len(tokens) and surname_count < _MAX_SURNAME_TOKENS:
                 _ntok, nstart, nend = tokens[j]
                 gap = text[name_end:nstart]
-                if gap.strip(" \t") != "":  # Zeilenumbruch/anderes Zeichen -> Ende
-                    break
+                if gap.strip(" \t") == "":
+                    pass  # direkt anschliessend (nur Leerzeichen/Tab)
+                elif "\n" not in gap and _is_particle(gap):
+                    pass  # Adelsprädikat überbrücken — Nachname gehört dazu
+                else:
+                    break  # Zeilenumbruch/anderes Zeichen -> Name endet hier
                 name_end = nend
                 surname_count += 1
                 j += 1

@@ -47,10 +47,20 @@ _ROLE_LABELS = (
 )
 
 # Akademische Titel — können sich stapeln (``Frau Prof. Dr. med.``).
-# ``DDr.``/``MMag.`` für österreichische Doppelpromotionen.
+# ``DDr.``/``MMag.`` für österreichische Doppelpromotionen. Moderne und
+# österreichische Grade werden im Alltag häufig OHNE Punkt geschrieben
+# (``DI``, ``BSc``, ``MSc``, ``MBA``, ``Ing.``). Diese fehlten und
+# zerrissen den Anker-Pfad: stand ein unbekannter Titel zwischen Anrede
+# und Name, scheiterte der Match und der Restname rutschte ungeschützt in
+# den Cloud-KI-Prompt (PRL Iter-17, durch die Testarena nachgewiesen).
+# Reihenfolge longest-first, damit z. B. ``DI(FH)`` vor ``DI`` und die
+# gepunkteten Varianten vor den punktlosen greifen.
 _TITLES = (
-    r"Dr\.|Prof\.|Mag\.|MMag\.|DDr\.|Hon\.-Prof\.|Bakk\.|MSc\.|MA\.|BA\."
-    r"|Dipl\.-Ing\.|Dipl\.-Kfm\.|Dipl\.-Kffr\.|Univ\.-Prof\.|Mag\.\(FH\)"
+    r"Dipl\.-Ing\.|Dipl\.-Kfm\.|Dipl\.-Kffr\.|Univ\.-Prof\.|Hon\.-Prof\."
+    r"|Mag\.\(FH\)|DI\(FH\)|LL\.M\.|LL\.B\."
+    r"|MMag\.|DDr\.|Bakk\.|MSc\.|MA\.|BA\.|Dkfm\.|Ing\."
+    r"|Dr\.|Prof\.|Mag\."
+    r"|MBA|BEd|MEd|BSc|MSc|PhD|DI|MA|BA"
     r"|med\.|jur\.|techn\.|rer\.\s?nat\.|phil\."
 )
 

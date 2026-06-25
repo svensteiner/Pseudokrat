@@ -1883,3 +1883,46 @@ die Leerzeichen-Variante ist Tipp-Konvention, kein Standard, und der
 strippt aktuell keine Leerzeichen). **Reaktivierungs-Trigger:** ein
 Pilot-Fixture mit realer leerzeichen-getrennter UID, das einen Miss
 zeigt.
+
+## D-054 — Adelsprädikat-Lecks via Testarena geschlossen (PRL Iter-17)
+
+**Kontext:** Eine neue gegnerische Testarena (`tests/arena/`) baut Dokumente
+aus bekannter Ground Truth und prüft, dass kein PII-Wert die echte Pipeline
+überlebt (Normalform-Vergleich, Roundtrip, Negativ-Kontrolle). Der erste Lauf
+über 1.500 Dokumente / 9.750 Werte fand 97 PERSON-Lecks (~4 %), ausschließlich
+Namen mit Adelsprädikat (`von`/`zu`/`van der`). Ursache zweigeteilt: (1) Der
+anker-basierte `PersonRecognizer` kennt nur eine feste Titel-Liste; ein
+unbekannter Titel (`DI`, `BSc` — in AT allgegenwärtig) zwischen Anrede und Name
+ließ den ganzen Match scheitern, der Restname rutschte ungeschützt in den
+Cloud-KI-Prompt. (2) Der ML-freie `GazetteerNameRecognizer` bricht die
+Namens-Sammlung an jedem Nicht-Leerzeichen-Gap ab — das kleingeschriebene
+Prädikat zerriss `Birgit zu Schmid` zu nur `Birgit`. Iter-15 (D-052) hatte
+Adelsprädikate nur im `_NAME_FIELD` des Anker-Pfads gelöst, nicht im Gazetteer.
+
+**Wahl:** Zwei minimale, voneinander unabhängige Fixes (Defense-in-Depth), jeder
+für sich ausreichend für 0 Lecks im Korpus:
+- `person.py`: Titel-Anker um moderne/österreichische, oft punktlose Grade
+  erweitert (`DI`, `DI(FH)`, `BSc`, `MSc`, `MBA`, `BEd`, `MEd`, `Ing.`,
+  `Dkfm.`, `LL.M.`, `LL.B.`, `PhD`); Reihenfolge longest-first, damit `DI(FH)`
+  vor `DI` und gepunktete vor punktlosen Varianten greifen.
+- `person_name.py`: schmale Adelsprädikat-Whitelist (`von`/`van`/`zu`/`vom`/
+  `von der`/`van der`/`van den`/`von und zu`) überbrückt den Gap zwischen Vor-
+  und Nachname; bewusst **ohne** den Artikel `der` (sonst sammelt der
+  Konnektor-Pfad Funktionswörter ein) und nie über einen Zeilenumbruch.
+
+**Begründung:** Für einen Anonymisierer ist ein Leck (Klartext-PII in die Cloud)
+ungleich teurer als eine Über-Redaktion; der Gazetteer-Pfad ist daher
+recall-orientiert (Score 0.6, strukturierte Recognizer gewinnen bei Überlappung).
+Zwei unabhängige Pfade bedeuten, dass selbst ein künftig fehlender Titel die
+Lücke nicht wieder öffnet, solange ein bekannter Vorname im Spiel ist.
+
+**Test-Coverage:** Arena 1.500 Dok. / 9.750 Werte → **0 Lecks**, 0
+Roundtrip-Fehler, Negativ-Kontrolle grün. `tests/arena/test_arena_zero_leak.py`
+(5 Tests, inkl. des jetzt **harten** `test_nobiliary_person_names_are_leak_free`,
+zuvor `xfail`). Eval-F1 bleibt 1.00 in allen 12 Kategorien.
+
+**Alternative (verworfen):** (a) ML-Privacy-Filter standardmäßig laden — 3 GB
+Download, widerspricht dem recognizers-only-Default. (b) Titel-Liste als
+Catch-all `[A-Z][A-Za-z.()]+` öffnen — frisst echte Vornamen, zu viele False
+Positives. (c) Im Gazetteer auch den Artikel `der` als Konnektor zulassen —
+würde `Anna der …` einsammeln, schlechtes Precision-Risiko ohne realen Nutzen.

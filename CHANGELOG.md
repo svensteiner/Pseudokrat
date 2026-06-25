@@ -7,6 +7,41 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt (2026-06-25, PRL Iter-17)
+- **Testarena (`tests/arena/`) — gegnerischer Zero-Leak-Nachweis.** Baut
+  tausende synthetische DACH-Dokumente (Lohnabrechnung, Steuerbescheid,
+  Mandantenbrief, Arztbrief, Anwaltsschriftsatz, Rechnung × AT/DE/CH ×
+  vier Formatierungs-Härtegrade) aus **bekannten** PII-Geheimnissen,
+  schickt jedes durch die **echte** Pipeline (`default_recognizers()`) und
+  prüft, dass kein Geheimnis im Output überlebt — verglichen in Normalform,
+  sodass auch über Umbruch/Abstand zerrissene Werte erkannt werden. Mit
+  Negativ-Kontrolle (kein blind-grüner Test), exakter Roundtrip-Prüfung und
+  separat ausgewiesenem Reflow-Stress. Schnelles CI-Tor:
+  `pytest tests/arena/test_arena_zero_leak.py`; großer Nachweis:
+  `python -m tests.arena.runner --count 1500`. Ergebnis nach Fix:
+  **0 Lecks in 1.500 Dokumenten / 9.750 PII-Werten** (`arena_report.md`).
+
+### Behoben (2026-06-25, PRL Iter-17)
+- **Adelsprädikat-Namen leckten bei unbekanntem Titel und im Gazetteer-Pfad.**
+  Der erste Arena-Lauf fand 97 reale Lecks (~4 % der Personen): Namen mit
+  `von`/`zu`/`van der` rutschten durch, sobald (a) ein der Engine unbekannter
+  Titel zwischen Anrede und Name stand (`Herr DI von Gruber`, `BSc …`) und den
+  Anker-Match komplett scheitern ließ, oder (b) der Name nackt im
+  Gazetteer-Pfad stand, wo das kleingeschriebene Prädikat die Token-Adjazenz
+  unterbrach (`Birgit zu Schmid` → nur `Birgit` erkannt). Zwei unabhängige
+  Fixes (Defense-in-Depth, jeder für sich ausreichend für 0 Lecks):
+  1. **Titel-Liste erweitert** um österreichische/moderne, oft punktlose Grade
+     (`DI`, `DI(FH)`, `BSc`, `MSc`, `MBA`, `BEd`, `MEd`, `Ing.`, `Dkfm.`,
+     `LL.M.` …) in `recognizers/person.py` (longest-first).
+  2. **Gazetteer-Pfad gehärtet** (`recognizers/person_name.py`): echte
+     Adelsprädikate zwischen Vor- und Nachnamen werden überbrückt statt am
+     Partikel abzubrechen — bewusst ohne den Artikel `der`, nie über Umbruch.
+  Iter-15 (D-052) hatte Adelsprädikate nur im Anker-`_NAME_FIELD` gelöst, nicht
+  im Gazetteer. Arena: 97 → 0 Lecks; Eval-F1 unverändert 1.00 (siehe D-054).
+- **Arena-Regressions-Gate scharf gestellt.**
+  `test_nobiliary_person_names_are_leak_free` war als `xfail` geführt; nach dem
+  Fix als hartes Gate aktiviert, damit die Lücke nicht unbemerkt zurückkehrt.
+
 ### Hinzugefügt (2026-06-11, PRL Iter-16)
 - **Steuer-ID in amtlicher Gruppen-Anzeigeform `47 036 892 816`
   (2-3-3-3) wird jetzt erkannt.** Bis Iter-16 fand das Scan-Regex des

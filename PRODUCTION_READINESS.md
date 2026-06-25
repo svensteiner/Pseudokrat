@@ -5,7 +5,30 @@ zwischen dem heutigen Alpha-Stand und einem produktionsreifen Release
 für DACH-Berufsträger. Sie ist die Single-Source-of-Truth für „Was
 fehlt vor Release?".
 
-**Letzter Stand:** 2026-05-27, autonom + interaktiv.
+**Letzter Stand:** 2026-06-25, autonom + interaktiv (PRL Iter-17).
+
+## Reifegrad-Status (Stand 2026-06-25, PRL Iter-17)
+
+> Diese Zahlen werden bei jeder Status-Abfrage hier mitgeschrieben (SSoT).
+
+**Gesamt zur 1.0-Marktreife (Kanzlei-Distribution): ~62 %.**
+**Technische/Code-Reife (autonom erreichbar): ~92 %.**
+
+Die Differenz sind ausschließlich die vier externen, nicht autonom
+abschließbaren Blocker (Code-Signing, Pentest, Pilot, DSGVO/Kammer).
+
+| Tier | Status (heute verifiziert) | Reife |
+|---|---|---|
+| **Tier-1 — Erkennungs-Qualität** | Eval-F1 = **1.00** in allen 12 Kategorien, FP = 0; Testarena **0 Lecks** / 1.500 Dok. / 9.668 Werte / 13 Kategorien | **~90 %** — Gate grün, aber dokumentierte Recall-Restlücken bei PERSON ohne ML (s. `tests/arena/BEFUND.md` „Bekannte Grenzen": Zeilenumbruch im Namen, Komma-Inversion, Adelstitel-Slot, Teil-Token, Tabellen-Layout, Datei-Ebene) |
+| **Tier-2 — Statische Qualität** | `tools.audit_run` **6/6 grün** (ruff, mypy, pytest 740 grün, bandit, pip-audit, trust-boundary) | **~92 %** — Caveat: mypy läuft im Gate **nicht** `--strict` (Schwelle fordert strict); Branch-Coverage zuletzt 89 %, heute nicht neu gemessen |
+| **Tier-3 — Trust-Boundary-Coverage** | 7/7 Boundaries covered (S1–S7) | **100 %** |
+| **Tier-4 — Offene Folgearbeiten** | mehrere dokumentierte Backlog-Punkte (6 Arena-Grenzen, UID-Leerzeichen-Variante u. a.) | **~75 %** — menschliche Priorisierung nötig |
+| **Tier-5 / externe Blocker** | Code-Signing-Cert, externer Pentest, Pilot-Test, DSGVO/Kammer-Sign-off — **alle offen** | **~30 %** — Vor-Lektorate fertig (SELF_AUDIT, PILOT_KIT, DSGVO_DRAFT), Sign-off + Recruiting fehlen |
+
+**Headline:** Der **automatische** Production-Ready-Gate (Tier 1–4) ist faktisch
+grün. Die verbleibenden ~38 % zur echten 1.0 sind die vier externen Blocker
+(Roadmap unten: 4–6 Monate, 15–41 k € einmalig). Damit ist der heutige Stand ein
+**belastbarer Beta-Kandidat**, noch nicht „1.0 für Kanzlei-Distribution".
 
 **UX-Vereinfachung — Phase A + B + C (2026-05-27) abgeschlossen:**
 
@@ -250,7 +273,7 @@ Code-Signing 500-900 € + Apple Dev 99 € + Pentest 8-20k € + User-Test
 
 Ohne externe Resources prüfbar:
 
-* **Tests:** `pytest` → 340 Tests grün, ≥ 89 % Coverage.
+* **Tests:** `pytest` → 740 Tests grün (Stand 2026-06-25); Branch-Coverage zuletzt ≥ 89 % (vor Iter-17 gemessen).
 * **Linting:** `ruff check src tests` → clean.
 * **Type-Check:** `mypy src/pseudokrat` → clean.
 * **Security-Scan:** `bandit -r src/pseudokrat -c pyproject.toml --severity-level medium`

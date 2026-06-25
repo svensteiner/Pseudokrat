@@ -44,6 +44,14 @@ _ROLE_LABELS = (
     r"|Komplementär|Komplementärin|Kommanditist|Kommanditistin"
     r"|Funktionsträger|Funktionsträgerin|Prokurist|Prokuristin"
     r"|Gesellschafter|Gesellschafterin"
+    # Justiz-/Prozess-Rollen (Schriftsätze, Protokolle, Urteile). Ohne diese
+    # Anker leckt der Restname, wenn keine Anrede davorsteht und der Vorname
+    # nicht im Gazetteer liegt (Arena-Council L1: „Beklagter: DI von Gruber").
+    # ``Kläger(in)`` bewusst NICHT — steht im Kanzlei-Rubrum häufig vor einer
+    # juristischen Person (GmbH) und würde mit dem Firmen-Recognizer kollidieren.
+    r"|Beklagter|Beklagte|Angeklagter|Angeklagte|Beschuldigter|Beschuldigte"
+    r"|Zeuge|Zeugin|Antragsgegner|Antragsgegnerin|Verdächtiger|Verdächtige"
+    r"|Nebenkläger|Nebenklägerin|Geschädigter|Geschädigte"
 )
 
 # Akademische Titel — können sich stapeln (``Frau Prof. Dr. med.``).

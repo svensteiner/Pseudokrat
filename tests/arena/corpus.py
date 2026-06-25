@@ -112,6 +112,14 @@ _NOBILIARY: tuple[str, ...] = ("von", "van der", "zu")
 _TITLES: tuple[str, ...] = ("Dr.", "Mag.", "DI", "BSc", "MMag.", "Dipl.-Ing.", "")
 _SALUTATIONS: tuple[str, ...] = ("Herr", "Frau", "Herrn")
 
+#: Vornamen BEWUSST ausserhalb der Gazetteer-Liste. In einem Justiz-Kontext
+#: ohne Anrede (``Beklagter: …``) ist der Rollen-Anker die einzige Rettung —
+#: prüft also genau die Lücke, die der Gazetteer (bekannter Vorname) nicht
+#: abdeckt.
+_FIRST_NAMES_RARE: tuple[str, ...] = (
+    "Aloisia", "Cäcilia", "Notburga", "Ottokar", "Vinzenz", "Roswita",
+)
+
 _COMPANY_CORE: tuple[str, ...] = (
     "Hofer Bau", "Alpenland Logistik", "Donau Handels", "Bergblick Immobilien",
     "Wiener Tech", "Tirol Consulting", "Steirische Metall", "Nordwald Möbel",
@@ -178,6 +186,19 @@ class DocBuilder:
         salu = self.rng.choice(_SALUTATIONS)
         prefix = f"{salu} {title}".strip()
         return f"{prefix} {name}"
+
+    def person_bare(self, *, rare: bool = False) -> str:
+        """Personenname OHNE Anrede/Titel. Mit ``rare=True`` ein Vorname
+        ausserhalb des Gazetteers — dann muss der Rollen-Anker (z. B.
+        ``Beklagter:``) den Namen allein fangen."""
+        pool = _FIRST_NAMES_RARE if rare else _FIRST_NAMES
+        first = self.rng.choice(pool)
+        last = self.rng.choice(_LAST_NAMES)
+        if self.rng.random() < 0.3:
+            last = f"{self.rng.choice(_NOBILIARY)} {last}"
+        name = f"{first} {last}"
+        self._register(name, "PERSON")
+        return name
 
     def company(self) -> str:
         core = self.rng.choice(_COMPANY_CORE)
@@ -348,7 +369,9 @@ def _t_anwaltsschriftsatz(b: DocBuilder) -> Document:
     b.line("")
     b.line(f"Klägerin: {b.company()}")
     b.field("vertreten durch", b.person())
-    b.line(f"Beklagter: {b.person()}")
+    # Beklagter OHNE Anrede und mit gazetteer-fremdem Vornamen: nur der
+    # Justiz-Rollen-Anker kann ihn fangen (Arena-Council L1).
+    b.line(f"Beklagter: {b.person_bare(rare=True)}")
     b.field("wohnhaft", b.address())
     b.line("")
     b.line(f"Aktenzeichen wird per E-Mail {b.email()} übermittelt.")
@@ -377,7 +400,17 @@ def _t_rechnung(b: DocBuilder) -> Document:
 
 
 def _de_ust(b: DocBuilder) -> str:
-    val = "DE" + "".join(str(b.rng.randint(0, 9)) for _ in range(9))
+    """Gültige deutsche USt-IdNr (DE + 9 Ziffern) mit echter ISO-7064-
+    MOD-11,10-Prüfziffer. Zufällige Ziffern würden vom Recognizer korrekt
+    abgelehnt (strikte Validierung gegen FP auf Belegnummern) und fälschlich
+    als „Leck" gezählt — die Arena verlangt prüfziffer-gültige Ground Truth."""
+    body = [b.rng.randint(0, 9) for _ in range(8)]
+    product = 10
+    for d in body:
+        s = (d + product) % 10 or 10
+        product = (s * 2) % 11
+    check = (11 - product) % 10
+    val = "DE" + "".join(str(d) for d in body) + str(check)
     b._register(val, "UST_ID")
     return val
 
@@ -403,7 +436,11 @@ def generate_documents(count: int, seed: int = 0) -> list[Document]:
     for i in range(count):
         template = _TEMPLATES[i % len(_TEMPLATES)]
         mode = MODES[(i // len(_TEMPLATES)) % len(MODES)]
-        country = COUNTRIES[i % len(COUNTRIES)]
+        # Land NICHT an ``i % 3`` koppeln: ``len(_TEMPLATES)`` (6) ist ein
+        # Vielfaches von ``len(COUNTRIES)`` (3), sonst wäre jede Vorlage fix an
+        # ein Land gebunden und AHV (nur CH-Vorlagen) bzw. USt-IdNr (nur
+        # DE-Rechnung) würden NIE erzeugt (Arena-Council).
+        country = COUNTRIES[(i // len(_TEMPLATES)) % len(COUNTRIES)]
         docs.append(template(DocBuilder(rng, mode=mode, country=country)))
     return docs
 
@@ -417,7 +454,8 @@ def generate_reflow_stress(count: int, seed: int = 1000) -> list[Document]:
     docs: list[Document] = []
     for i in range(count):
         template = _TEMPLATES[i % len(_TEMPLATES)]
-        country = COUNTRIES[i % len(COUNTRIES)]
+        # Land entkoppeln (s. generate_documents): sonst je Vorlage fixes Land.
+        country = COUNTRIES[(i // len(_TEMPLATES)) % len(COUNTRIES)]
         docs.append(
             template(DocBuilder(rng, mode="clean", country=country, reflow=True))
         )

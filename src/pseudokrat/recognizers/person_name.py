@@ -108,7 +108,13 @@ _GAP_WS_RE = re.compile(r"\s+")
 
 def _is_particle(gap: str) -> bool:
     """Ob der Zwischenraum zweier Tokens ein Adelsprädikat ist (``von``,
-    ``van der`` …). Abstand wird kollabiert und kleingeschrieben verglichen."""
+    ``van der`` …). Abstand wird kollabiert und kleingeschrieben verglichen.
+
+    Ein Zeilenumbruch im Gap ist nie ein Prädikat-Konnektor — ein über zwei
+    Zeilen gerissenes Namensfeld soll hier enden (in sich korrekt, auch wenn
+    der Aufrufer ``\\n`` bereits vorab ausschliesst)."""
+    if "\n" in gap:
+        return False
     return _GAP_WS_RE.sub(" ", gap).strip().lower() in _PARTICLES
 
 

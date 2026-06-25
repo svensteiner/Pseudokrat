@@ -12,5 +12,5 @@ Die Arena ist **kein** Eval auf gelabelten Beispielen (das macht
 5. Nachweis-Report (JSON + Markdown).
 
 Der Härtegrad entscheidet, wie fies die Dokumente formatiert sind
-(``clean``/``spacing``/``table``/``linebreak``).
+(``clean``/``spacing``/``table``/``labelbreak``).
 """

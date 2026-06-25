@@ -62,3 +62,31 @@ dem Verkauf geschlossen werden sollte.
 Geprüft wurde die Text-Pipeline. Die Datei-Formate (PDF/DOCX/XLSX) nutzen
 dieselbe Engine; ein analoger Datei-Level-Lauf ist der sinnvolle nächste
 Ausbau der Arena.
+
+## Bekannte Grenzen (Council-Review, PRL Iter-17) — Backlog
+
+Ein Multi-Perspektiven-Review hat über die zwei behobenen Funde hinaus
+folgende **Restlücken** belegt. Sie sind bewusst noch nicht geschlossen
+(jede ist ein eng umrissenes Folge-Ticket), aber hier offen dokumentiert,
+damit „0 Lecks" nicht mehr verspricht, als es beweist. Alle betreffen
+ausschliesslich die heuristische PERSON-Erkennung im recognizers-only-Modus
+(ohne geladenes ML-Modell); die deterministischen Recognizer sind dicht.
+
+1. **Zeilenumbruch im Namen.** Bricht ein Name zwischen Vor- und Nachname
+   um (`Herr DI Alexander\nHabsburg` — typisch bei PDF-Extraktion), wird nur
+   der Vorname erkannt, der Nachname leckt. Fix-Idee: einen einzelnen `\n`
+   zwischen Namens-Token im Anker-Pfad zulassen.
+2. **Komma-Inversion.** Das Rubrum-Format `Nachname, Vorname`
+   (`Gruber, Thomas`) hat keinen Anker und wird nicht erkannt.
+3. **Adelstitel als Slot-Fresser.** `Maria Theresia Fürstin zu Schwarzenberg`
+   → der Gazetteer verbraucht seine zwei Nachnamen-Slots vor dem Prädikat,
+   `Schwarzenberg` leckt. Fix-Idee: nicht-akademische Adelstitel (`Fürstin`,
+   `Graf`, `Freiherr` …) in die Titel-/Prädikat-Logik aufnehmen.
+4. **Teil-Token-Granularität des Leck-Tors.** Geprüft wird, ob der
+   *vollständige* registrierte Wert überlebt. Würde von „Anna Hofer" nur
+   „Hofer" durchrutschen, meldet das Tor (zu Unrecht) CLEAN. Härtung:
+   zusätzlich Einzel-Token relevanter Kategorien prüfen (FP-Abwägung nötig).
+5. **Tabellen-Layout ohne Trennzeichen.** Ein Rollen-Label ohne `:`/Dash
+   (reine Spalten-Ausrichtung) plus gazetteer-fremder Vorname ohne Anrede
+   ist im recognizers-only-Modus nicht fangbar — Aufgabe des ML-Modells.
+6. **Datei-Format-Ebene.** Bisher nur Text-Pipeline (s. o.).

@@ -42,6 +42,30 @@ Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   `test_nobiliary_person_names_are_leak_free` war als `xfail` geführt; nach dem
   Fix als hartes Gate aktiviert, damit die Lücke nicht unbemerkt zurückkehrt.
 
+#### Council-Härtung (Multi-Perspektiven-Review, derselbe Tag)
+- **Justiz-Rollen als Anker** (`recognizers/person.py`): `Beklagter`,
+  `Angeklagter`, `Beschuldigter`, `Zeuge`/`Zeugin`, `Antragsgegner(in)`,
+  `Nebenkläger(in)`, `Geschädigte(r)` ergänzt. Ohne sie leckte ein Name ohne
+  Anrede und mit gazetteer-fremdem Vornamen (`Beklagter: DI von Gruber`) —
+  ein realer Show-Stopper für AT-Gerichtsdokumente. (`Kläger(in)` bewusst
+  ausgelassen: steht im Rubrum oft vor einer GmbH → Kollision mit dem
+  Firmen-Recognizer.)
+- **Arena-Abdeckungs-Lücke geschlossen** (`tests/arena/corpus.py`): Land war an
+  die Vorlage gekoppelt (`len(_TEMPLATES)` Vielfaches von `len(COUNTRIES)`),
+  wodurch **AHV und USt-IdNr nie erzeugt** wurden. Entkoppelt → die Arena prüft
+  jetzt **alle 13 Kategorien** (vorher 11).
+- **USt-IdNr-Ground-Truth mit echter Prüfziffer** (`corpus.py`): Der Generator
+  erzeugte `DE`+9 Zufallsziffern; der Recognizer lehnt prüfziffer-ungültige
+  Werte korrekt ab → 79 Schein-Lecks. Jetzt ISO-7064-MOD-11,10-gültig.
+- **Härterer PERSON-Fall**: Der Anwaltsschriftsatz testet jetzt einen
+  Beklagten **ohne Anrede** mit gazetteer-fremdem Vornamen — der neue
+  Justiz-Anker ist die alleinige Rettung. Ergebnis: **0 Lecks in 1.500
+  Dokumenten über alle 13 Kategorien** (inkl. 166 AHV, 83 USt-IdNr).
+- **Bewusst zurückgestellt** (dokumentiert in `tests/arena/BEFUND.md`,
+  Abschnitt „Bekannte Grenzen"): Name über Zeilenumbruch zwischen Vor- und
+  Nachname, Komma-Inversion (`Nachname, Vorname`), Adelstitel-Slot
+  (`Fürstin zu …`), Teil-Token-Lecks und die Datei-Format-Ebene.
+
 ### Hinzugefügt (2026-06-11, PRL Iter-16)
 - **Steuer-ID in amtlicher Gruppen-Anzeigeform `47 036 892 816`
   (2-3-3-3) wird jetzt erkannt.** Bis Iter-16 fand das Scan-Regex des

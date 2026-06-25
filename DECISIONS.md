@@ -1926,3 +1926,19 @@ Download, widerspricht dem recognizers-only-Default. (b) Titel-Liste als
 Catch-all `[A-Z][A-Za-z.()]+` öffnen — frisst echte Vornamen, zu viele False
 Positives. (c) Im Gazetteer auch den Artikel `der` als Konnektor zulassen —
 würde `Anna der …` einsammeln, schlechtes Precision-Risiko ohne realen Nutzen.
+
+**Nachtrag (Council-Review, derselbe Tag):** Ein Multi-Perspektiven-Review
+deckte drei weitere Punkte auf, die direkt geschlossen wurden:
+(1) **Justiz-Rollen-Anker** in `_ROLE_LABELS` (`Beklagter`, `Zeuge`,
+`Angeklagter` …) — ein Name ohne Anrede mit gazetteer-fremdem Vornamen leckte
+sonst (`Beklagter: DI von Gruber`). `Kläger(in)` bewusst ausgelassen
+(Kollision mit Firmen-Recognizer im Rubrum).
+(2) **Arena-Abdeckung:** Land war an die Vorlage gekoppelt → AHV/USt-IdNr
+wurden nie erzeugt; entkoppelt, Arena prüft jetzt alle 13 Kategorien.
+(3) **USt-IdNr-Ground-Truth** trug keine gültige Prüfziffer → 79 Schein-Lecks;
+Generator auf ISO-7064-MOD-11,10 umgestellt.
+Sechs weitere, eng umrissene Restlücken (Zeilenumbruch im Namen,
+Komma-Inversion, Adelstitel-Slot, Teil-Token-Granularität, Tabellen-Layout
+ohne Trennzeichen, Datei-Format-Ebene) sind in `tests/arena/BEFUND.md`
+(„Bekannte Grenzen") als Backlog offen dokumentiert — recall-orientierter
+recognizers-only-Modus, ML-Modell schliesst den Rest.

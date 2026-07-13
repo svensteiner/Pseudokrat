@@ -48,14 +48,53 @@ _PLACEHOLDER_RE = re.compile(r"<[A-Z_]+_\d{3,}>")
 # --------------------------------------------------------------------------- #
 
 
+_TERMS_TEMPLATE = """\
+# Begriffe.txt — eigene Begriffe, die IMMER anonymisiert werden.
+#
+# Ein Begriff pro Zeile. Gross-/Kleinschreibung egal.
+# Zeilen, die mit # beginnen, sind Kommentare und werden ignoriert.
+#
+# Trage hier Namen/Marken/Domains ein, die das Tool nicht von selbst
+# erkennt (z. B. Firmen-Kurznamen, Projektnamen, Web-Adressen).
+#
+# Aenderungen wirken beim naechsten Start (Fenster schliessen und neu starten).
+
+# Beispiele (bitte anpassen oder loeschen):
+# Mustermann GmbH
+# ProjektXY
+# beispiel.at
+"""
+
+
+def ensure_terms_template(path: Path) -> bool:
+    """Legt eine kommentierte ``Begriffe.txt`` an, falls sie fehlt.
+
+    Gibt ``True`` zurueck, wenn die Datei neu erstellt wurde. Eine bereits
+    vorhandene Datei (mit echten Begriffen) wird nie ueberschrieben.
+    """
+    if path.exists():
+        return False
+    path.write_text(_TERMS_TEMPLATE, encoding="utf-8")
+    return True
+
+
 def load_terms(path: Path) -> list[str]:
-    """Liest mandanten-spezifische Begriffe (eine Zeile pro Begriff, ``#`` = Kommentar)."""
+    """Liest mandanten-spezifische Begriffe (eine Zeile pro Begriff, ``#`` = Kommentar).
+
+    Robust gegen Kodierung (UTF-8 mit/ohne BOM, sonst Windows-1252). Begriffe
+    mit weniger als 2 Zeichen werden ignoriert — ein Ein-Zeichen-Begriff wuerde
+    praktisch den ganzen Text schwaerzen.
+    """
     if not path.exists():
         return []
+    try:
+        raw = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        raw = path.read_text(encoding="cp1252", errors="replace")
     terms: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in raw.splitlines():
         stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
+        if stripped and not stripped.startswith("#") and len(stripped) >= 2:
             terms.append(stripped)
     return terms
 
@@ -735,6 +774,8 @@ def run(
     store, audit = manager.open_or_create_simple(profile)
 
     recognizers = recognizers_for_store(store)
+    if ensure_terms_template(terms_file):
+        log("Begriffe.txt neu angelegt — eigene Begriffe dort eintragen (optional).")
     terms = load_terms(terms_file)
     if terms:
         recognizers.append(TermRecognizer(terms))

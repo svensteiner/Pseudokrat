@@ -412,6 +412,80 @@ def check_ml_model() -> Check:
     )
 
 
+def check_pdf_stack() -> Check:
+    """PyMuPDF (fitz) verfügbar? Ohne sie kann die Ordner-Lösung keine
+    PDFs layout-erhaltend schwärzen."""
+    for mod_name in ("pymupdf", "fitz"):
+        try:
+            importlib.import_module(mod_name)
+        except ImportError:
+            continue
+        return Check(
+            name="PDF-Stack",
+            status=Status.OK,
+            message="PyMuPDF verfügbar — PDFs werden layout-erhaltend geschwärzt.",
+        )
+    return Check(
+        name="PDF-Stack",
+        status=Status.WARN,
+        message=(
+            "PyMuPDF (pymupdf) nicht installiert — PDF-Anonymisierung in der "
+            "Ordner-Lösung nicht möglich. Install:\n"
+            "    pip install pseudokrat[watcher]"
+        ),
+    )
+
+
+def check_ocr_stack() -> Check:
+    """RapidOCR verfügbar? Nötig, um Text in Bildern/Scan-PDFs zu schwärzen."""
+    try:
+        importlib.import_module("rapidocr_onnxruntime")
+    except ImportError:
+        return Check(
+            name="OCR-Stack",
+            status=Status.WARN,
+            message=(
+                "RapidOCR nicht installiert — Text in Bildern/Scan-PDFs wird "
+                "NICHT erkannt (nur einbettbarer PDF-Text). Install:\n"
+                "    pip install pseudokrat[ocr]"
+            ),
+        )
+    return Check(
+        name="OCR-Stack",
+        status=Status.OK,
+        message="RapidOCR verfügbar — Text in Bildern/Scan-PDFs wird geschwärzt.",
+    )
+
+
+def check_ollama() -> Check:
+    """Lokaler Ollama-Server erreichbar? Optional — die Ordner-Lösung läuft
+    per Default rein regelbasiert (--no-llm). Mit Ollama werden Firmen-/
+    Personen-/Markennamen zusätzlich generisch erkannt."""
+    try:
+        from pseudokrat.pii.ollama_detector import ollama_available
+    except ImportError as exc:  # pragma: no cover - defensiv
+        return Check(
+            name="LLM (Ollama)",
+            status=Status.WARN,
+            message=f"Modul nicht importierbar: {exc}",
+        )
+    if ollama_available():
+        return Check(
+            name="LLM (Ollama)",
+            status=Status.OK,
+            message="Ollama erreichbar — generische Namens-Erkennung verfügbar.",
+        )
+    return Check(
+        name="LLM (Ollama)",
+        status=Status.WARN,
+        message=(
+            "Ollama nicht erreichbar (optional). Ohne LLM läuft die "
+            "Anonymisierung regelbasiert + Begriffe.txt. Zum Aktivieren:\n"
+            "    ollama serve   (und Modell laden: ollama pull mistral)"
+        ),
+    )
+
+
 def run_doctor(
     manager: ProfileManager, *, profile_name: str | None = None
 ) -> DoctorReport:
@@ -429,6 +503,9 @@ def run_doctor(
         check_profiles(manager),
         check_profile_health(manager),
         check_anonymize_roundtrip(manager, profile_name=profile_name),
+        check_pdf_stack(),
+        check_ocr_stack(),
+        check_ollama(),
         check_hotkey_backend(),
         check_ml_model(),
     )

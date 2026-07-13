@@ -40,16 +40,61 @@ pseudokrat watch            # Weg 2 direkt: Ordner-Lösung im aktuellen Ordner s
 pseudokrat watch --folder "D:\Anonymisierung"   # eigenen Basis-Ordner angeben
 ```
 
-Die Ordner-Lösung verarbeitet TXT/CSV/DOCX/XLSX und **PDF layout-erhaltend**
-(Tabellen, Zahlen, Logos): erkannte PII wird im Original ersetzt, wiederkehrende
-**Logos werden entfernt**, und **Text in Bildern** (als Bild eingebettete
-Tabellen) wird per OCR gefunden und geschwärzt. Eine Datei `Begriffe.txt` im
-Basis-Ordner ergänzt mandanten-spezifische Begriffe (Vorlage:
-[`Begriffe.example.txt`](Begriffe.example.txt)).
+Die Ordner-Lösung verarbeitet **PDF, Word (.docx), Excel (.xlsx), CSV, TXT und
+HTML**. Sie ist auf *vollständige* Anonymisierung ausgelegt — nicht nur der
+sichtbare Text:
+
+* **PDF layout-erhaltend** — erkannte PII wird im Original geschwärzt/ersetzt,
+  Tabellen und Zahlen bleiben an Ort und Stelle.
+* **Text in Bildern / Scan-PDFs** wird per **OCR** gefunden und im Bild
+  geschwärzt.
+* **Logos werden entfernt** — wiederkehrende (mehrseitige) *und* Briefkopf-Logos
+  auf einseitigen Dokumenten.
+* **Versteckte Kanäle in Office-Dateien**: Word-Kommentare, nachverfolgte
+  Änderungen (gelöschter Text), Fuß-/Endnoten, Textfelder, verschachtelte
+  Tabellen; Excel-Zellkommentare und Kopf-/Fußzeilen; eingebettete Bilder in
+  HTML (`data:`-URIs).
+* **Dokument-Eigenschaften/Metadaten** (Autor, „zuletzt geändert von", Firma)
+  werden entfernt — der gleiche Effekt wie Excels „Dokumentprüfung", nur
+  automatisch.
+* **Dateiname** wird ebenfalls anonymisiert (kein Klartext-Name im Ausgabe-Ordner).
+* **Fail-closed**: kann etwas Identifiziertes nicht sicher geschwärzt werden,
+  landet die Datei im `Fehler`-Ordner statt unvollständig im `OUTPUT` — plus ein
+  nachgelagertes Rest-PII-Gate, das die fertige Ausgabe erneut prüft.
+* **Umkehrbar**: KI-Antwort in `ZURUECK_INPUT` legen → Klartext in
+  `ZURUECK_OUTPUT`. Unbekannte Platzhalter (falsches Profil) werden gemeldet.
+
+Eine Datei `Begriffe.txt` im Basis-Ordner ergänzt mandanten-spezifische Begriffe
+(Firmen-Kurznamen, Projektnamen, Domains). Sie wird beim ersten Start
+automatisch als kommentierte Vorlage angelegt.
 
 Zusatz-Abhängigkeiten der Ordner-Lösung:
 `pip install "pseudokrat[watcher,ocr]"` (PyMuPDF für PDF-Layout, RapidOCR für
 Text in Bildern — reines pip, läuft offline, kein Systemeingriff).
+
+### Optional: generische Namens-Erkennung mit Ollama (lokal)
+
+Regelbasierte Erkenner treffen strukturierte Daten (IBAN, UID, Steuernummer …)
+mit Prüfziffer-Sicherheit. Für **freie Firmen-/Personen-/Markennamen**, die
+keinem festen Muster folgen, kann optional ein **lokales** LLM über
+[Ollama](https://ollama.com) zugeschaltet werden — es läuft nur auf `localhost`,
+es geht also **kein** Klartext in die Cloud.
+
+```powershell
+ollama serve            # Server starten (einmalig)
+ollama pull mistral     # Modell laden (einmalig)
+pseudokrat watch        # ohne --no-llm: nutzt Ollama automatisch, wenn erreichbar
+```
+
+Die mitgelieferte `Anonymisierung starten.bat` startet bewusst mit `--no-llm`
+(rein regelbasiert, keine Zusatzsoftware nötig). Ist Ollama nicht erreichbar,
+läuft die Anonymisierung ohne LLM weiter.
+
+### Prüfen, ob alles läuft
+
+```powershell
+pseudokrat doctor       # prüft Profile, PDF-, OCR- und Ollama-Stack, Roundtrip
+```
 
 ---
 
@@ -57,10 +102,12 @@ Text in Bildern — reines pip, läuft offline, kein Systemeingriff).
 
 * **Lokal-only.** Der Klartext verlässt Ihre Maschine nicht. Kein Telemetry,
   kein „phone home", keine Cloud-Abhängigkeit.
-* **DACH-Recognizer mit Prüfziffer-Validierung** — IBAN (AT/DE/CH/LI),
-  österreichische UID + SVNR, deutsche Steuer-ID + USt-IdNr, Schweizer
-  AHV-Nummer, Firmen anhand Rechtsform-Suffix (GmbH, AG, KG, GmbH & Co. KG,
-  e.U. …). Alle Erkenner validieren die korrekte Prüfziffer.
+* **DACH-Recognizer mit Prüfziffer-Validierung** — IBAN (AT/DE/CH/LI + SEPA),
+  Kreditkarte (Luhn), österreichische UID + SVNR + Steuernummer + Firmenbuch (FN),
+  deutsche Steuer-ID + USt-IdNr, Schweizer AHV-Nummer, Firmen anhand
+  Rechtsform-Suffix (GmbH, AG, KG, GmbH & Co. KG, e.U. …). Zusätzlich
+  kontext-verankerte AT-Kennungen: GISA, DVR, Grundbuch (EZ/KG), Konto + BLZ
+  (Alt-Bankverbindung). Prüfziffer-gestützte Erkenner validieren die Prüfziffer.
 * **Reversible Pseudonymisierung** mit verschlüsseltem, master-passwort-
   geschütztem Mapping-Store je Mandantenprofil.
 * **Hash-verketteter Audit-Log** für Berufshaftpflicht und Kammerprüfung.

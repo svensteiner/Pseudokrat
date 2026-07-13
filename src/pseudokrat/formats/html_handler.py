@@ -13,6 +13,7 @@ Profil-Mapping reversibel.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from pseudokrat.formats.base import (
@@ -20,6 +21,9 @@ from pseudokrat.formats.base import (
     TextTransform,
     derive_default_output,
 )
+
+#: Eingebettete data:-URIs (v. a. base64-Bilder) — Nutzlast wird entfernt.
+_DATA_URI_RE = re.compile(r"data:[^\s;,'\"]+;base64,[A-Za-z0-9+/=]+")
 
 
 class HtmlHandler:
@@ -45,6 +49,9 @@ class HtmlHandler:
         except UnicodeDecodeError:
             # Exotische/alte HTML-Exporte (latin-1 o. ae.) nicht scheitern lassen.
             text = input_path.read_text(encoding="utf-8", errors="replace")
+        # Eingebettete Bilder (data:-URIs) entfernen — koennen Logos/Scans mit
+        # Mandantendaten sein, die die Text-Anonymisierung nicht sieht.
+        text = _DATA_URI_RE.sub("data:removed", text)
         result = transform(text)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(result, encoding="utf-8")

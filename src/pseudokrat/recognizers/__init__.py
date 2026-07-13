@@ -6,6 +6,8 @@ import re
 from typing import TYPE_CHECKING
 
 from pseudokrat.recognizers.address import AddressRecognizer
+from pseudokrat.recognizers.at_konto_blz import AustrianKontoBlzRecognizer
+from pseudokrat.recognizers.at_register import AustrianRegisterRecognizer
 from pseudokrat.recognizers.at_steuernummer import AustrianSteuernummerRecognizer
 from pseudokrat.recognizers.at_svnr import AustrianSVNRRecognizer
 from pseudokrat.recognizers.at_uid import AustrianUIDRecognizer
@@ -42,6 +44,8 @@ def default_recognizers() -> list[Recognizer]:
         AustrianSVNRRecognizer(),
         AustrianSteuernummerRecognizer(),
         FirmenbuchRecognizer(),
+        AustrianRegisterRecognizer(),
+        AustrianKontoBlzRecognizer(),
         GermanSteuerIdRecognizer(),
         GermanUStIdNrRecognizer(),
         SwissAHVRecognizer(),

@@ -60,6 +60,7 @@ class DocxHandler:
         transform: TextTransform,
     ) -> FormatProcessResult:
         from docx import Document  # lokaler Import — schwere Lib
+        from docx.oxml.ns import qn
 
         document = Document(str(input_path))
         processed = 0
@@ -73,19 +74,53 @@ class DocxHandler:
                 else:
                     skipped += 1
 
+        def _handle_tables(tables: object) -> None:
+            for table in tables:  # type: ignore[attr-defined]
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            _handle(para)
+                        _handle_tables(cell.tables)  # verschachtelte Tabellen
+
+        # 1) Strukturierter Pass (Run-übergreifende Namen korrekt ersetzen):
+        #    Body, (verschachtelte) Tabellen, ALLE Kopf-/Fusszeilen-Varianten.
         for para in document.paragraphs:
             _handle(para)
-
-        for table in document.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        _handle(para)
-
+        _handle_tables(document.tables)
         for section in document.sections:
-            for container in (section.header, section.footer):
+            for container in (
+                section.header,
+                section.footer,
+                section.first_page_header,
+                section.first_page_footer,
+                section.even_page_header,
+                section.even_page_footer,
+            ):
                 for para in container.paragraphs:
                     _handle(para)
+                _handle_tables(container.tables)
+
+        # 2) XML-Sweep über versteckte Kanäle: Kommentare, Fuss-/Endnoten,
+        #    Textfelder (w:txbxContent) und Tracked-Changes-Löschungen
+        #    (w:delText). Bereits anonymisierter Text ist PII-frei -> erneutes
+        #    Anwenden ist ein No-op (idempotent).
+        text_tags = {qn("w:t"), qn("w:delText")}
+        roots: list[object] = [document.element]
+        for rel in document.part.rels.values():
+            try:
+                target = rel.target_part
+            except (ValueError, AttributeError):
+                continue  # externe Relationships (Hyperlinks) o. ä.
+            element = getattr(target, "element", None)
+            if element is not None and hasattr(element, "iter"):
+                roots.append(element)
+        for root in roots:
+            for el in root.iter():  # type: ignore[attr-defined]
+                if el.tag in text_tags and el.text:
+                    new_text = transform(el.text)
+                    if new_text != el.text:
+                        el.text = new_text
+                        processed += 1
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         document.save(str(output_path))

@@ -5,10 +5,13 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from pseudokrat.anonymizer import RECOGNIZER_VERSION
-from pseudokrat.store.audit_log import AuditEntry, AuditLog
-from pseudokrat.store.mapping_store import MappingStore
+
+if TYPE_CHECKING:
+    from pseudokrat.store.audit_log import AuditEntry, AuditLog
+    from pseudokrat.store.mapping_store import MappingStore
 
 _PLACEHOLDER_RE = re.compile(r"<([A-Z_]+)_(\d{3,})>")
 

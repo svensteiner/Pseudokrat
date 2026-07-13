@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from pseudokrat.pii.privacy_filter import PIIDetector
-from pseudokrat.recognizers.base import Recognizer, Span
-from pseudokrat.store.audit_log import AuditEntry, AuditLog
-from pseudokrat.store.mapping_store import MappingStore
+if TYPE_CHECKING:
+    from pseudokrat.pii.privacy_filter import PIIDetector
+    from pseudokrat.recognizers.base import Recognizer, Span
+    from pseudokrat.store.audit_log import AuditEntry, AuditLog
+    from pseudokrat.store.mapping_store import MappingStore
 
 RECOGNIZER_VERSION = "1.0.0"
 

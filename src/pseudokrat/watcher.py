@@ -34,13 +34,6 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
-from pseudokrat.anonymizer import Anonymizer
-from pseudokrat.deanonymizer import Deanonymizer
-from pseudokrat.formats import handler_for
-from pseudokrat.recognizers import recognizers_for_store
-from pseudokrat.recognizers.base import Span
-from pseudokrat.store.profile import ProfileManager
-
 #: Dateiendungen, die der Watcher verarbeitet.
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
     {".pdf", ".docx", ".xlsx", ".csv", ".txt", ".tsv", ".md", ".log", ".html", ".htm"}
@@ -76,6 +69,8 @@ class TermRecognizer:
         self._patterns = [re.compile(re.escape(t), re.IGNORECASE) for t in terms if t]
 
     def analyze(self, text: str) -> list[Span]:
+        from pseudokrat.recognizers.base import Span
+
         spans: list[Span] = []
         for pattern in self._patterns:
             for match in pattern.finditer(text):
@@ -211,6 +206,58 @@ def redact_pdf(
     return hits
 
 
+_OCR_LEGAL_FORM_BOUNDARY_RE = re.compile(
+    r"(?<=[A-Za-z])(?=(?:GmbH|AG|KG|OG|OHG|UG|SE|KGaA|Ltd\.?|Inc\.?|Corp\.?|LLC)\b)"
+)
+_OCR_STREET_FRAGMENT_RE = re.compile(
+    r"\b[A-Z][A-Za-z' -]{2,}"
+    r"(?:strasse|strabe|gasse|allee|weg|platz|ring|promenade|anlage|park|street|road)"
+    r"\s+\d{1,4}[A-Za-z]?\b",
+    re.IGNORECASE,
+)
+_OCR_POSTAL_CITY_RE = re.compile(
+    r"\b(?:[A-Z]{1,3}\s*[-\u2013\u2014]\s*)?\d{4,5}\s+"
+    r"[A-Z][A-Za-z' -]{2,}\b",
+    re.IGNORECASE,
+)
+
+
+def _ocr_detection_variants(text: str) -> list[str]:
+    """Return OCR-normalized text variants used only for detection decisions."""
+    normalized = (
+        text.replace("StraBe", "Strasse")
+        .replace("straBe", "strasse")
+        .replace("Stra8e", "Strasse")
+        .replace("stra8e", "strasse")
+        .replace("\u03b2", "ss")
+    )
+    normalized = re.sub(r"(?<=[A-Za-z])(?=\d)", " ", normalized)
+    normalized = re.sub(r"(?<=\d)(?=[A-Za-z])", " ", normalized)
+    spaced = _OCR_LEGAL_FORM_BOUNDARY_RE.sub(" ", normalized)
+    variants = [normalized]
+    for candidate in (
+        spaced,
+        re.sub(r"(?<=[a-z])(?=[A-Z])", " ", normalized),
+        normalized.replace("'", " "),
+    ):
+        if candidate != normalized and candidate not in variants:
+            variants.append(candidate)
+    return variants
+
+
+def _ocr_text_has_pii(text: str, anonymizer: Anonymizer) -> bool:
+    if anonymizer.detect(text):
+        return True
+    for variant in _ocr_detection_variants(text):
+        if variant != text and anonymizer.detect(variant):
+            return True
+        if _OCR_STREET_FRAGMENT_RE.search(variant):
+            return True
+        if _OCR_POSTAL_CITY_RE.search(variant):
+            return True
+    return False
+
+
 def _ocr_redact_images(
     page: Any,
     doc: Any,
@@ -246,7 +293,7 @@ def _ocr_redact_images(
         draw = ImageDraw.Draw(pil)
         changed = False
         for box, txt, _score in ocr_result:
-            if not txt or not anonymizer.detect(txt):
+            if not txt or not _ocr_text_has_pii(txt, anonymizer):
                 continue
             xs = [point[0] for point in box]
             ys = [point[1] for point in box]
@@ -411,6 +458,20 @@ def run(
     print("  Pseudokrat Ordner-Watcher", flush=True)
     print("=" * 64, flush=True)
     log("Starte ... lade Programm (erster Start dauert ueber das Netzlaufwerk etwas).")
+    log("Lade Erkennungsmodule ...")
+
+    log("  Lade Anonymizer ...")
+    from pseudokrat.anonymizer import Anonymizer
+
+    log("  Lade Deanonymizer ...")
+    from pseudokrat.deanonymizer import Deanonymizer
+
+    log("  Lade Recognizer-Bundle ...")
+    from pseudokrat.recognizers import recognizers_for_store
+
+    log("  Lade Profilverwaltung ...")
+    from pseudokrat.store.profile import ProfileManager
+    log("Erkennungsmodule geladen.")
 
     manager = ProfileManager()
     log(f"Oeffne/erstelle Profil '{profile}' (Simple-Mode, kein Passwort) ...")
@@ -471,6 +532,8 @@ def run(
                     n = deanon_pdf(path, target, deanonymizer)
                     log(f"  -> OK ({n} Platzhalter zurueckgesetzt) -> {target.name}")
                 elif reverse:
+                    from pseudokrat.formats import handler_for
+
                     res = handler_for(path).process(
                         path, target, transform=lambda t: deanonymizer.deanonymize(t).text
                     )
@@ -482,6 +545,8 @@ def run(
                     )
                     log(f"  -> OK ({n} PII-Stellen ersetzt, Layout+Metadaten bereinigt) -> {target.name}")
                 else:
+                    from pseudokrat.formats import handler_for
+
                     res = handler_for(path).process(
                         path, target, transform=lambda t: anonymizer.anonymize(t).text
                     )

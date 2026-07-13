@@ -9,28 +9,21 @@ import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pseudokrat import __version__
-from pseudokrat.anonymizer import Anonymizer
-from pseudokrat.clipboard import ClipboardUnavailableError, default_clipboard
-from pseudokrat.deanonymizer import Deanonymizer
-from pseudokrat.formats import (
-    UnsupportedFormatError,
-    handler_for,
-)
-from pseudokrat.logging_config import configure_logging
-from pseudokrat.pii.privacy_filter import load_default_detector
-from pseudokrat.recognizers import (
-    InvalidMandantenPatternError,
-    compile_mandanten_pattern,
-    recognizers_for_store,
-)
-from pseudokrat.store.profile import MANDANTEN_PATTERN_METADATA_KEY, ProfileManager
-from pseudokrat.store.secure_db import InvalidPasswordError
+
+if TYPE_CHECKING:
+    from pseudokrat.store.profile import ProfileManager
 
 DEFAULT_PROFILE = "default"
 MIN_PASSWORD_LENGTH = 8
+
+
+def _new_profile_manager() -> ProfileManager:
+    from pseudokrat.store.profile import ProfileManager
+
+    return ProfileManager()
 
 
 def _ensure_utf8_console() -> None:
@@ -497,6 +490,8 @@ def _has_handler(path: Path | None) -> bool:
     statt auf stdout — konsistent über TXT, CSV, DOCX, XLSX hinweg. Auf stdout
     geht nur, was per ``--text`` oder ``--stdin`` reinkam.
     """
+    from pseudokrat.formats import UnsupportedFormatError, handler_for
+
     if path is None:
         return False
     try:
@@ -507,6 +502,12 @@ def _has_handler(path: Path | None) -> bool:
 
 
 def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.formats import UnsupportedFormatError, handler_for
+    from pseudokrat.pii.privacy_filter import load_default_detector
+    from pseudokrat.recognizers import recognizers_for_store
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     try:
         store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
@@ -575,6 +576,10 @@ def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
 
 
 def _cmd_deanonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
+    from pseudokrat.deanonymizer import Deanonymizer
+    from pseudokrat.formats import UnsupportedFormatError, handler_for
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     try:
         store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
@@ -660,6 +665,13 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
     - Akzeptiert das Passwort entweder per ``--password``-Flag, per
       ``PSEUDOKRAT_PASSWORD``-Env oder interaktiv mit doppelter Bestätigung.
     """
+    from pseudokrat.recognizers import (
+        InvalidMandantenPatternError,
+        compile_mandanten_pattern,
+    )
+    from pseudokrat.store.profile import MANDANTEN_PATTERN_METADATA_KEY
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     try:
         path = manager.profile_path(args.profile)
     except ValueError as exc:
@@ -866,7 +878,7 @@ def _cmd_profile_remove(args: argparse.Namespace, manager: ProfileManager) -> in
 
 def _cmd_profile_show_pattern(args: argparse.Namespace, manager: ProfileManager) -> int:
     """Zeigt das aktuelle Mandanten-Pattern eines Profils — ohne Master-Passwort."""
-    from pseudokrat.store.profile import read_profile_metadata
+    from pseudokrat.store.profile import MANDANTEN_PATTERN_METADATA_KEY, read_profile_metadata
 
     try:
         path = manager.profile_path(args.profile)
@@ -891,6 +903,13 @@ def _cmd_profile_set_pattern(args: argparse.Namespace, manager: ProfileManager) 
     damit ist sichergestellt, dass nur ein berechtigter Nutzer die
     Recognizer-Konfiguration eines Mandanten ändern kann.
     """
+    from pseudokrat.recognizers import (
+        InvalidMandantenPatternError,
+        compile_mandanten_pattern,
+    )
+    from pseudokrat.store.profile import MANDANTEN_PATTERN_METADATA_KEY
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     if args.clear and args.pattern is not None:
         print(
             "Fehler: --clear und --pattern können nicht gleichzeitig angegeben werden.",
@@ -941,6 +960,13 @@ def _cmd_clipboard(args: argparse.Namespace, manager: ProfileManager) -> int:
     auf eine Tastenkombination. So bleibt die App ohne globalen Tastatur-
     Listener auskommen.
     """
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.clipboard import ClipboardUnavailableError, default_clipboard
+    from pseudokrat.deanonymizer import Deanonymizer
+    from pseudokrat.pii.privacy_filter import load_default_detector
+    from pseudokrat.recognizers import recognizers_for_store
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     try:
         clipboard = default_clipboard()
     except ClipboardUnavailableError as exc:
@@ -1021,6 +1047,7 @@ def _cmd_server(args: argparse.Namespace, manager: ProfileManager) -> int:
     Exit-Codes:
     * 18 — Port belegt / Socket-Bind fehlgeschlagen.
     """
+    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.server import ServerState, TokenStore, start_server
 
     sub = getattr(args, "subcommand", None)
@@ -1088,6 +1115,12 @@ def _cmd_hotkey_daemon(args: argparse.Namespace, manager: ProfileManager) -> int
     * 17 — Hotkey-Backend nicht verfügbar (Library nicht installiert
       oder Berechtigungen fehlen).
     """
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.clipboard import ClipboardUnavailableError, default_clipboard
+    from pseudokrat.deanonymizer import Deanonymizer
+    from pseudokrat.pii.privacy_filter import load_default_detector
+    from pseudokrat.recognizers import recognizers_for_store
+    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.hotkey import (
         HotkeyConfig,
         HotkeyDaemon,
@@ -1236,6 +1269,8 @@ def _cmd_model(args: argparse.Namespace, manager: ProfileManager) -> int:
 
 
 def _cmd_audit(args: argparse.Namespace, manager: ProfileManager) -> int:
+    from pseudokrat.store.secure_db import InvalidPasswordError
+
     try:
         store, audit = _open_profile(manager, args.profile, args.password)
     except InvalidPasswordError as exc:
@@ -1432,8 +1467,10 @@ def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
     return 0
 
 
-def _cmd_watch(args: argparse.Namespace, manager: ProfileManager) -> int:
+def _cmd_watch(args: argparse.Namespace, manager: ProfileManager | None) -> int:
     """Startet die installationsfreie Ordner-Schiene."""
+    del manager
+    print("Starte Watcher ... lade Programm vom Netzlaufwerk.", flush=True)
     from pseudokrat import watcher
 
     base = args.folder if getattr(args, "folder", None) is not None else Path.cwd()
@@ -1451,7 +1488,7 @@ def _cmd_watch(args: argparse.Namespace, manager: ProfileManager) -> int:
         return 0
 
 
-def _cmd_setup(args: argparse.Namespace, manager: ProfileManager) -> int:
+def _cmd_setup(args: argparse.Namespace, manager: ProfileManager | None) -> int:
     """Erstkonfiguration: lässt den Nutzer zwischen den zwei Schienen wählen."""
     base = args.folder if getattr(args, "folder", None) is not None else Path.cwd()
     print()
@@ -1486,9 +1523,12 @@ def _cmd_setup(args: argparse.Namespace, manager: ProfileManager) -> int:
             profile=None, no_profile=False, no_hotkeys=True,
             with_hotkeys=False, status=False,
         )
+        if manager is None:
+            manager = _new_profile_manager()
         return _cmd_install(install_args, manager)
     if choice == "2":
         print(f"\n→ Starte die Ordner-Lösung in: {base}\n")
+        print("Starte Watcher ... lade Programm vom Netzlaufwerk.", flush=True)
         from pseudokrat import watcher
 
         try:
@@ -1504,38 +1544,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     _ensure_utf8_console()
     parser = _build_parser()
     args = parser.parse_args(argv)
+    from pseudokrat.logging_config import configure_logging
+
     configure_logging(args.log_level)
 
-    manager = ProfileManager()
-
     if args.command == "init":
-        return _cmd_init(args, manager)
+        return _cmd_init(args, _new_profile_manager())
     if args.command == "anonymize":
-        return _cmd_anonymize(args, manager)
+        return _cmd_anonymize(args, _new_profile_manager())
     if args.command == "deanonymize":
-        return _cmd_deanonymize(args, manager)
+        return _cmd_deanonymize(args, _new_profile_manager())
     if args.command == "clipboard":
-        return _cmd_clipboard(args, manager)
+        return _cmd_clipboard(args, _new_profile_manager())
     if args.command == "profiles":
-        return _cmd_profiles(args, manager)
+        return _cmd_profiles(args, _new_profile_manager())
     if args.command == "audit":
-        return _cmd_audit(args, manager)
+        return _cmd_audit(args, _new_profile_manager())
     if args.command == "model":
-        return _cmd_model(args, manager)
+        return _cmd_model(args, _new_profile_manager())
     if args.command == "hotkey-daemon":
-        return _cmd_hotkey_daemon(args, manager)
+        return _cmd_hotkey_daemon(args, _new_profile_manager())
     if args.command == "server":
-        return _cmd_server(args, manager)
+        return _cmd_server(args, _new_profile_manager())
     if args.command == "install":
-        return _cmd_install(args, manager)
+        return _cmd_install(args, _new_profile_manager())
     if args.command == "uninstall":
-        return _cmd_uninstall(args, manager)
+        return _cmd_uninstall(args, None)
     if args.command == "watch":
-        return _cmd_watch(args, manager)
+        return _cmd_watch(args, None)
     if args.command == "setup":
-        return _cmd_setup(args, manager)
+        return _cmd_setup(args, None)
     if args.command == "doctor":
-        return _cmd_doctor(args, manager)
+        return _cmd_doctor(args, _new_profile_manager())
     parser.error(f"Unbekannter Befehl: {args.command}")
     return 1  # type: ignore[unreachable]
 

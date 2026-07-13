@@ -25,6 +25,16 @@ from pseudokrat.recognizers.base import Span
 
 _DEFAULT_HOST = "http://localhost:11434"
 
+# Werte, die das LLM manchmal faelschlich als Eigenname zurueckgibt.
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "gmbh", "ag", "kg", "og", "ug", "se", "ohg", "kgaa", "e.u", "eu",
+        "der", "die", "das", "und", "oder", "firma", "gesellschaft", "konto",
+        "rechnung", "bilanz", "summe", "betrag", "datum", "seite", "jahr",
+        "company", "the", "and", "gmbh & co kg",
+    }
+)
+
 # LLM-Entitaetstyp -> Pseudokrat-Kategorie (steuert den Platzhalter).
 _TYPE_MAP = {
     "ORG": "COMPANY",
@@ -133,13 +143,30 @@ class OllamaDetector:
                 out.append((value, category))
         return out
 
+    @staticmethod
+    def _is_plausible(value: str) -> bool:
+        """Filtert LLM-Rauschen: keine zu kurzen/generischen/Stopwort-Werte.
+
+        Ohne diese Schranke redigiert der Detektor sonst flächig über
+        Funktionswörter oder Rechtsform-Kürzel, die das Modell faelschlich
+        als Eigenname zurueckgibt.
+        """
+        if len(value) < 3:
+            return False
+        if not any(c.isupper() for c in value):  # Eigennamen sind gross
+            return False
+        if value.lower().strip(".") in _STOPWORDS:
+            return False
+        return True
+
     # -- Recognizer-Schnittstelle ------------------------------------------
     def analyze(self, text: str) -> list[Span]:
         stripped = text.strip()
         if len(stripped) < self._min_chars:
             return []
-        if text in self._cache:
-            entities = self._cache[text]
+        cache_key = " ".join(stripped.split())  # normalisiert (Whitespace)
+        if cache_key in self._cache:
+            entities = self._cache[cache_key]
         else:
             try:
                 entities = self._query(text)
@@ -148,11 +175,15 @@ class OllamaDetector:
                     self._log(f"     (Ollama-Erkenner nicht nutzbar: {exc})")
                     self._warned = True
                 return []
-            self._cache[text] = entities
+            self._cache[cache_key] = entities
 
         spans: list[Span] = []
         for value, category in entities:
-            for match in re.finditer(re.escape(value), text):
+            if not self._is_plausible(value):
+                continue
+            # Wortgrenzen: kein Treffer mitten in einem laengeren Wort.
+            pattern = rf"(?<![A-Za-zÄÖÜäöüß0-9]){re.escape(value)}(?![A-Za-zÄÖÜäöüß0-9])"
+            for match in re.finditer(pattern, text):
                 spans.append(
                     Span(
                         start=match.start(),

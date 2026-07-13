@@ -21,6 +21,13 @@ def is_valid_at_svnr(candidate: str) -> bool:
     if len(cleaned) != 10 or not cleaned.isdigit():
         return False
     digits = [int(c) for c in cleaned]
+    # Stellen 5-10 sind das Geburtsdatum DDMMYY — Plausibilität senkt die
+    # False-Positive-Rate deutlich (zufällige 10-Ziffern-Blöcke, die die
+    # Mod-11-Prüfung zufällig bestehen, haben selten ein gültiges DDMM).
+    day = digits[4] * 10 + digits[5]
+    month = digits[6] * 10 + digits[7]
+    if not (1 <= day <= 31 and 1 <= month <= 12):
+        return False
     check = digits[3]
     weighted = (
         digits[0] * _WEIGHTS[0]

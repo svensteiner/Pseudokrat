@@ -14,6 +14,7 @@ from pseudokrat.recognizers.bic import BICRecognizer
 from pseudokrat.recognizers.birthdate import BirthDateRecognizer
 from pseudokrat.recognizers.ch_ahv import SwissAHVRecognizer
 from pseudokrat.recognizers.company import CompanyLegalFormRecognizer
+from pseudokrat.recognizers.creditcard import CreditCardRecognizer
 from pseudokrat.recognizers.de_steuer_id import GermanSteuerIdRecognizer
 from pseudokrat.recognizers.de_ust_id import GermanUStIdNrRecognizer
 from pseudokrat.recognizers.email import EmailRecognizer
@@ -44,6 +45,7 @@ def default_recognizers() -> list[Recognizer]:
         GermanSteuerIdRecognizer(),
         GermanUStIdNrRecognizer(),
         SwissAHVRecognizer(),
+        CreditCardRecognizer(),
         EmailRecognizer(),
         PhoneRecognizer(),
         UrlRecognizer(),

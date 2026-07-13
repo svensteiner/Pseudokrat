@@ -70,7 +70,7 @@ _ADDRESS_RE = re.compile(
     {_SEP}
     (?P<plz>\d{{4,5}})
     [ \t]+
-    (?P<city>{_TOKEN}(?:[ \t]+{_TOKEN}){{0,2}})
+    (?P<city>{_TOKEN}(?:[ \t]+{_TOKEN}){{0,1}})
     """,
     re.VERBOSE,
 )

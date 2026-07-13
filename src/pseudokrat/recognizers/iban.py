@@ -1,4 +1,12 @@
-"""IBAN-Recognizer mit MOD-97-Validierung für AT, DE, CH und LI."""
+"""IBAN-Recognizer mit MOD-97-Validierung — DACH-Kern + gängige SEPA-Länder.
+
+WP-Mandate haben regelmässig ausländische Bankverbindungen (Beteiligungen,
+Lieferanten, Rechnungen). Diese IBANs sind hochsensible Daten und dürfen nicht
+ungeschwärzt in den Cloud-Prompt gelangen. Der MOD-97-Validator ist ohnehin
+länderunabhängig — es genügt, die Pflichtlängen-Tabelle zu erweitern und ein
+generisches Kandidaten-Pattern zu verwenden; ``is_valid_iban`` (Länge + MOD-97)
+filtert Falschtreffer zuverlässig.
+"""
 
 from __future__ import annotations
 
@@ -6,22 +14,22 @@ import re
 
 from pseudokrat.recognizers.base import Span
 
-# Pflichtlängen für DACH-IBANs.
-_IBAN_LENGTHS: dict[str, int] = {"AT": 20, "DE": 22, "CH": 21, "LI": 21}
+# Pflichtlängen je Land (ISO 13616). DACH zuerst, dann gängige SEPA-Länder.
+_IBAN_LENGTHS: dict[str, int] = {
+    "AT": 20, "DE": 22, "CH": 21, "LI": 21,
+    "IT": 27, "FR": 27, "NL": 18, "LU": 20, "BE": 16, "ES": 24, "PT": 25,
+    "SK": 24, "CZ": 24, "HU": 28, "SI": 19, "HR": 21, "PL": 28, "RO": 24,
+    "BG": 22, "GB": 22, "IE": 22, "DK": 18, "SE": 24, "FI": 18, "NO": 15,
+    "EE": 20, "LV": 21, "LT": 20, "GR": 27, "CY": 28, "MT": 31, "IS": 26,
+    "MC": 27, "SM": 27, "AD": 24, "RS": 22, "TR": 26,
+}
 
-# Länderspezifische Patterns. Jede Variante endet mit Negative-Lookahead
-# (?![A-Z0-9]), damit der Regex nicht über die korrekte IBAN-Länge hinaus
-# in nachfolgende alphanumerische Zeichen läuft und der MOD-97-Validator
-# dann fälschlich rejected — siehe Hypothesis-Regression D-033.
+# Generisches Kandidaten-Pattern: 2 Buchstaben (Land) + 2 Prüfziffern + 11-30
+# alphanumerische Zeichen, optional 4er-gruppiert. Negative-Lookahead (?![A-Z0-9])
+# verhindert Überlaufen in Folgezeichen (Hypothesis-Regression D-033); die
+# eigentliche Filterung macht is_valid_iban (Land/Länge/MOD-97).
 _IBAN_REGEX = re.compile(
-    r"\b("
-    # AT: 2 Buchst. + 18 Ziffern = 4 Gruppen à 4 Ziffern (mit optionalen Spaces)
-    r"AT\d{2}(?:[ ]?\d{4}){3}[ ]?\d{4}"
-    # DE: 2 Buchst. + 20 Ziffern = 4 Gruppen à 4 + 2-Ziffern-Rest
-    r"|DE\d{2}(?:[ ]?\d{4}){4}[ ]?\d{2}"
-    # CH/LI: 2 Buchst. + 19 alphanumerisch = 4 Gruppen à 4 + 1 Zeichen
-    r"|(?:CH|LI)\d{2}(?:[ ]?[A-Z0-9]{4}){3}[ ]?[A-Z0-9]{4}[ ]?[A-Z0-9]"
-    r")(?![A-Z0-9])"
+    r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}(?![A-Z0-9])"
 )
 
 

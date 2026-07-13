@@ -107,11 +107,18 @@ def is_fuzzy_merge_category(category: str) -> bool:
     return category in _FUZZY_MERGE_CATEGORIES
 
 
+#: Mindestlänge des Firmen-Kerns, ab der ein 1-Zeichen-Tippfehler toleriert wird.
+#: Kurze, distinktive Kerne (``maier`` / ``mayer``) bleiben bewusst getrennt.
+_FUZZY_MIN_CORE_LEN = 10
+
+_ALNUM_ONLY_RE = re.compile(r"[^a-z0-9]")
+
+
 def should_merge(
     candidate_normalized: str,
     existing_normalized: str,
     category: str,
-    max_distance: int = 2,
+    max_distance: int = 1,
 ) -> bool:
     """Sollen die zwei Einträge zum gleichen Platzhalter zusammengeführt werden?
 
@@ -136,5 +143,17 @@ def should_merge(
 
     cand_core = core_company_name(candidate_normalized) or candidate_normalized
     exist_core = core_company_name(existing_normalized) or existing_normalized
-    distance = Levenshtein.distance(cand_core, exist_core)
-    return distance <= max_distance
+
+    # Reine Trenn-/Schreibvarianten DERSELBEN Firma zusammenführen:
+    # „Hofer Bau" / „HoferBau" / „Hofer-Bau" → nach Entfernen aller
+    # Nicht-Alnum-Zeichen identisch. Sicher, weil nur Trennung variiert.
+    if _ALNUM_ONLY_RE.sub("", cand_core) == _ALNUM_ONLY_RE.sub("", exist_core):
+        return True
+
+    # Ein-Zeichen-Tippfehler NUR bei langen Kernen tolerieren. Kurze,
+    # distinktive Namen (Maier/Mayer, verschiedene Firmen) bleiben getrennt —
+    # Über-Segmentierung ist reversibel, ein Falsch-Merge nicht (D-048++).
+    longer = max(len(cand_core), len(exist_core))
+    if longer < _FUZZY_MIN_CORE_LEN:
+        return False
+    return Levenshtein.distance(cand_core, exist_core) <= max_distance

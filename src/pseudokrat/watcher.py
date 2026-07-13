@@ -401,18 +401,34 @@ def strip_office_metadata(path: Path) -> None:
             'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
             "</Properties>"
         ),
+        # Benutzerdefinierte Eigenschaften (oft Mandant/Projekt/Ersteller).
+        "docProps/custom.xml": (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Properties '
+            'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
+            'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+            "</Properties>"
+        ),
     }
+
+    # customXml/itemN.xml enthaelt oft eingebettete Kunden-Daten (z. B.
+    # SharePoint-/Content-Control-Bindungen). Inhalt leeren statt loeschen —
+    # so bleiben Relationships intakt (kein Reparatur-Dialog), die Daten weg.
+    custom_item_re = re.compile(r"^customXml/item\d+\.xml$")
 
     tmp = path.with_suffix(path.suffix + ".tmp")
     with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(
         tmp, "w", zipfile.ZIP_DEFLATED
     ) as zout:
         for item in zin.infolist():
-            data = neutral.get(item.filename)
+            fname = item.filename
+            data = neutral.get(fname)
             if data is not None:
-                zout.writestr(item.filename, data)
+                zout.writestr(fname, data)
+            elif custom_item_re.match(fname):
+                zout.writestr(fname, "<root/>")
             else:
-                zout.writestr(item, zin.read(item.filename))
+                zout.writestr(item, zin.read(fname))
     tmp.replace(path)
 
 

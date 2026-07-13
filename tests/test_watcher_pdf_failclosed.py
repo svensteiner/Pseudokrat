@@ -79,6 +79,44 @@ class TestFailClosed:
         assert missing == 1
         assert resolved == 0
 
+    def test_single_page_top_logo_removed(self, tmp_path, store_and_audit) -> None:  # noqa: ANN001
+        anon, store = _build_anon(store_and_audit)
+        doc = pymupdf.open()
+        page = doc.new_page()  # A4 ~595x842
+        page.insert_text((72, 400), "Rechnung ohne PII.")
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 60, 24))
+        pix.clear_with(180)
+        page.insert_image(pymupdf.Rect(60, 20, 260, 70), pixmap=pix)  # Briefkopf (<252)
+        src = tmp_path / "logo.pdf"
+        doc.save(str(src))
+        doc.close()
+        out = tmp_path / "logo.out.pdf"
+        watcher.redact_pdf(
+            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
+        )
+        result = pymupdf.open(str(out))
+        assert len(result[0].get_images()) == 0  # Briefkopf-Bild entfernt
+        result.close()
+
+    def test_single_page_body_image_kept(self, tmp_path, store_and_audit) -> None:  # noqa: ANN001
+        anon, store = _build_anon(store_and_audit)
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "Text ohne PII.")
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 60, 24))
+        pix.clear_with(180)
+        page.insert_image(pymupdf.Rect(60, 400, 260, 460), pixmap=pix)  # Textkoerper (>252)
+        src = tmp_path / "body.pdf"
+        doc.save(str(src))
+        doc.close()
+        out = tmp_path / "body.out.pdf"
+        watcher.redact_pdf(
+            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
+        )
+        result = pymupdf.open(str(out))
+        assert len(result[0].get_images()) == 1  # Inhaltsbild bleibt erhalten
+        result.close()
+
     def test_word_fallback_finds_multitoken(self, tmp_path) -> None:  # noqa: ANN001
         # get_text('words') liefert die Woerter; Fallback baut die Gruppe.
         src = tmp_path / "w.pdf"

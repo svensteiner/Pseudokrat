@@ -286,10 +286,22 @@ def redact_pdf(
                             hits += 1
                 page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)
 
-            # 2) Logos entfernen (nur wiederkehrende Bilder).
-            if remove_logos and logo_xrefs:
+            # 2) Logos entfernen: wiederkehrende Bilder (mehrseitig) und — bei
+            #    EINSEITIGEN Dokumenten — Bilder im Briefkopf-Bereich (oberste
+            #    ~30 % der Seite), die per Wiederholung nicht erkennbar sind.
+            if remove_logos:
+                remove_xrefs: set[int] = set(logo_xrefs)
+                if n_pages == 1:
+                    top_limit = page.rect.y0 + page.rect.height * 0.30
+                    for img in page.get_images(full=True):
+                        xref = img[0]
+                        rects = page.get_image_rects(xref)
+                        # Nur Bilder, die KOMPLETT im Briefkopf-Bereich liegen
+                        # (schuetzt grosse Inhaltsbilder/Diagramme im Textkoerper).
+                        if rects and all(r.y1 <= top_limit for r in rects):
+                            remove_xrefs.add(xref)
                 removed = False
-                for xref in logo_xrefs:
+                for xref in remove_xrefs:
                     for rect in page.get_image_rects(xref):
                         page.add_redact_annot(rect, fill=(1, 1, 1))
                         hits += 1
@@ -944,8 +956,12 @@ def run(
 
         while True:
             for path in _scan(inbox):
+                if not _file_is_stable(path):
+                    continue  # noch am Kopieren (Netzlaufwerk) — naechste Runde
                 process(path, reverse=False)
             for path in _scan(back_in):
+                if not _file_is_stable(path):
+                    continue
                 process(path, reverse=True)
             time.sleep(poll_seconds)
 

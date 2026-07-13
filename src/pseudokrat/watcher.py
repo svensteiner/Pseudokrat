@@ -184,11 +184,13 @@ def redact_pdf(
     remove_logos: bool,
     ocr: _OcrEngine | None,
     log: Any,
+    counts: dict[str, int] | None = None,
 ) -> int:
     """Anonymisiert eine PDF layout-erhaltend. Gibt die Anzahl Treffer zurueck.
 
     Fail-closed: kann erkannte PII nicht lokalisiert/geschwaerzt werden, wird
-    :class:`ResidualPIIError` geworfen und KEINE Ausgabe geschrieben.
+    :class:`ResidualPIIError` geworfen und KEINE Ausgabe geschrieben. ``counts``
+    wird (falls übergeben) pro Kategorie mit den Treffern befüllt.
     """
     pymupdf = _require_pymupdf()
     doc = pymupdf.open(str(src))
@@ -202,7 +204,10 @@ def redact_pdf(
                 page_count[xref] = page_count.get(xref, 0) + 1
         logo_xrefs = {x for x, c in page_count.items() if c >= 2}
 
-        for page in doc:
+        n_pages = doc.page_count
+        for page_index, page in enumerate(doc, start=1):
+            if n_pages > 3:
+                log(f"     Seite {page_index} von {n_pages} ...")
             # 0) OCR: Text in (Nicht-Logo-)Bildern finden und im Bild schwaerzen.
             if ocr is not None:
                 hits += _ocr_redact_images(page, doc, logo_xrefs, anonymizer, ocr, log)
@@ -211,6 +216,9 @@ def redact_pdf(
             text = page.get_text()
             if text.strip():
                 result = anonymizer.anonymize(text)
+                if counts is not None:
+                    for cat, num in result.entity_counts.items():
+                        counts[cat] = counts.get(cat, 0) + num
                 pairs: dict[str, str] = {}
                 for span in result.spans:
                     pairs[span.text] = store.get_or_create(
@@ -495,6 +503,66 @@ def strip_office_metadata(path: Path) -> None:
     tmp.replace(path)
 
 
+#: PII-Kategorie -> deutsches Label für den Ergebnis-Bericht.
+_CATEGORY_LABELS: dict[str, str] = {
+    "IBAN": "IBAN", "CREDITCARD": "Kreditkarte", "UID": "UID", "SVNR": "SVNR",
+    "STEUERNR": "Steuernr", "FN": "Firmenbuch", "TAX_ID": "Steuer-ID",
+    "AHV": "AHV", "BIC": "BIC", "COMPANY": "Firma", "PERSON": "Person",
+    "ADDRESS": "Adresse", "EMAIL": "E-Mail", "PHONE": "Telefon", "URL": "URL",
+    "SECRET": "Schluessel", "BEGRIFF": "Begriff", "MANDANT_NR": "Mandantennr",
+    "BIRTHDATE": "Geburtsdatum",
+}
+
+
+def _format_counts(counts: dict[str, int]) -> str:
+    """'3x IBAN, 2x Firma, 1x E-Mail' aus einem Kategorie-Zähler."""
+    parts = [
+        f"{n}x {_CATEGORY_LABELS.get(cat, cat)}"
+        for cat, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        if n
+    ]
+    return ", ".join(parts) if parts else "0 Treffer"
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Erklärung in einfachem Deutsch, was der Nutzer tun kann."""
+    from pseudokrat.formats import UnsupportedFormatError
+
+    if isinstance(exc, ResidualPIIError):
+        return (
+            "Es wurde etwas Identifizierendes gefunden, das an dieser Stelle "
+            "nicht sicher geschwaerzt werden konnte. Die Datei wurde daher NICHT "
+            "freigegeben (Sicherheit vor Bequemlichkeit). Bitte die Datei pruefen "
+            "oder als PDF/Excel neu exportieren und erneut in INPUT legen."
+        )
+    if isinstance(exc, PermissionError):
+        return (
+            "Die Datei war vermutlich noch in Word/Excel/Adobe geoeffnet oder "
+            "wurde noch kopiert. Bitte schliessen und erneut in INPUT ziehen."
+        )
+    if isinstance(exc, UnsupportedFormatError):
+        return (
+            "Dieses Dateiformat wird (noch) nicht unterstuetzt. Unterstuetzt: "
+            "PDF, Word (.docx), Excel (.xlsx), CSV, TXT, HTML."
+        )
+    return (
+        "Die Datei konnte nicht verarbeitet werden. Bitte pruefen, ob sie "
+        "beschaedigt oder passwortgeschuetzt ist."
+    )
+
+
+def _unique_target(target: Path) -> Path:
+    """Freien Zielnamen finden ('name (2).ext'), statt bestehende zu ueberschreiben."""
+    if not target.exists():
+        return target
+    stem, suffix, parent = target.stem, target.suffix, target.parent
+    for i in range(2, 1000):
+        cand = parent / f"{stem} ({i}){suffix}"
+        if not cand.exists():
+            return cand
+    return target  # extrem unwahrscheinlich
+
+
 def run(
     base: Path,
     *,
@@ -524,6 +592,25 @@ def run(
     for folder in (inbox, outbox, back_in, back_out, done, errors):
         folder.mkdir(parents=True, exist_ok=True)
 
+    # Wegweiser-Dateien in leeren Arbeitsordnern (nur einmalig).
+    _WEGWEISER = {
+        inbox: "_Hier Dateien zum Anonymisieren hineinziehen.txt",
+        outbox: "_Hier erscheinen die anonymisierten Ergebnisse.txt",
+        back_in: "_Hier die KI-Antwort mit Platzhaltern hineinlegen.txt",
+        back_out: "_Hier kommt der Klartext (Originale) zurueck.txt",
+    }
+    for folder, marker in _WEGWEISER.items():
+        with contextlib.suppress(OSError):
+            if not any(folder.iterdir()):
+                (folder / marker).write_text("", encoding="utf-8")
+
+    # Sitzungs-Trenner ins Log (klarere Historie über mehrere Läufe).
+    with contextlib.suppress(OSError):
+        with log_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
+            )
+
     def log(message: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}"
         print(line, flush=True)
@@ -536,6 +623,29 @@ def run(
     print("=" * 64, flush=True)
     print("  Pseudokrat Ordner-Watcher", flush=True)
     print("=" * 64, flush=True)
+
+    # Doppelstart-Lock: verhindert zwei Watcher auf demselben Ordner (die sich
+    # sonst gegenseitig die Dateien wegschnappen). Das Lock-Handle bleibt für
+    # die Prozesslaufzeit offen und wird beim Beenden automatisch freigegeben.
+    lock_path = base / ".pseudokrat_watch.lock"
+    lock_handle = lock_path.open("a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        log(
+            "Es läuft bereits ein Pseudokrat-Watcher auf diesem Ordner. "
+            "Dieses Fenster kann geschlossen werden."
+        )
+        lock_handle.close()
+        return 0
+
     log("Starte ... lade Programm (erster Start dauert ueber das Netzlaufwerk etwas).")
     log("Lade Erkennungsmodule ...")
 
@@ -589,23 +699,37 @@ def run(
         deanonymizer = Deanonymizer(store=store, audit_log=audit, model_version="disabled")
 
         def relocate(path: Path, folder: Path) -> None:
-            target = folder / path.name
-            if target.exists():
-                target.unlink()
-            shutil.move(str(path), str(target))
+            # Nicht überschreiben (Datenverlust!) — bei Kollision umbenennen.
+            shutil.move(str(path), str(_unique_target(folder / path.name)))
+
+        def report_anon(counts: dict[str, int], target: Path) -> None:
+            total = sum(counts.values())
+            if total == 0:
+                log(f"  -> OK, ABER 0 PII erkannt -> {target.name}  ⚠ bitte pruefen!")
+                with contextlib.suppress(OSError):
+                    (outbox / f"_ACHTUNG {target.stem} - keine PII erkannt.txt").write_text(
+                        "In dieser Datei wurde KEINE identifizierende Information "
+                        "erkannt.\nBitte pruefen Sie das Ergebnis selbst. Falls doch "
+                        "Namen/Marken enthalten sind, tragen Sie diese in Begriffe.txt "
+                        "ein und legen die Datei erneut in INPUT.\n",
+                        encoding="utf-8",
+                    )
+            else:
+                log(f"  -> OK ({_format_counts(counts)}; Metadaten bereinigt) -> {target.name}")
 
         def process(path: Path, *, reverse: bool) -> None:
             if not _file_is_stable(path):
                 return
             is_pdf = path.suffix.lower() == ".pdf"
+            counts: dict[str, int] = {}
             if reverse:
-                target = back_out / f"{path.stem}.klartext{path.suffix}"
+                target = _unique_target(back_out / f"{path.stem}.klartext{path.suffix}")
                 log(f"Ruckuebersetze: {path.name}")
             else:
                 # Dateiname mit-anonymisieren (Klartext-Name -> Platzhalter).
                 safe_stem = safe_anonymized_stem(path.stem, anonymizer)
-                target = outbox / f"{safe_stem}.anon{path.suffix}"
-                log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {safe_stem})")
+                target = _unique_target(outbox / f"{safe_stem}.anon{path.suffix}")
+                log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {target.stem})")
             try:
                 if reverse and is_pdf:
                     n = deanon_pdf(path, target, deanonymizer)
@@ -618,22 +742,38 @@ def run(
                     )
                     log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
                 elif is_pdf:
-                    n = redact_pdf(
+                    redact_pdf(
                         path, target, anonymizer, store,
-                        remove_logos=remove_logos, ocr=ocr, log=log,
+                        remove_logos=remove_logos, ocr=ocr, log=log, counts=counts,
                     )
-                    log(f"  -> OK ({n} PII-Stellen ersetzt, Layout+Metadaten bereinigt) -> {target.name}")
+                    report_anon(counts, target)
                 else:
                     from pseudokrat.formats import handler_for
 
-                    res = handler_for(path).process(
-                        path, target, transform=lambda t: anonymizer.anonymize(t).text
-                    )
+                    def _counting_transform(chunk: str) -> str:
+                        anon_result = anonymizer.anonymize(chunk)
+                        for cat, num in anon_result.entity_counts.items():
+                            counts[cat] = counts.get(cat, 0) + num
+                        return anon_result.text
+
+                    handler_for(path).process(path, target, transform=_counting_transform)
                     strip_office_metadata(target)  # Dokument-Eigenschaften entfernen
-                    log(f"  -> OK ({res.segments_processed} Segmente, Metadaten bereinigt) -> {target.name}")
+                    report_anon(counts, target)
                 relocate(path, done)
             except Exception as exc:  # noqa: BLE001 - im Watcher alles abfangen
-                log(f"  -> FEHLER bei {path.name}: {exc}")
+                log(f"  -> FEHLER bei {path.name}: {_friendly_error(exc)}")
+                # Verständliche Begleit-Datei im Fehler-Ordner.
+                with contextlib.suppress(OSError):
+                    (errors / f"{path.name}.FEHLER.txt").write_text(
+                        "Diese Datei konnte nicht anonymisiert werden.\n\n"
+                        + _friendly_error(exc)
+                        + f"\n\nTechnisches Detail: {type(exc).__name__}: {exc}\n",
+                        encoding="utf-8",
+                    )
+                # (Teilweise) geschriebene Ausgabe entfernen — nie ein Leck.
+                with contextlib.suppress(OSError):
+                    if not reverse and target.exists():
+                        target.unlink()
                 try:
                     relocate(path, errors)
                 except OSError as move_exc:
@@ -662,7 +802,9 @@ def _scan(folder: Path) -> list[Path]:
     try:
         return [
             f for f in folder.iterdir()
-            if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+            if f.is_file()
+            and f.suffix.lower() in SUPPORTED_EXTENSIONS
+            and not f.name.startswith("_")  # Wegweiser-/Marker-Dateien überspringen
         ]
     except OSError:
         return []

@@ -1532,7 +1532,9 @@ def _cmd_setup(args: argparse.Namespace, manager: ProfileManager | None) -> int:
         from pseudokrat import watcher
 
         try:
-            return watcher.run(base, profile="Standard")
+            # Konsistent mit 'Anonymisierung starten.bat': LLM standardmässig aus
+            # (schneller). Wer die generische LLM-Erkennung will: 'pseudokrat watch'.
+            return watcher.run(base, profile="Standard", use_llm=False)
         except KeyboardInterrupt:
             print("\nBeendet.")
             return 0

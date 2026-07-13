@@ -1,0 +1,86 @@
+"""Tests fuer den fail-closed PDF-Pfad (Council #1):
+- Normale PDF wird sauber geschwaerzt (kein Rest).
+- Wort-Sequenz-Fallback findet mehrteilige PII.
+- Nicht lokalisierbare erkannte PII -> ResidualPIIError, KEINE Ausgabe.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from pseudokrat import watcher
+
+pymupdf = pytest.importorskip("pymupdf")
+
+
+def _make_pdf(path: Path, text: str) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), text)
+    doc.save(str(path))
+    doc.close()
+
+
+def _build_anon(store_and_audit):  # noqa: ANN001
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.recognizers import recognizers_for_store
+
+    store, audit = store_and_audit
+    return (
+        Anonymizer(
+            store=store, recognizers=recognizers_for_store(store),
+            detector=None, audit_log=audit, model_version="disabled",
+        ),
+        store,
+    )
+
+
+class TestFailClosed:
+    def test_normal_pdf_redacted_no_residual(self, tmp_path, store_and_audit) -> None:  # noqa: ANN001
+        anon, store = _build_anon(store_and_audit)
+        src = tmp_path / "in.pdf"
+        _make_pdf(src, "Hofer Bau GmbH zahlt heute.")
+        out = tmp_path / "out.pdf"
+        watcher.redact_pdf(
+            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
+        )
+        text = "".join(p.get_text() for p in pymupdf.open(str(out)))
+        assert "Hofer Bau GmbH" not in text
+        assert "<COMPANY_" in text
+
+    def test_unlocatable_pii_raises_and_writes_nothing(
+        self, tmp_path, store_and_audit, monkeypatch
+    ) -> None:  # noqa: ANN001
+        anon, store = _build_anon(store_and_audit)
+        src = tmp_path / "in.pdf"
+        _make_pdf(src, "Hofer Bau GmbH zahlt heute.")
+        out = tmp_path / "out.pdf"
+
+        # Erkennung funktioniert, aber Lokalisierung schlaegt fehl -> fail-closed.
+        monkeypatch.setattr(watcher, "_pii_rect_groups", lambda *a, **k: [])
+
+        with pytest.raises(watcher.ResidualPIIError):
+            watcher.redact_pdf(
+                src, out, anon, store, remove_logos=False, ocr=None, log=lambda _m: None
+            )
+        assert not out.exists()  # KEINE Ausgabe geschrieben
+
+    def test_word_fallback_finds_multitoken(self, tmp_path) -> None:  # noqa: ANN001
+        # get_text('words') liefert die Woerter; Fallback baut die Gruppe.
+        src = tmp_path / "w.pdf"
+        _make_pdf(src, "Firma Alpen Handel GmbH hier.")
+        doc = pymupdf.open(str(src))
+        page = doc[0]
+
+        class _NoSearch:
+            def __getattr__(self, name):
+                return getattr(page, name)
+
+            def search_for(self, *_a, **_k):
+                return []  # search_for kuenstlich blockieren
+
+        groups = watcher._pii_rect_groups(_NoSearch(), "Alpen Handel GmbH", pymupdf)
+        assert groups and len(groups[0]) == 3  # drei Wort-Rechtecke
+        doc.close()

@@ -130,6 +130,51 @@ class _OcrEngine:
         return cast("list[Any] | None", result)
 
 
+class ResidualPIIError(RuntimeError):
+    """Erkannte PII konnte nicht sicher entfernt/geschwaerzt werden.
+
+    Wird geworfen, damit der Watcher die Ausgabe NICHT freigibt (fail-closed):
+    lieber eine Datei im Fehler-Ordner als ein stilles Klartext-Leck Richtung
+    Cloud-KI. Die Nachricht enthaelt bewusst KEINEN Klartext (nur Anzahl).
+    """
+
+    def __init__(self, count: int) -> None:
+        super().__init__(
+            f"PII erkannt, aber {count} Stelle(n) im Layout nicht sicher "
+            "schwaerzbar — Ausgabe nicht freigegeben (fail-closed)."
+        )
+        self.count = count
+
+
+def _pii_rect_groups(page: Any, original: str, pymupdf: Any) -> list[list[Any]]:
+    """Findet die zu schwaerzenden Rechteck-Gruppen fuer einen PII-String.
+
+    Erst ``search_for`` (schnell, eine Gruppe je Vorkommen). Wenn das nichts
+    liefert (Text ueber Zeilenumbruch/fragmentiert), Fallback ueber die
+    Wort-Sequenz: aufeinanderfolgende Woerter, deren Texte exakt den Tokens
+    des PII-Strings entsprechen, bilden eine Gruppe (mehrere Rechtecke).
+    """
+    direct = list(page.search_for(original))
+    if direct:
+        return [[r] for r in direct]
+
+    target = original.split()
+    if not target:
+        return []
+    words = page.get_text("words")  # (x0,y0,x1,y1, wort, block, line, wortnr)
+    n = len(target)
+    groups: list[list[Any]] = []
+    i = 0
+    while i <= len(words) - n:
+        window = words[i : i + n]
+        if [w[4] for w in window] == target:
+            groups.append([pymupdf.Rect(w[0], w[1], w[2], w[3]) for w in window])
+            i += n
+        else:
+            i += 1
+    return groups
+
+
 def redact_pdf(
     src: Path,
     dst: Path,
@@ -140,10 +185,15 @@ def redact_pdf(
     ocr: _OcrEngine | None,
     log: Any,
 ) -> int:
-    """Anonymisiert eine PDF layout-erhaltend. Gibt die Anzahl Treffer zurueck."""
+    """Anonymisiert eine PDF layout-erhaltend. Gibt die Anzahl Treffer zurueck.
+
+    Fail-closed: kann erkannte PII nicht lokalisiert/geschwaerzt werden, wird
+    :class:`ResidualPIIError` geworfen und KEINE Ausgabe geschrieben.
+    """
     pymupdf = _require_pymupdf()
     doc = pymupdf.open(str(src))
     hits = 0
+    unresolved = 0  # erkannte PII, die nicht lokalisiert werden konnte
     try:
         # Logos = Bilder, die auf >= 2 Seiten vorkommen (Briefkopf/Logo).
         page_count: dict[int, int] = {}
@@ -168,17 +218,25 @@ def redact_pdf(
                     ).placeholder
                 for original in sorted(pairs, key=len, reverse=True):
                     placeholder = pairs[original]
-                    for rect in page.search_for(original):
-                        page.add_redact_annot(
-                            rect,
-                            text=placeholder,
-                            fontname="helv",
-                            fontsize=max(4.0, min(11.0, rect.height * 0.8)),
-                            fill=(1, 1, 1),
-                            text_color=(0, 0, 0),
-                            cross_out=False,
-                        )
-                        hits += 1
+                    groups = _pii_rect_groups(page, original, pymupdf)
+                    if not groups:
+                        # Erkannt, aber nicht auffindbar -> fail-closed (s.u.).
+                        unresolved += 1
+                        continue
+                    for group in groups:
+                        # Platzhalter nur ins erste Rechteck; Folge-Rechtecke
+                        # (Zeilenumbruch) nur weiss ausfuellen.
+                        for idx, rect in enumerate(group):
+                            page.add_redact_annot(
+                                rect,
+                                text=placeholder if idx == 0 else "",
+                                fontname="helv",
+                                fontsize=max(4.0, min(11.0, rect.height * 0.8)),
+                                fill=(1, 1, 1),
+                                text_color=(0, 0, 0),
+                                cross_out=False,
+                            )
+                            hits += 1
                 page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)
 
             # 2) Logos entfernen (nur wiederkehrende Bilder).
@@ -191,6 +249,11 @@ def redact_pdf(
                         removed = True
                 if removed:
                     page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE)
+
+        # FAIL-CLOSED: konnte erkannte PII nicht lokalisiert/geschwaerzt werden,
+        # NICHT nach OUTPUT schreiben — lieber Fehler-Ordner als stilles Leck.
+        if unresolved:
+            raise ResidualPIIError(unresolved)
 
         # Dokument-Eigenschaften entfernen: /Title /Author /Subject /Keywords
         # /Creator /Producer sowie XMP-Metadaten (enthalten oft Mandant/Verfasser).

@@ -263,6 +263,19 @@ def redact_pdf(
         if unresolved:
             raise ResidualPIIError(unresolved)
 
+        # Versteckte PDF-Kanaele bereinigen: Annotationen (Kommentare/Notizen/
+        # Formularfelder), eingebettete Anhaenge und Lesezeichen/Gliederung —
+        # alle koennen Klartext-Namen enthalten, die die Redaction nicht sieht.
+        for page in doc:
+            for annot in list(page.annots() or []):
+                with contextlib.suppress(Exception):
+                    page.delete_annot(annot)
+        with contextlib.suppress(Exception):
+            for name in list(doc.embfile_names()):
+                doc.embfile_del(name)
+        with contextlib.suppress(Exception):
+            doc.set_toc([])
+
         # Dokument-Eigenschaften entfernen: /Title /Author /Subject /Keywords
         # /Creator /Producer sowie XMP-Metadaten (enthalten oft Mandant/Verfasser).
         # Metadaten duerfen den Lauf nicht stoppen -> Fehler bewusst schlucken.
@@ -551,6 +564,53 @@ def _friendly_error(exc: Exception) -> str:
     )
 
 
+#: Hochpräzise Kategorien fürs Rest-PII-Gate (Prüfziffer/starker Anker ->
+#: praktisch keine False Positives, auch nicht auf Office-XML/Schema-Text).
+_GATE_CATEGORIES: frozenset[str] = frozenset(
+    {"IBAN", "CREDITCARD", "UID", "SVNR", "STEUERNR", "FN", "AHV", "TAX_ID", "EMAIL"}
+)
+
+_XML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def extract_text_for_gate(path: Path) -> str:
+    """Extrahiert möglichst VOLLSTÄNDIG den Text einer Ausgabedatei fürs Gate.
+
+    Für Office-Dateien wird der komplette XML-Textinhalt (inkl. Kommentare,
+    Kopfzeilen, custom.xml …) gelesen — bewusst gründlicher als der Handler,
+    damit auch von ihm übersehene Kanäle geprüft werden.
+    """
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        try:
+            pymupdf = _require_pymupdf()
+            doc = pymupdf.open(str(path))
+            try:
+                return "\n".join(p.get_text() for p in doc)
+            finally:
+                doc.close()
+        except Exception:  # noqa: BLE001
+            return ""
+    if suffix in (".xlsx", ".docx", ".pptx"):
+        import zipfile
+
+        parts: list[str] = []
+        try:
+            with zipfile.ZipFile(path) as zf:
+                for name in zf.namelist():
+                    if name.endswith(".xml") and "/media/" not in name:
+                        with contextlib.suppress(Exception):
+                            raw = zf.read(name).decode("utf-8", "replace")
+                            parts.append(_XML_TAG_RE.sub(" ", raw))
+        except Exception:  # noqa: BLE001
+            return ""
+        return " ".join(parts)
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
 def _unique_target(target: Path) -> Path:
     """Freien Zielnamen finden ('name (2).ext'), statt bestehende zu ueberschreiben."""
     if not target.exists():
@@ -686,6 +746,14 @@ def run(
                 "(nur regelbasiert + Begriffe). Start: 'ollama serve'."
             )
 
+    # Rest-PII-Gate: hochpraezise Erkenner (+ eigene Begriffe) fuer die
+    # Nachpruefung der fertigen Ausgabe (Defense-in-Depth, fail-closed).
+    gate_recognizers = [
+        r for r in recognizers if getattr(r, "category", "") in _GATE_CATEGORIES
+    ]
+    if terms:
+        gate_recognizers.append(TermRecognizer(terms))
+
     ocr = _OcrEngine(log) if ocr_images else None
 
     with store:
@@ -716,6 +784,15 @@ def run(
                     )
             else:
                 log(f"  -> OK ({_format_counts(counts)}; Metadaten bereinigt) -> {target.name}")
+
+        def gate_residual(target: Path) -> int:
+            """Zählt hochsensible Rest-PII in der fertigen Ausgabe (0 = sauber)."""
+            gate_text = extract_text_for_gate(target)
+            total = 0
+            for recognizer in gate_recognizers:
+                with contextlib.suppress(Exception):
+                    total += len(recognizer.analyze(gate_text))
+            return total
 
         def process(path: Path, *, reverse: bool) -> None:
             if not _file_is_stable(path):
@@ -759,6 +836,12 @@ def run(
                     handler_for(path).process(path, target, transform=_counting_transform)
                     strip_office_metadata(target)  # Dokument-Eigenschaften entfernen
                     report_anon(counts, target)
+                # Rest-PII-Gate (Defense-in-Depth): bleibt hochsensible PII in der
+                # Ausgabe, NICHT freigeben (fail-closed) — greift bei allen Formaten.
+                if not reverse:
+                    residual = gate_residual(target)
+                    if residual:
+                        raise ResidualPIIError(residual)
                 relocate(path, done)
             except Exception as exc:  # noqa: BLE001 - im Watcher alles abfangen
                 log(f"  -> FEHLER bei {path.name}: {_friendly_error(exc)}")

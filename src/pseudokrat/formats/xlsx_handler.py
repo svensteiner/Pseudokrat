@@ -82,6 +82,31 @@ def _transform_formula(formula: str, transform: TextTransform) -> str:
     return result[1:] if strip_lead else result
 
 
+def _transform_headers_footers(sheet: object, transform: TextTransform) -> int:
+    """Anonymisiert Kopf-/Fusszeilen (links/mitte/rechts) eines Arbeitsblatts.
+
+    Kopf-/Fusszeilen tragen häufig Briefkopf, Mandant, „Vertraulich – <Name>"
+    o. ä. — ein Kanal, den die reine Zell-Iteration nicht erfasst.
+    """
+    changed = 0
+    for hf_name in (
+        "oddHeader", "oddFooter", "evenHeader", "evenFooter",
+        "firstHeader", "firstFooter",
+    ):
+        hf = getattr(sheet, hf_name, None)
+        if hf is None:
+            continue
+        for part_name in ("left", "center", "right"):
+            part = getattr(hf, part_name, None)
+            text = getattr(part, "text", None)
+            if text:
+                new_text = transform(text)
+                if new_text != text:
+                    part.text = new_text
+                    changed += 1
+    return changed
+
+
 class XlsxHandler:
     name = "xlsx"
     suffixes: tuple[str, ...] = (".xlsx",)
@@ -121,6 +146,13 @@ class XlsxHandler:
         for sheet in workbook.worksheets:
             for row in sheet.iter_rows():
                 for cell in row:
+                    # Zell-Kommentare/Notizen (verstecktes PII-Leck).
+                    comment = cell.comment
+                    if comment is not None and comment.text:
+                        new_comment = transform(comment.text)
+                        if new_comment != comment.text:
+                            comment.text = new_comment
+                            processed += 1
                     value = cell.value
                     if value is None:
                         continue
@@ -141,6 +173,8 @@ class XlsxHandler:
                             skipped += 1
                     else:
                         skipped += 1
+            # Kopf-/Fusszeilen (Briefkopf/Mandant landet oft hier).
+            processed += _transform_headers_footers(sheet, transform)
 
         if permute_numeric_columns_with is not None:
             from pseudokrat.dp.numeric_permute import (

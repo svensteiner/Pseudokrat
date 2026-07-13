@@ -394,34 +394,42 @@ def _ocr_redact_images(
     return hits
 
 
-def deanon_pdf(src: Path, dst: Path, deanonymizer: Deanonymizer) -> int:
-    """Rueckuebersetzung in einer PDF: Platzhalter werden wieder zu Originalen."""
+def deanon_pdf(src: Path, dst: Path, deanonymizer: Deanonymizer) -> tuple[int, int]:
+    """Rueckuebersetzung in einer PDF. Gibt (zurueckgesetzt, unbekannt) zurueck.
+
+    ``unbekannt`` = Platzhalter, die im aktuellen Profil-Store nicht aufloesbar
+    sind (z. B. falsches Profil / fremder Store) — werden sichtbar gemacht,
+    statt still stehen zu bleiben.
+    """
     pymupdf = _require_pymupdf()
     doc = pymupdf.open(str(src))
-    hits = 0
+    resolved = 0
+    missing = 0
     try:
         for page in doc:
             text = page.get_text()
             for placeholder in set(_PLACEHOLDER_RE.findall(text)):
                 original = deanonymizer.deanonymize(placeholder).text
                 if original == placeholder:
+                    missing += 1  # im Store unbekannt
                     continue
-                for rect in page.search_for(placeholder):
-                    page.add_redact_annot(
-                        rect,
-                        text=original,
-                        fontname="helv",
-                        fontsize=max(4.0, min(11.0, rect.height * 0.8)),
-                        fill=(1, 1, 1),
-                        text_color=(0, 0, 0),
-                        cross_out=False,
-                    )
-                    hits += 1
+                for group in _pii_rect_groups(page, placeholder, pymupdf):
+                    for idx, rect in enumerate(group):
+                        page.add_redact_annot(
+                            rect,
+                            text=original if idx == 0 else "",
+                            fontname="helv",
+                            fontsize=max(4.0, min(11.0, rect.height * 0.8)),
+                            fill=(1, 1, 1),
+                            text_color=(0, 0, 0),
+                            cross_out=False,
+                        )
+                        resolved += 1
             page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE)
         doc.save(str(dst), garbage=4, deflate=True)
     finally:
         doc.close()
-    return hits
+    return resolved, missing
 
 
 # --------------------------------------------------------------------------- #
@@ -809,15 +817,35 @@ def run(
                 log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {target.stem})")
             try:
                 if reverse and is_pdf:
-                    n = deanon_pdf(path, target, deanonymizer)
-                    log(f"  -> OK ({n} Platzhalter zurueckgesetzt) -> {target.name}")
+                    resolved, missing = deanon_pdf(path, target, deanonymizer)
+                    if missing:
+                        log(
+                            f"  -> OK ({resolved} zurueckgesetzt), ABER {missing} "
+                            f"Platzhalter unbekannt (falsches Profil?) -> {target.name}"
+                        )
+                    else:
+                        log(f"  -> OK ({resolved} Platzhalter zurueckgesetzt) -> {target.name}")
                 elif reverse:
                     from pseudokrat.formats import handler_for
 
+                    missing_ph: set[str] = set()
+
+                    def _reverse_transform(chunk: str) -> str:
+                        result = deanonymizer.deanonymize(chunk)
+                        missing_ph.update(result.missing_placeholders)
+                        return result.text
+
                     res = handler_for(path).process(
-                        path, target, transform=lambda t: deanonymizer.deanonymize(t).text
+                        path, target, transform=_reverse_transform
                     )
-                    log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
+                    if missing_ph:
+                        log(
+                            f"  -> OK ({res.segments_processed} Segmente), ABER "
+                            f"{len(missing_ph)} Platzhalter unbekannt (falsches Profil?) "
+                            f"-> {target.name}"
+                        )
+                    else:
+                        log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
                 elif is_pdf:
                     redact_pdf(
                         path, target, anonymizer, store,

@@ -67,6 +67,18 @@ class TestFailClosed:
             )
         assert not out.exists()  # KEINE Ausgabe geschrieben
 
+    def test_deanon_reports_unknown_placeholder(self, tmp_path, store_and_audit) -> None:  # noqa: ANN001
+        from pseudokrat.deanonymizer import Deanonymizer
+
+        store, audit = store_and_audit
+        de = Deanonymizer(store=store, audit_log=audit, model_version="disabled")
+        src = tmp_path / "rev.pdf"
+        _make_pdf(src, "Bericht der <COMPANY_999>.")  # nicht im Store
+        out = tmp_path / "rev.out.pdf"
+        resolved, missing = watcher.deanon_pdf(src, out, de)
+        assert missing == 1
+        assert resolved == 0
+
     def test_word_fallback_finds_multitoken(self, tmp_path) -> None:  # noqa: ANN001
         # get_text('words') liefert die Woerter; Fallback baut die Gruppe.
         src = tmp_path / "w.pdf"

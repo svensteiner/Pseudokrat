@@ -8,6 +8,7 @@ Resultate. Dies ist die Default-Einstellung für Tests und CI.
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Protocol
 
 from pseudokrat.config import Settings
@@ -65,18 +66,23 @@ class PrivacyFilterDetector:
         self._model_id = model_id
         self._cache_dir = cache_dir
         self._pipeline: Any = None
+        self._warned_unavailable = False
 
     def _ensure_pipeline(self) -> Any:
+        """Lade die HF-Pipeline lazy. Gibt ``None`` zurück, wenn die
+        ML-Laufzeit (``transformers``) nicht installiert ist — der Aufrufer
+        fällt dann auf die regelbasierte Erkennung zurück.
+
+        Das Standard-Bundle wird bewusst OHNE ML ausgeliefert (opt-in via
+        ``pip install pseudokrat[ml]`` + ``pseudokrat model download``). Ohne
+        diesen weichen Fallback würde jeder Default-Aufruf — die CLI und das
+        Explorer-Rechtsklick-Menü — beim ersten ``analyze`` abstürzen."""
         if self._pipeline is not None:
             return self._pipeline
         try:
             from transformers import pipeline
-        except ImportError as exc:  # pragma: no cover - geprüft via env-flag
-            raise RuntimeError(
-                "ML-Modell aktiviert, aber transformers ist nicht installiert. "
-                "Installation: `pip install pseudokrat[ml]` oder "
-                "`PSEUDOKRAT_DISABLE_ML=1` setzen, um den ML-Pfad zu überspringen."
-            ) from exc
+        except ImportError:
+            return None
 
         self._pipeline = pipeline(
             task="token-classification",
@@ -90,6 +96,17 @@ class PrivacyFilterDetector:
         if not text:
             return []
         pipe = self._ensure_pipeline()
+        if pipe is None:
+            if not self._warned_unavailable:
+                print(
+                    "Hinweis: ML-Modell nicht installiert — es wird nur die "
+                    "regelbasierte DACH-Erkennung verwendet. Für die generische "
+                    "ML-Erkennung: `pip install pseudokrat[ml]` + "
+                    "`pseudokrat model download`.",
+                    file=sys.stderr,
+                )
+                self._warned_unavailable = True
+            return []
         raw_results = pipe(text)
         spans: list[Span] = []
         for entity in raw_results:

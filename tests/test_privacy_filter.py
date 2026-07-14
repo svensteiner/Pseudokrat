@@ -57,6 +57,18 @@ def test_privacy_filter_empty_text_short_circuits() -> None:
     assert det.analyze("") == []
 
 
+def test_privacy_filter_degrades_gracefully_without_transformers() -> None:
+    """Fehlt die ML-Laufzeit (``transformers``) — der Auslieferungs-Default —,
+    darf ``analyze`` NICHT crashen, sondern liefert leere Spans, sodass die
+    Pipeline rein regelbasiert weiterläuft (kein Absturz bei CLI/Rechtsklick)."""
+    import importlib.util
+
+    if importlib.util.find_spec("transformers") is not None:
+        pytest.skip("transformers installiert — Fallback-Pfad nicht anwendbar")
+    det = PrivacyFilterDetector(model_id="dummy/model")
+    assert det.analyze("Herr DI von Gruber wohnt in Wien.") == []
+
+
 class _FakePipeline:
     """Minimaler Fake einer HuggingFace token-classification Pipeline."""
 

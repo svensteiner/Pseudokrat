@@ -5,7 +5,40 @@ zwischen dem heutigen Alpha-Stand und einem produktionsreifen Release
 für DACH-Berufsträger. Sie ist die Single-Source-of-Truth für „Was
 fehlt vor Release?".
 
-**Letzter Stand:** 2026-06-25, autonom + interaktiv (PRL Iter-17).
+**Letzter Stand:** 2026-07-14, interaktiv (Gumroad-Funktionsnachweis).
+
+## Gumroad-Launch & Funktionsnachweis (Stand 2026-07-14)
+
+**Entscheidung (Nutzer):** Vertrieb leise über Gumroad, **ohne** die vier
+externen Freigaben (Code-Signing, Pentest, Pilot, DSGVO/Kammer). Diese Blocker
+sind damit ein bewusst akzeptiertes Geschäftsrisiko — **gewaivt, nicht gelöst**
+(SmartScreen-Warnung beim ersten Start bleibt; keine externe Sicherheits-/
+Rechtsvalidierung). Maßstab ist damit nur noch: **funktioniert es beim Kunden?**
+
+**Funktioniert-Nachweis (heute verifiziert):**
+- **End-to-End über echte Dateien** (TXT/DOCX/XLSX/PDF) auf dem echten
+  Kundenpfad (Simple-Mode-Profil → regelbasierte Pipeline → Format-Handler +
+  Metadaten-Strip → Rückübersetzung): **0 Lecks + exakter Roundtrip** in allen
+  vier Formaten, inkl. der Iter-17-Fälle und XLSX-Metadaten-PII.
+- **Gebautes `Pseudokrat.exe`** (frisch): `--version`, `anonymize --text` und
+  `anonymize --input FILE` (= Explorer-Rechtsklick) laufen im Default-Modus;
+  Namen/Firma/IBAN werden entfernt.
+
+**Dabei behobener Auslieferungs-Bug (kritisch):** `anonymize` und das
+Rechtsklick-Menü stürzten out-of-the-box ab (ML-`transformers` nicht im Bundle
+→ RuntimeError beim ersten Aufruf). Behoben: regelbasierter Fallback statt
+Crash (Commit `6798bed`). **Achtung:** Der bisher in `dist/` liegende
+Gumroad-ZIP/EXE-Stand (11.6.) ist veraltet (Leck- **und** Crash-Version) —
+**vor dem Verkauf MUSS aus einem grünen Commit neu gebaut werden**
+(`packaging/build_windows.ps1` + `packaging/build_gumroad_zip.ps1`).
+
+**Offener Caveat — Audit-Gate aktuell ROT:** Der autonome PRL-Loop hat parallel
+12 Commits gepusht, die das Gate brechen (21 Tests + 11 ruff + 11 mypy; Ursache
+u. a. ein Lazy-Import-Refactor, der Test-Patch-Ziele wie `cli.default_clipboard`
+entfernte). Der **Kern** funktioniert (s. o.), aber die Branch ist nicht grün.
+Auf Nutzer-Entscheidung wird das dem Loop zur **Selbstheilung** überlassen.
+**Vor dem Gumroad-Build warten, bis `python -m tools.audit_run` wieder 6/6
+grün meldet.**
 
 ## Reifegrad-Status (Stand 2026-06-25, PRL Iter-17)
 

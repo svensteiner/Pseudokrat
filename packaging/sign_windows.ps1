@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     Code-Signing für Pseudokrat-Windows-Builds.
@@ -19,7 +19,7 @@
     Umgebungsvariablen gelesen — damit landen sie nicht in Shell-Historien.
 
 .PARAMETER InstallerPath
-    Pfad zur zu signierenden EXE/MSI.
+    Ein oder mehrere Pfade zu signierenden EXE/MSI-Dateien.
 
 .PARAMETER TimestampUrl
     URL des Timestamp-Servers. Default: digicert (frei nutzbar).
@@ -33,15 +33,18 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [string]$InstallerPath,
+    [ValidateNotNullOrEmpty()]
+    [string[]]$InstallerPath,
 
     [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Test-Path $InstallerPath)) {
-    throw "Zu signierende Datei nicht gefunden: $InstallerPath"
+foreach ($path in $InstallerPath) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Zu signierende Datei nicht gefunden: $path"
+    }
 }
 
 $certPath = $env:PSEUDOKRAT_SIGN_CERT_PATH
@@ -68,25 +71,29 @@ if (-not $signtool) {
     }
     $signtool = $candidates[0]
 }
-Write-Host "==> Signiere $InstallerPath" -ForegroundColor Cyan
 Write-Host "    signtool: $($signtool.FullName)" -ForegroundColor DarkGray
 
-# Signieren mit SHA-256 + Timestamp
-& $signtool.FullName sign `
-    /fd SHA256 `
-    /td SHA256 `
-    /tr $TimestampUrl `
-    /f $certPath `
-    /p $password `
-    /v $InstallerPath
-if ($LASTEXITCODE -ne 0) {
-    throw "signtool sign fehlgeschlagen (Exit $LASTEXITCODE)."
-}
+foreach ($path in $InstallerPath) {
+    $resolvedPath = (Resolve-Path -LiteralPath $path).Path
+    Write-Host "==> Signiere $resolvedPath" -ForegroundColor Cyan
 
-# Verifizieren
-& $signtool.FullName verify /pa /v $InstallerPath
-if ($LASTEXITCODE -ne 0) {
-    throw "signtool verify fehlgeschlagen (Exit $LASTEXITCODE)."
-}
+    # Signieren mit SHA-256 + Timestamp
+    & $signtool.FullName sign `
+        /fd SHA256 `
+        /td SHA256 `
+        /tr $TimestampUrl `
+        /f $certPath `
+        /p $password `
+        /v $resolvedPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "signtool sign fehlgeschlagen für $resolvedPath (Exit $LASTEXITCODE)."
+    }
 
-Write-Host "OK: Signatur gültig." -ForegroundColor Green
+    # Verifizieren
+    & $signtool.FullName verify /pa /v $resolvedPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "signtool verify fehlgeschlagen für $resolvedPath (Exit $LASTEXITCODE)."
+    }
+
+    Write-Host "OK: Signatur gültig: $resolvedPath" -ForegroundColor Green
+}

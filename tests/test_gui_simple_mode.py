@@ -37,7 +37,9 @@ def _env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PSEUDOKRAT_DISABLE_ML", "1")
 
 
-def _create_simple_profile(name: str = "Mein Konto") -> tuple[ProfileManager, InMemoryKeyringBackend]:
+def _create_simple_profile(
+    name: str = "Mein Konto",
+) -> tuple[ProfileManager, InMemoryKeyringBackend]:
     """Erzeugt ein Simple-Mode-Profil mit einem In-Memory-Keyring-Backend."""
     backend = InMemoryKeyringBackend()
     manager = ProfileManager()
@@ -168,9 +170,10 @@ def test_main_window_close_minimizes_to_tray_in_simple_mode(
     win = MainWindow()
     try:
         # Tray-Icon sichtbar mocken, damit der Minimize-Pfad greift.
-        with patch.object(win.tray_icon, "isVisible", return_value=True), patch.object(
-            win.tray_icon, "showMessage"
-        ) as mock_msg:
+        with (
+            patch.object(win.tray_icon, "isVisible", return_value=True),
+            patch.object(win.tray_icon, "showMessage") as mock_msg,
+        ):
             event = QCloseEvent()
             win.show()
             win.closeEvent(event)

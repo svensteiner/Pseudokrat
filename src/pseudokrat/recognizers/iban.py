@@ -16,21 +16,50 @@ from pseudokrat.recognizers.base import Span
 
 # Pflichtlängen je Land (ISO 13616). DACH zuerst, dann gängige SEPA-Länder.
 _IBAN_LENGTHS: dict[str, int] = {
-    "AT": 20, "DE": 22, "CH": 21, "LI": 21,
-    "IT": 27, "FR": 27, "NL": 18, "LU": 20, "BE": 16, "ES": 24, "PT": 25,
-    "SK": 24, "CZ": 24, "HU": 28, "SI": 19, "HR": 21, "PL": 28, "RO": 24,
-    "BG": 22, "GB": 22, "IE": 22, "DK": 18, "SE": 24, "FI": 18, "NO": 15,
-    "EE": 20, "LV": 21, "LT": 20, "GR": 27, "CY": 28, "MT": 31, "IS": 26,
-    "MC": 27, "SM": 27, "AD": 24, "RS": 22, "TR": 26,
+    "AT": 20,
+    "DE": 22,
+    "CH": 21,
+    "LI": 21,
+    "IT": 27,
+    "FR": 27,
+    "NL": 18,
+    "LU": 20,
+    "BE": 16,
+    "ES": 24,
+    "PT": 25,
+    "SK": 24,
+    "CZ": 24,
+    "HU": 28,
+    "SI": 19,
+    "HR": 21,
+    "PL": 28,
+    "RO": 24,
+    "BG": 22,
+    "GB": 22,
+    "IE": 22,
+    "DK": 18,
+    "SE": 24,
+    "FI": 18,
+    "NO": 15,
+    "EE": 20,
+    "LV": 21,
+    "LT": 20,
+    "GR": 27,
+    "CY": 28,
+    "MT": 31,
+    "IS": 26,
+    "MC": 27,
+    "SM": 27,
+    "AD": 24,
+    "RS": 22,
+    "TR": 26,
 }
 
 # Generisches Kandidaten-Pattern: 2 Buchstaben (Land) + 2 Prüfziffern + 11-30
 # alphanumerische Zeichen, optional 4er-gruppiert. Negative-Lookahead (?![A-Z0-9])
 # verhindert Überlaufen in Folgezeichen (Hypothesis-Regression D-033); die
 # eigentliche Filterung macht is_valid_iban (Land/Länge/MOD-97).
-_IBAN_REGEX = re.compile(
-    r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}(?![A-Z0-9])"
-)
+_IBAN_REGEX = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}(?![A-Z0-9])")
 
 
 def _strip(iban: str) -> str:

@@ -223,12 +223,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_srv_start.add_argument(
         "--host", default="127.0.0.1", help="Bind-Adresse (Default: 127.0.0.1)."
     )
-    p_srv_start.add_argument(
-        "--port", type=int, default=31337, help="Port (Default: 31337)."
-    )
-    p_srv_start.add_argument(
-        "--no-ml", action="store_true", help="ML-Detektor überspringen."
-    )
+    p_srv_start.add_argument("--port", type=int, default=31337, help="Port (Default: 31337).")
+    p_srv_start.add_argument("--no-ml", action="store_true", help="ML-Detektor überspringen.")
     p_srv_sub.add_parser(
         "token",
         help="Aktuellen Bearer-Token anzeigen (Pfad + Inhalt).",
@@ -254,9 +250,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="ctrl+shift+d",
         help="Hotkey für Deanonymisierung (Default: ctrl+shift+d).",
     )
-    p_hk.add_argument(
-        "--no-ml", action="store_true", help="ML-Detektor überspringen."
-    )
+    p_hk.add_argument("--no-ml", action="store_true", help="ML-Detektor überspringen.")
 
     # model
     p_model = sub.add_parser("model", help="ML-Modell-Verwaltung (Privacy-Filter).")
@@ -414,8 +408,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--profile",
         default=None,
         help=(
-            "Profil-Name für den Roundtrip-Test. "
-            "Ohne Angabe wird ein Throwaway-Profil verwendet."
+            "Profil-Name für den Roundtrip-Test. Ohne Angabe wird ein Throwaway-Profil verwendet."
         ),
     )
 
@@ -542,8 +535,8 @@ def _cmd_anonymize(args: argparse.Namespace, manager: ProfileManager) -> int:
             if dp_amounts and handler.name == "xlsx":
                 from pseudokrat.dp import permutation_key_from_secret
 
-                handler_kwargs["permute_numeric_columns_with"] = (
-                    permutation_key_from_secret(store.keys.hmac_key)
+                handler_kwargs["permute_numeric_columns_with"] = permutation_key_from_secret(
+                    store.keys.hmac_key
                 )
             elif dp_amounts:
                 print(
@@ -740,7 +733,7 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
     print("Nächste Schritte:")
     if simple_mode:
         print(
-            f"  pseudokrat anonymize --profile \"{args.profile}\" "
+            f'  pseudokrat anonymize --profile "{args.profile}" '
             '--text "Mein Mandant Hofer Bau GmbH ..."'
         )
         print(
@@ -750,7 +743,7 @@ def _cmd_init(args: argparse.Namespace, manager: ProfileManager) -> int:
         )
     else:
         print(
-            f"  pseudokrat anonymize --profile \"{args.profile}\" "
+            f'  pseudokrat anonymize --profile "{args.profile}" '
             '--text "Mein Mandant Hofer Bau GmbH ..."'
         )
         print("  pseudokrat profiles list")
@@ -823,9 +816,7 @@ def _cmd_profile_remove(args: argparse.Namespace, manager: ProfileManager) -> in
             artefacts.append(marker_path)
         artefact_list = "\n  ".join(str(p) for p in artefacts)
         keyring_hint = (
-            f"\n  + OS-Keyring-Eintrag ({KEYRING_SERVICE}/{args.name})"
-            if is_simple
-            else ""
+            f"\n  + OS-Keyring-Eintrag ({KEYRING_SERVICE}/{args.name})" if is_simple else ""
         )
         print(
             f"Folgendes wird unwiederbringlich gelöscht:\n  {artefact_list}"
@@ -1047,8 +1038,8 @@ def _cmd_server(args: argparse.Namespace, manager: ProfileManager) -> int:
     Exit-Codes:
     * 18 — Port belegt / Socket-Bind fehlgeschlagen.
     """
-    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.server import ServerState, TokenStore, start_server
+    from pseudokrat.store.secure_db import InvalidPasswordError
 
     sub = getattr(args, "subcommand", None)
     token_path = manager.settings.data_dir / "server_token.txt"
@@ -1118,14 +1109,14 @@ def _cmd_hotkey_daemon(args: argparse.Namespace, manager: ProfileManager) -> int
     from pseudokrat.anonymizer import Anonymizer
     from pseudokrat.clipboard import ClipboardUnavailableError, default_clipboard
     from pseudokrat.deanonymizer import Deanonymizer
-    from pseudokrat.pii.privacy_filter import load_default_detector
-    from pseudokrat.recognizers import recognizers_for_store
-    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.hotkey import (
         HotkeyConfig,
         HotkeyDaemon,
         HotkeyUnavailableError,
     )
+    from pseudokrat.pii.privacy_filter import load_default_detector
+    from pseudokrat.recognizers import recognizers_for_store
+    from pseudokrat.store.secure_db import InvalidPasswordError
 
     try:
         store, audit = _open_profile(manager, args.profile, args.password)
@@ -1407,7 +1398,7 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
         print(
             "  • ODER ohne Default-Profil installieren und manuell anlegen:\n"
             "        pseudokrat install --no-profile\n"
-            f"        pseudokrat init --simple --profile \"{profile_name}\""
+            f'        pseudokrat init --simple --profile "{profile_name}"'
         )
         return 16
     print("Nächste Schritte:")
@@ -1415,7 +1406,7 @@ def _cmd_install(args: argparse.Namespace, manager: ProfileManager) -> int:
         print("  • Strg+Shift+A → Zwischenablage anonymisieren")
         print("  • Strg+Shift+D → Anonymisierung zurücknehmen")
     print("  • Im Explorer Rechtsklick auf PDF/DOCX/XLSX → 'Mit Pseudokrat anonymisieren'")
-    print(f"  • CLI: pseudokrat anonymize --profile \"{profile_name}\" --text \"...\"")
+    print(f'  • CLI: pseudokrat anonymize --profile "{profile_name}" --text "..."')
     print("  • Selbsttest:  pseudokrat doctor")
     return 0
 
@@ -1429,7 +1420,7 @@ def _cmd_doctor(args: argparse.Namespace, manager: ProfileManager) -> int:
     return report.exit_code()
 
 
-def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
+def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager | None) -> int:
     """Entferne alle Registry-Einträge. Profile bleiben unangetastet."""
     del manager  # nicht benötigt
     from pseudokrat.install import default_backend, perform_uninstall
@@ -1441,9 +1432,11 @@ def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
         return 14
 
     if not args.yes:
-        confirm = input(
-            "Pseudokrat aus dem Explorer-Menü und Autostart entfernen? [j/N] "
-        ).strip().lower()
+        confirm = (
+            input("Pseudokrat aus dem Explorer-Menü und Autostart entfernen? [j/N] ")
+            .strip()
+            .lower()
+        )
         if confirm not in ("j", "ja", "y", "yes"):
             print("Abgebrochen.")
             return 0
@@ -1520,8 +1513,11 @@ def _cmd_setup(args: argparse.Namespace, manager: ProfileManager | None) -> int:
     if choice == "1":
         print("\n→ Richte die Installations-Schiene ein ...\n")
         install_args = argparse.Namespace(
-            profile=None, no_profile=False, no_hotkeys=True,
-            with_hotkeys=False, status=False,
+            profile=None,
+            no_profile=False,
+            no_hotkeys=True,
+            with_hotkeys=False,
+            status=False,
         )
         if manager is None:
             manager = _new_profile_manager()

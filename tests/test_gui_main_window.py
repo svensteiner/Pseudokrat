@@ -269,10 +269,7 @@ def test_profiles_tab_create_new_profile(qt_app: QApplication, tmp_path: Path) -
         win.new_profile_password_input.setText("pw")
         win._create_profile()
 
-        names = [
-            win.profiles_table.item(r, 0).text()
-            for r in range(win.profiles_table.rowCount())
-        ]
+        names = [win.profiles_table.item(r, 0).text() for r in range(win.profiles_table.rowCount())]
         assert "brand_new" in names
         assert "angelegt" in win.statusBar().currentMessage()
         # Eingabefelder werden geleert

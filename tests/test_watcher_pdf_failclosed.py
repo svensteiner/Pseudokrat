@@ -30,8 +30,11 @@ def _build_anon(store_and_audit):  # noqa: ANN001
     store, audit = store_and_audit
     return (
         Anonymizer(
-            store=store, recognizers=recognizers_for_store(store),
-            detector=None, audit_log=audit, model_version="disabled",
+            store=store,
+            recognizers=recognizers_for_store(store),
+            detector=None,
+            audit_log=audit,
+            model_version="disabled",
         ),
         store,
     )
@@ -43,9 +46,7 @@ class TestFailClosed:
         src = tmp_path / "in.pdf"
         _make_pdf(src, "Hofer Bau GmbH zahlt heute.")
         out = tmp_path / "out.pdf"
-        watcher.redact_pdf(
-            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
-        )
+        watcher.redact_pdf(src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None)
         text = "".join(p.get_text() for p in pymupdf.open(str(out)))
         assert "Hofer Bau GmbH" not in text
         assert "<COMPANY_" in text
@@ -91,9 +92,7 @@ class TestFailClosed:
         doc.save(str(src))
         doc.close()
         out = tmp_path / "logo.out.pdf"
-        watcher.redact_pdf(
-            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
-        )
+        watcher.redact_pdf(src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None)
         result = pymupdf.open(str(out))
         assert len(result[0].get_images()) == 0  # Briefkopf-Bild entfernt
         result.close()
@@ -110,9 +109,7 @@ class TestFailClosed:
         doc.save(str(src))
         doc.close()
         out = tmp_path / "body.out.pdf"
-        watcher.redact_pdf(
-            src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None
-        )
+        watcher.redact_pdf(src, out, anon, store, remove_logos=True, ocr=None, log=lambda _m: None)
         result = pymupdf.open(str(out))
         assert len(result[0].get_images()) == 1  # Inhaltsbild bleibt erhalten
         result.close()

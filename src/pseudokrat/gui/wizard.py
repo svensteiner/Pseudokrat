@@ -82,8 +82,7 @@ class ProfilePage(QWizardPage):
         super().__init__(parent)
         self.setTitle("Profil anlegen")
         self.setSubTitle(
-            "Wählen Sie einen Profilnamen (z. B. 'Mandant Hofer') und ein "
-            "sicheres Master-Passwort."
+            "Wählen Sie einen Profilnamen (z. B. 'Mandant Hofer') und ein sicheres Master-Passwort."
         )
 
         layout = QFormLayout(self)
@@ -327,9 +326,7 @@ class FirstStartWizard(QWizard):
             self._warn("Bitte einen Profilnamen eingeben.")
             return False
         if len(password) < MIN_PASSWORD_LENGTH:
-            self._warn(
-                f"Master-Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein."
-            )
+            self._warn(f"Master-Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein.")
             return False
         if password != confirm:
             self._warn("Die beiden Passwörter stimmen nicht überein.")
@@ -365,9 +362,7 @@ class FirstStartWizard(QWizard):
             status_label.setText("Lade Modell — kann mehrere Minuten dauern …")
             QWizard.repaint(self)
             result = download_model(settings, progress=status_label.setText)
-            status_label.setText(
-                f"Erfolgreich heruntergeladen: {result.gigabytes_on_disk:.2f} GB."
-            )
+            status_label.setText(f"Erfolgreich heruntergeladen: {result.gigabytes_on_disk:.2f} GB.")
             return True
         except ModelDownloadError as exc:
             status_label.setText(

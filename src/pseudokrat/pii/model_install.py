@@ -289,8 +289,7 @@ def download_model(
         from huggingface_hub import snapshot_download
     except ImportError as exc:
         raise ModelDownloadError(
-            "huggingface_hub ist nicht installiert. "
-            "Installation: `pip install pseudokrat[ml]`."
+            "huggingface_hub ist nicht installiert. Installation: `pip install pseudokrat[ml]`."
         ) from exc
 
     revision = _resolved_revision(settings)
@@ -314,8 +313,7 @@ def download_model(
     if manifest_hash:
         notify(f"Manifest-Hash: sha256:{manifest_hash}")
     notify(
-        f"Fertig. Modell liegt unter {status.cache_dir} "
-        f"({status.gigabytes_on_disk:.2f} GB belegt)."
+        f"Fertig. Modell liegt unter {status.cache_dir} ({status.gigabytes_on_disk:.2f} GB belegt)."
     )
     return status
 

@@ -118,9 +118,7 @@ class ProfileManager:
         """
         profiles: list[Profile] = []
         for db in sorted(self._settings.profiles_dir.glob("*.sqlite")):
-            if not include_reserved and db.stem.startswith(
-                RESERVED_PROFILE_SLUG_PREFIX
-            ):
+            if not include_reserved and db.stem.startswith(RESERVED_PROFILE_SLUG_PREFIX):
                 continue
             name = _read_profile_name(db)
             profiles.append(Profile(name=name, db_path=db))
@@ -146,9 +144,14 @@ class ProfileManager:
         Simple-Mode (``<db>.keyring``-Marker), genügt ``password=None``,
         ``protector=None`` — der Modus wird automatisch erkannt."""
         path = self.profile_path(name)
-        store = MappingStore(
-            path, password=password, profile_name=name, protector=protector
-        )
+        store = MappingStore(path, password=password, profile_name=name, protector=protector)
+        stored_name = store.get_metadata("profile_name")
+        if stored_name is not None and stored_name != name:
+            store.close()
+            raise ValueError(
+                "Profilname kollidiert mit einem bereits vorhandenen Profilnamen "
+                "im Dateisystem. Bitte einen eindeutigeren Namen verwenden."
+            )
         log = AuditLog(store.connection)
         return store, log
 

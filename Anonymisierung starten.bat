@@ -13,8 +13,30 @@ echo   Hinweis: Scan-PDFs mit OCR koennen mehrere Minuten dauern.
 echo   Beenden: dieses Fenster schliessen.
 echo ============================================================
 echo.
+setlocal
 set "HERE=%~dp0"
-"%HERE%env\Scripts\python.exe" -m pseudokrat watch --folder "%HERE%." --no-llm
+if exist "%HERE%Pseudokrat\Pseudokrat.exe" (
+    "%HERE%Pseudokrat\Pseudokrat.exe" watch --folder "%HERE%." --no-llm
+    goto :result
+)
+if exist "%HERE%Pseudokrat.exe" (
+    "%HERE%Pseudokrat.exe" watch --folder "%HERE%." --no-llm
+    goto :result
+)
+if exist "%HERE%env\Scripts\python.exe" (
+    "%HERE%env\Scripts\python.exe" -m pseudokrat watch --folder "%HERE%." --no-llm
+    goto :result
+)
+set "RC=9009"
+echo FEHLER: Keine mitgelieferte Pseudokrat-Laufzeit gefunden.
+goto :ende
+
+:result
+set "RC=%ERRORLEVEL%"
+
+:ende
 echo.
 echo Watcher beendet. Fenster kann geschlossen werden.
+if not "%RC%"=="0" echo Pseudokrat wurde mit Code %RC% beendet.
 pause
+exit /b %RC%

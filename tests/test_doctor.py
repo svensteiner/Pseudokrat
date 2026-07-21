@@ -46,9 +46,7 @@ class TestCheckProfiles:
         assert "pseudokrat install" in result.message
 
     def test_with_profile_ok(self, manager: ProfileManager) -> None:
-        store, _ = manager.open_or_create_simple(
-            "Test", backend=InMemoryKeyringBackend()
-        )
+        store, _ = manager.open_or_create_simple("Test", backend=InMemoryKeyringBackend())
         store.close()
         result = check_profiles(manager)
         assert result.status is Status.OK
@@ -56,16 +54,12 @@ class TestCheckProfiles:
 
 
 class TestAnonymizeRoundtrip:
-    def test_roundtrip_with_throwaway_profile_ok(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_roundtrip_with_throwaway_profile_ok(self, manager: ProfileManager) -> None:
         result = check_anonymize_roundtrip(manager)
         assert result.status is Status.OK
         assert "Roundtrip OK" in result.message
 
-    def test_roundtrip_does_not_pollute_profiles_dir(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_roundtrip_does_not_pollute_profiles_dir(self, manager: ProfileManager) -> None:
         """Doctor-Roundtrip darf KEINE Artefakte im echten profiles_dir
         zurücklassen — die Sandbox lebt in einem TemporaryDirectory.
 
@@ -107,20 +101,15 @@ class TestAnonymizeRoundtrip:
 
         result = check_anonymize_roundtrip(manager)
         assert result.status is Status.OK, (
-            f"Doctor scheiterte an Bestandsleichen statt sie zu räumen: "
-            f"{result.message}"
+            f"Doctor scheiterte an Bestandsleichen statt sie zu räumen: {result.message}"
         )
         # Leichen sind weg.
         assert not stale_db.exists()
         assert not stale_salt.exists()
         assert not stale_keyring.exists()
 
-    def test_roundtrip_with_named_profile_ok(
-        self, manager: ProfileManager
-    ) -> None:
-        store, _ = manager.open_or_create_simple(
-            "Pilot", backend=InMemoryKeyringBackend()
-        )
+    def test_roundtrip_with_named_profile_ok(self, manager: ProfileManager) -> None:
+        store, _ = manager.open_or_create_simple("Pilot", backend=InMemoryKeyringBackend())
         store.close()
         # Roundtrip nutzt den OS-Keyring-Pfad — Test-Setup ohne Backend
         # nicht trivial. Wir testen nur, dass die Funktion einen Check
@@ -133,9 +122,7 @@ class TestCheckProfileHealth:
     """Real-User-Pfad: ein einzelnes kaputtes Profil darf Doctor nicht
     blockieren — es wird namentlich als WARN gelistet, mit konkretem Hint."""
 
-    def test_all_profiles_openable_returns_ok(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_all_profiles_openable_returns_ok(self, manager: ProfileManager) -> None:
         backend = InMemoryKeyringBackend()
         s1, _ = manager.open_or_create_simple("Mandant A", backend=backend)
         s1.close()
@@ -148,9 +135,7 @@ class TestCheckProfileHealth:
         assert result.status is Status.OK
         assert "2" in result.message
 
-    def test_broken_keyring_profile_warns_not_fails(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_broken_keyring_profile_warns_not_fails(self, manager: ProfileManager) -> None:
         """Profil im Simple-Mode angelegt, danach Keyring-Eintrag verloren
         (Backup-Restore, Konto-Wechsel). Doctor muss WARN melden, kein FAIL."""
         backend = InMemoryKeyringBackend()
@@ -165,9 +150,7 @@ class TestCheckProfileHealth:
         assert "profiles remove" in result.message
         # Kein Crash, kein FAIL — Doctor läuft danach weiter.
 
-    def test_no_profiles_returns_warn_with_hint(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_no_profiles_returns_warn_with_hint(self, manager: ProfileManager) -> None:
         """Ohne Profile ist Profile-Health nicht prüfbar — informativ, nicht FAIL."""
         result = check_profile_health(manager)
         assert result.status is Status.WARN
@@ -178,17 +161,13 @@ class TestProfileListingHidesReserved:
     """Reserved-Underscore-Profile (z. B. ``_doctor_smoke`` aus Bestandsinstall)
     dürfen nicht in ``check_profiles`` als User-Profile gezählt werden."""
 
-    def test_underscore_prefix_profile_not_counted(
-        self, manager: ProfileManager
-    ) -> None:
+    def test_underscore_prefix_profile_not_counted(self, manager: ProfileManager) -> None:
         manager.settings.profiles_dir.mkdir(parents=True, exist_ok=True)
         # Lege ein reserviertes Profil-Artefakt an (Bestandsleiche).
         leftover = manager.settings.profiles_dir / "_doctor_smoke.sqlite"
         leftover.write_bytes(b"old")
         # Plus ein echtes Profil.
-        store, _ = manager.open_or_create_simple(
-            "Echt", backend=InMemoryKeyringBackend()
-        )
+        store, _ = manager.open_or_create_simple("Echt", backend=InMemoryKeyringBackend())
         store.close()
         result = check_profiles(manager)
         assert result.status is Status.OK
@@ -220,9 +199,7 @@ class TestRunDoctor:
         assert report.exit_code() == 1
 
     def test_with_profile_no_failure(self, manager: ProfileManager) -> None:
-        store, _ = manager.open_or_create_simple(
-            "Pilot", backend=InMemoryKeyringBackend()
-        )
+        store, _ = manager.open_or_create_simple("Pilot", backend=InMemoryKeyringBackend())
         store.close()
         report = run_doctor(manager)
         # Roundtrip nutzt Throwaway-Profil — keine Hard-Failures erwartet.
@@ -238,9 +215,7 @@ class TestRunDoctor:
         leftover = manager.settings.profiles_dir / "doctor_smoke.sqlite"
         leftover.write_bytes(b"old")
         # Echtes User-Profil parallel.
-        store, _ = manager.open_or_create_simple(
-            "EchterMandant", backend=InMemoryKeyringBackend()
-        )
+        store, _ = manager.open_or_create_simple("EchterMandant", backend=InMemoryKeyringBackend())
         store.close()
 
         report = run_doctor(manager)

@@ -67,9 +67,7 @@ class FixtureBuilder:
                     raise KeyError(f"Slot {{ {key} }} nicht im Builder definiert.")
                 value, category = self.slots[key]
                 output_parts.append(value)
-                spans.append(
-                    Span(start=cursor, end=cursor + len(value), category=category)
-                )
+                spans.append(Span(start=cursor, end=cursor + len(value), category=category))
                 cursor += len(value)
                 i = close + 1
             else:

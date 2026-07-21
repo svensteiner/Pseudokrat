@@ -61,9 +61,7 @@ def test_shuffle_differs_for_different_seeds() -> None:
     a = shuffle_column(values, seed=1)
     b = shuffle_column(values, seed=2)
     assert a != b
-    assert sorted(v for v in a if v is not None) == sorted(
-        v for v in b if v is not None
-    )
+    assert sorted(v for v in a if v is not None) == sorted(v for v in b if v is not None)
 
 
 def test_permutation_key_seed_for_is_stable() -> None:
@@ -149,9 +147,7 @@ def test_xlsx_handler_without_key_does_not_permute(tmp_path: Path) -> None:
     ws = wb.active
     ws["A1"] = "Mandant"
     ws["B1"] = "Betrag"
-    for r, (m, b) in enumerate(
-        [("M-001", 100), ("M-002", 200), ("M-003", 300)], start=2
-    ):
+    for r, (m, b) in enumerate([("M-001", 100), ("M-002", 200), ("M-003", 300)], start=2):
         ws.cell(row=r, column=1, value=m)
         ws.cell(row=r, column=2, value=b)
     input_path = tmp_path / "in.xlsx"

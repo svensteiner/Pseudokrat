@@ -198,8 +198,13 @@ def _summary_json(s: ArenaSummary) -> dict:
         "by_mode": s.by_mode,
         "by_category": s.by_category,
         "leaks": [
-            {"category": lk.category, "mode": lk.mode, "country": lk.country,
-             "template": lk.template, "value": lk.value}
+            {
+                "category": lk.category,
+                "mode": lk.mode,
+                "country": lk.country,
+                "template": lk.template,
+                "value": lk.value,
+            }
             for lk in s.leaks
         ],
     }

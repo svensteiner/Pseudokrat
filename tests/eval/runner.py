@@ -166,9 +166,7 @@ def aggregate_per_category(results: Iterable[FixtureResult]) -> dict[str, Catego
                 fn + score.false_negatives,
             )
     return {
-        cat: CategoryScore(
-            category=cat, true_positives=tp, false_positives=fp, false_negatives=fn
-        )
+        cat: CategoryScore(category=cat, true_positives=tp, false_positives=fp, false_negatives=fn)
         for cat, (tp, fp, fn) in accumulator.items()
     }
 

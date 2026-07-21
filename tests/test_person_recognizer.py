@@ -88,10 +88,7 @@ class TestSecondPassRecurrences:
         assert texts.count("Anna Beispielsohn") == 2
 
     def test_recurrence_signature_line(self, rec: PersonRecognizer) -> None:
-        text = (
-            "Antragsteller: Markus Beispielmann\n"
-            "Markus Beispielmann bestätigt die Richtigkeit."
-        )
+        text = "Antragsteller: Markus Beispielmann\nMarkus Beispielmann bestätigt die Richtigkeit."
         spans = rec.analyze(text)
         assert [s.text for s in spans] == [
             "Markus Beispielmann",
@@ -102,10 +99,7 @@ class TestSecondPassRecurrences:
         """Wenn 'Beispielsohn' isoliert auftaucht, darf das nicht als
         Wiedervorkommen von 'Anna Beispielsohn' getaggt werden — nur
         exakte Matches."""
-        text = (
-            "Herr Anna Beispielsohn schreibt.\n"
-            "Beispielsohngasse 12 ist die Adresse."
-        )
+        text = "Herr Anna Beispielsohn schreibt.\nBeispielsohngasse 12 ist die Adresse."
         spans = rec.analyze(text)
         texts = [s.text for s in spans]
         # Nur der Anker-Treffer, kein FP auf 'Beispielsohngasse'.
@@ -126,9 +120,7 @@ class TestNegativeCases:
         spans = rec.analyze(text)
         assert spans == []
 
-    def test_company_after_role_label_not_matched(
-        self, rec: PersonRecognizer
-    ) -> None:
+    def test_company_after_role_label_not_matched(self, rec: PersonRecognizer) -> None:
         """Rollenlabel kann auch Firma sein — wir nehmen den ersten
         Capitalized-Token-Block. Solange Validierung gegen Rechtsform-
         Suffix nicht greift, bleibt das ein kleiner Trade-Off.
@@ -152,10 +144,7 @@ class TestSpanOffsetIntegrity:
         assert text[s.start : s.end] == "Maximilian Beispiel-Kainz"
 
     def test_sorted_by_position(self, rec: PersonRecognizer) -> None:
-        text = (
-            "Frau Schmidt und Herr Huber.\n"
-            "Schmidt schickt einen Brief. Huber antwortet."
-        )
+        text = "Frau Schmidt und Herr Huber.\nSchmidt schickt einen Brief. Huber antwortet."
         spans = rec.analyze(text)
         starts = [s.start for s in spans]
         assert starts == sorted(starts)

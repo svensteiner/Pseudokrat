@@ -51,15 +51,13 @@ def test_non_person_categories_are_leak_free(summary) -> None:
 
 def test_plain_person_names_are_leak_free(summary) -> None:
     plain = [
-        lk for lk in summary.leaks
-        if lk.category == "PERSON" and not _NOBILIARY.search(lk.value)
+        lk for lk in summary.leaks if lk.category == "PERSON" and not _NOBILIARY.search(lk.value)
     ]
     assert not plain, f"Einfacher Personenname geleckt: {plain}"
 
 
 def test_nobiliary_person_names_are_leak_free(summary) -> None:
     nobiliary = [
-        lk for lk in summary.leaks
-        if lk.category == "PERSON" and _NOBILIARY.search(lk.value)
+        lk for lk in summary.leaks if lk.category == "PERSON" and _NOBILIARY.search(lk.value)
     ]
     assert not nobiliary, f"Adelsprädikat-Name geleckt: {len(nobiliary)} Fälle"

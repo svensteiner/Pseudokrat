@@ -146,9 +146,7 @@ def select_backend() -> HotkeyBackend:
             return KeyboardBackend()
         except HotkeyUnavailableError as exc:
             errors.append(str(exc))
-    raise HotkeyUnavailableError(
-        "Kein Hotkey-Backend verfügbar:\n" + "\n".join(errors)
-    )
+    raise HotkeyUnavailableError("Kein Hotkey-Backend verfügbar:\n" + "\n".join(errors))
 
 
 @dataclass

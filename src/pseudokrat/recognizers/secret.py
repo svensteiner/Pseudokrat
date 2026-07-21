@@ -26,7 +26,9 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str], float], ...] = (
     # AWS Access Keys
     (
         "aws_access",
-        re.compile(r"(?<![A-Za-z0-9])(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[0-9A-Z]{16}(?![A-Za-z0-9])"),
+        re.compile(
+            r"(?<![A-Za-z0-9])(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[0-9A-Z]{16}(?![A-Za-z0-9])"
+        ),
         0.95,
     ),
     # GitHub tokens (ghp, gho, ghu, ghs, ghr, github_pat_)
@@ -55,7 +57,9 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str], float], ...] = (
     # JWT (three base64url-segments)
     (
         "jwt",
-        re.compile(r"(?<![A-Za-z0-9_\-])eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),
+        re.compile(
+            r"(?<![A-Za-z0-9_\-])eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"
+        ),
         0.9,
     ),
     # Generic Bearer token in Authorization headers

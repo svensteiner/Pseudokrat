@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "pseudokrat"
 version = "0.1.0"
 description = "Lokale PII-Anonymisierung für DACH-Berufsträger (Phase 1 — CLI)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "Pseudokrat Team" }]
 keywords = ["pii", "anonymization", "dsgvo", "dach", "privacy", "presidio"]
@@ -20,6 +21,11 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
+
+[project.urls]
+Homepage = "https://github.com/svensteiner/Pseudokrat"
+Repository = "https://github.com/svensteiner/Pseudokrat.git"
+Issues = "https://github.com/svensteiner/Pseudokrat/issues"
 
 dependencies = [
   "structlog>=24.1.0",
@@ -81,9 +87,16 @@ dev = [
   "mypy>=1.10.0",
   "PySide6-Essentials>=6.6.0",
 ]
+bundle-build = [
+  # Absichtlich exakt gepinnt: PyInstaller-Bootloader und Hook-Verhalten sind
+  # Teil des ausgelieferten Binärpakets.
+  "PyInstaller==6.18.0",
+]
 
 [project.scripts]
 pseudokrat = "pseudokrat.cli:main"
+
+[project.gui-scripts]
 pseudokrat-gui = "pseudokrat.gui.main_window:run"
 
 [tool.setuptools.packages.find]

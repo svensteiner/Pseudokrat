@@ -29,6 +29,7 @@ from pseudokrat.formats.base import (
     FormatProcessResult,
     TextTransform,
     derive_default_output,
+    validate_office_archive,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -90,8 +91,12 @@ def _transform_headers_footers(sheet: object, transform: TextTransform) -> int:
     """
     changed = 0
     for hf_name in (
-        "oddHeader", "oddFooter", "evenHeader", "evenFooter",
-        "firstHeader", "firstFooter",
+        "oddHeader",
+        "oddFooter",
+        "evenHeader",
+        "evenFooter",
+        "firstHeader",
+        "firstFooter",
     ):
         hf = getattr(sheet, hf_name, None)
         if hf is None:
@@ -99,7 +104,7 @@ def _transform_headers_footers(sheet: object, transform: TextTransform) -> int:
         for part_name in ("left", "center", "right"):
             part = getattr(hf, part_name, None)
             text = getattr(part, "text", None)
-            if text:
+            if part is not None and text:
                 new_text = transform(text)
                 if new_text != text:
                     part.text = new_text
@@ -140,6 +145,7 @@ class XlsxHandler:
         """
         from openpyxl import load_workbook
 
+        validate_office_archive(input_path)
         workbook = load_workbook(str(input_path))
         processed = 0
         skipped = 0

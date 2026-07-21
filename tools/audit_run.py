@@ -52,7 +52,9 @@ class CheckResult:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-def _run(cmd: list[str], *, cwd: Path = REPO_ROOT, timeout: int = 600) -> tuple[int, str, str, float]:
+def _run(
+    cmd: list[str], *, cwd: Path = REPO_ROOT, timeout: int = 600
+) -> tuple[int, str, str, float]:
     """Subprocess-Wrapper, der stdout/stderr captured und timing misst."""
     import time
 
@@ -69,7 +71,9 @@ def _run(cmd: list[str], *, cwd: Path = REPO_ROOT, timeout: int = 600) -> tuple[
     except subprocess.TimeoutExpired as exc:
         return (
             -1,
-            (exc.stdout or "").decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else str(exc.stdout or ""),
+            (exc.stdout or "").decode("utf-8", errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else str(exc.stdout or ""),
             f"TimeoutExpired after {timeout}s",
             time.monotonic() - started,
         )
@@ -121,9 +125,7 @@ def check_pytest(*, skip_slow: bool = True) -> CheckResult:
 
 def check_bandit() -> CheckResult:
     # -ll: nur Medium+. -r: rekursiv. Wir interessieren uns für High-Severity.
-    rc, out, err, dur = _run(
-        [PYTHON, "-m", "bandit", "-r", "src/", "-ll", "-q"]
-    )
+    rc, out, err, dur = _run([PYTHON, "-m", "bandit", "-r", "src/", "-ll", "-q"])
     # Bandit-Konvention: exit 0 = clean, 1 = findings.
     return CheckResult(
         name="bandit",
@@ -145,9 +147,7 @@ def check_pip_audit() -> CheckResult:
     # erzeugt eine temporäre venv aus ``pyproject.toml``, in der genau
     # die deklarierten Runtime-Deps landen — und nur diese sind für
     # CVE-Audit relevant.
-    rc, out, err, dur = _run(
-        [PYTHON, "-m", "pip_audit", "--strict", str(REPO_ROOT)], timeout=300
-    )
+    rc, out, err, dur = _run([PYTHON, "-m", "pip_audit", "--strict", str(REPO_ROOT)], timeout=300)
     if rc == -1 or "No module named" in err or "No module named" in out:
         return CheckResult(
             name="pip-audit",
@@ -202,8 +202,22 @@ def _grep_count(needle: str, files: Iterable[Path]) -> int:
 
 _STOPWORDS = frozenset(
     {
-        "der", "die", "das", "und", "vor", "auf", "mit", "bei", "ein", "eine",
-        "security", "model", "siehe", "phase", "fuer", "für",
+        "der",
+        "die",
+        "das",
+        "und",
+        "vor",
+        "auf",
+        "mit",
+        "bei",
+        "ein",
+        "eine",
+        "security",
+        "model",
+        "siehe",
+        "phase",
+        "fuer",
+        "für",
     }
 )
 
@@ -279,7 +293,8 @@ def check_trust_boundary_coverage() -> CheckResult:
         status=status,
         returncode=0 if status == "pass" else 1,
         duration_seconds=0.0,
-        stdout_tail=summary + ("\nUngetestete Boundaries:\n  - " + "\n  - ".join(missing) if missing else ""),
+        stdout_tail=summary
+        + ("\nUngetestete Boundaries:\n  - " + "\n  - ".join(missing) if missing else ""),
         extra={"per_boundary": covered, "missing": missing},
     )
 
@@ -297,9 +312,7 @@ _ALL_CHECKS = {
 }
 
 
-def run_checks(
-    *, only: list[str] | None = None, skip_slow: bool = True
-) -> list[CheckResult]:
+def run_checks(*, only: list[str] | None = None, skip_slow: bool = True) -> list[CheckResult]:
     names = list(_ALL_CHECKS) if only is None else only
     results: list[CheckResult] = []
     for name in names:

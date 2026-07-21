@@ -10,13 +10,17 @@
 ; packaging\sign_windows.ps1 (siehe SIGNING.md).
 
 #define MyAppName "Pseudokrat"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion GetEnv("PSEUDOKRAT_VERSION")
+#if MyAppVersion == ""
+  #error PSEUDOKRAT_VERSION must be set by packaging\build_windows.ps1
+#endif
 #define MyAppPublisher "Pseudokrat"
-#define MyAppURL "https://pseudokrat.example.com"
+#define MyAppURL "https://github.com/svensteiner/Pseudokrat"
 #define MyAppExeName "Pseudokrat.exe"
+#define MyAppGuiExeName "Pseudokrat-GUI.exe"
 
 [Setup]
-AppId={{A3B7F0D8-1E2C-4A7F-9C1B-PSEUDOKRAT0001}
+AppId={{A3B7F0D8-1E2C-4A7F-9C1B-5E4D3A2B1001}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
@@ -31,12 +35,16 @@ DisableProgramGroupPage=yes
 
 ; Privatuser-Variante: keine Admin-Rechte nötig (Profile liegen in %LOCALAPPDATA%).
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequiredOverridesAllowed=commandline
+
+MinVersion=10.0.17763
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 
 OutputDir=..\dist\installer
 OutputBaseFilename=PseudokratSetup-{#MyAppVersion}
 SetupIconFile=icon.ico
-UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayIcon={app}\{#MyAppGuiExeName}
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -56,7 +64,7 @@ Name: "desktopicon"; \
   Description: "{cm:CreateDesktopIcon}"; \
   GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "associate"; \
-  Description: "Pseudokrat im Rechtsklick-Menü von TXT/CSV/DOCX/XLSX/PDF anzeigen"; \
+  Description: "Pseudokrat im Rechtsklick-Menü von TXT/CSV/DOCX/XLSX/PDF einrichten"; \
   GroupDescription: "Datei-Integration:"; Flags: unchecked
 
 [Files]
@@ -64,26 +72,26 @@ Source: "..\dist\Pseudokrat\*"; DestDir: "{app}"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppGuiExeName}"
+Name: "{group}\{#MyAppName} Einrichtung"; Filename: "{app}\{#MyAppExeName}"; \
+  Parameters: "setup"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; \
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppGuiExeName}"; \
   Tasks: desktopicon
 
-[Registry]
-; Dateityp-Kontextmenü „Mit Pseudokrat anonymisieren"
-Root: HKCU; Subkey: "Software\Classes\*\shell\Pseudokrat"; \
-  ValueType: string; ValueName: ""; \
-  ValueData: "Mit Pseudokrat anonymisieren"; Tasks: associate; \
-  Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\*\shell\Pseudokrat\command"; \
-  ValueType: string; ValueName: ""; \
-  ValueData: """{app}\{#MyAppExeName}"" --file ""%1"""; Tasks: associate; \
-  Flags: uninsdeletekey
-
 [Run]
-Filename: "{app}\{#MyAppExeName}"; \
+; Die Anwendung selbst registriert ausschließlich die unterstützten
+; Dateitypen und verwendet dabei das tatsächlich angelegte Profil. So gibt
+; es keine zweite, abweichende Registry-Implementierung im Installer.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "install --no-hotkeys"; \
+  Tasks: associate; Flags: runhidden waituntilterminated
+Filename: "{app}\{#MyAppGuiExeName}"; \
   Description: "{cm:LaunchProgram,{#MyAppName}}"; \
   Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "{app}\{#MyAppExeName}"; Parameters: "uninstall --yes"; \
+  Flags: runhidden waituntilterminated; RunOnceId: "PseudokratRemoveIntegration"
 
 [UninstallDelete]
 ; Modell-Cache und Profile bleiben standardmäßig erhalten — der Nutzer

@@ -14,7 +14,9 @@ from pathlib import Path
 from pseudokrat.formats.base import (
     FormatHandler,
     FormatProcessResult,
+    UnsafeArchiveError,
     UnsupportedFormatError,
+    validate_office_archive,
 )
 from pseudokrat.formats.csv_handler import CSVHandler
 from pseudokrat.formats.html_handler import HtmlHandler
@@ -84,8 +86,10 @@ __all__ = [
     "HtmlHandler",
     "PdfHandler",
     "TextHandler",
+    "UnsafeArchiveError",
     "UnsupportedFormatError",
     "XlsxHandler",
     "handler_for",
     "supported_suffixes",
+    "validate_office_archive",
 ]

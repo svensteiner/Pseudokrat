@@ -14,24 +14,54 @@ Firma mit Suffix …) bei Ueberlappung gewinnen.
 
 from __future__ import annotations
 
+import hashlib
+import ipaddress
 import json
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
 from typing import Any
 
 from pseudokrat.recognizers.base import Span
 
 _DEFAULT_HOST = "http://localhost:11434"
+_MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+_MAX_CACHE_ENTRIES = 128
 
 # Werte, die das LLM manchmal faelschlich als Eigenname zurueckgibt.
 _STOPWORDS: frozenset[str] = frozenset(
     {
-        "gmbh", "ag", "kg", "og", "ug", "se", "ohg", "kgaa", "e.u", "eu",
-        "der", "die", "das", "und", "oder", "firma", "gesellschaft", "konto",
-        "rechnung", "bilanz", "summe", "betrag", "datum", "seite", "jahr",
-        "company", "the", "and", "gmbh & co kg",
+        "gmbh",
+        "ag",
+        "kg",
+        "og",
+        "ug",
+        "se",
+        "ohg",
+        "kgaa",
+        "e.u",
+        "eu",
+        "der",
+        "die",
+        "das",
+        "und",
+        "oder",
+        "firma",
+        "gesellschaft",
+        "konto",
+        "rechnung",
+        "bilanz",
+        "summe",
+        "betrag",
+        "datum",
+        "seite",
+        "jahr",
+        "company",
+        "the",
+        "and",
+        "gmbh & co kg",
     }
 )
 
@@ -63,18 +93,47 @@ _PROMPT = (
 )
 
 
-def _http_urlopen(
-    target: str | urllib.request.Request, *, timeout: float
-) -> Any:
-    """``urlopen``, das ausschliesslich ``http``/``https`` zulaesst.
+def _validate_local_url(url: str) -> None:
+    """Reject every Ollama endpoint that is not an explicit loopback URL."""
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        _ = parsed.port
+    except ValueError as exc:
+        raise ValueError(f"Ungültige Ollama-URL: {url!r}") from exc
+    if (
+        parsed.scheme not in ("http", "https")
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Ollama muss über eine lokale http(s)-URL angesprochen werden.")
+    hostname = parsed.hostname.casefold()
+    if hostname == "localhost":
+        return
+    try:
+        if ipaddress.ip_address(hostname).is_loopback:
+            return
+    except ValueError:
+        pass
+    raise ValueError(
+        "Externe Ollama-Hosts sind deaktiviert, damit kein Klartext den Rechner verlässt."
+    )
 
-    Schliesst aus, dass eine manipulierte Host-Konfiguration über ``file://``
-    oder ein Custom-Scheme lokale Dateien liest (SSRF/LFI). Nach dieser Prüfung
-    ist der Aufruf auf Netzwerk-Schemes beschränkt."""
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+
+
+def _http_urlopen(target: str | urllib.request.Request, *, timeout: float) -> Any:
+    """Open a loopback-only URL without proxies or redirect following."""
     url = target.full_url if isinstance(target, urllib.request.Request) else target
-    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
-        raise ValueError(f"Nur http/https erlaubt: {url!r}")
-    return urllib.request.urlopen(target, timeout=timeout)  # nosec B310 - Scheme geprüft
+    _validate_local_url(url)
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
+        _NoRedirectHandler(),
+    )
+    return opener.open(target, timeout=timeout)  # nosec B310 - loopback validated
 
 
 def ollama_available(host: str = _DEFAULT_HOST, timeout: float = 3.0) -> bool:
@@ -105,7 +164,7 @@ class OllamaDetector:
         self._min_chars = min_chars
         self._timeout = timeout
         self._log = log or (lambda _m: None)
-        self._cache: dict[str, list[tuple[str, str]]] = {}
+        self._cache: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
         self._warned = False
 
     # -- LLM-Aufruf ---------------------------------------------------------
@@ -125,7 +184,12 @@ class OllamaDetector:
             headers={"Content-Type": "application/json"},
         )
         with _http_urlopen(req, timeout=self._timeout) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
+            raw_body = resp.read(_MAX_RESPONSE_BYTES + 1)
+        if len(raw_body) > _MAX_RESPONSE_BYTES:
+            raise ValueError("Ollama-Antwort ist unplausibel groß.")
+        body = json.loads(raw_body.decode("utf-8"))
+        if not isinstance(body, dict):
+            return []
         raw = body.get("response", "")
         try:
             parsed = json.loads(raw)
@@ -155,18 +219,18 @@ class OllamaDetector:
             return False
         if not any(c.isupper() for c in value):  # Eigennamen sind gross
             return False
-        if value.lower().strip(".") in _STOPWORDS:
-            return False
-        return True
+        return value.lower().strip(".") not in _STOPWORDS
 
     # -- Recognizer-Schnittstelle ------------------------------------------
     def analyze(self, text: str) -> list[Span]:
         stripped = text.strip()
         if len(stripped) < self._min_chars:
             return []
-        cache_key = " ".join(stripped.split())  # normalisiert (Whitespace)
+        normalized = " ".join(stripped.split())
+        cache_key = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if cache_key in self._cache:
-            entities = self._cache[cache_key]
+            entities = self._cache.pop(cache_key)
+            self._cache[cache_key] = entities
         else:
             try:
                 entities = self._query(text)
@@ -176,6 +240,8 @@ class OllamaDetector:
                     self._warned = True
                 return []
             self._cache[cache_key] = entities
+            if len(self._cache) > _MAX_CACHE_ENTRIES:
+                self._cache.popitem(last=False)
 
         spans: list[Span] = []
         for value, category in entities:

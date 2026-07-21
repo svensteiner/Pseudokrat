@@ -48,6 +48,7 @@ def _strict_roundtrip_recognizers() -> list:
     """
     return [r for r in default_recognizers() if not is_fuzzy_merge_category(r.category)]
 
+
 FUZZ_SETTINGS = settings(
     max_examples=50,
     deadline=None,
@@ -154,9 +155,7 @@ class TestTextHandlerFuzz:
         except (UnicodeDecodeError, OSError):
             pass
         except Exception as e:  # pragma: no cover - failure case
-            raise AssertionError(
-                f"Unerwartete Exception {type(e).__name__}: {e}"
-            ) from e
+            raise AssertionError(f"Unerwartete Exception {type(e).__name__}: {e}") from e
 
 
 # --------------------------------------------------------------------------- #
@@ -227,7 +226,7 @@ class TestFormatDispatcherRobustness:
         stem=st.text(
             alphabet=st.characters(
                 blacklist_categories=("Cs", "Cc"),
-                blacklist_characters="/\\:*?\"<>|",
+                blacklist_characters='/\\:*?"<>|',
             ),
             min_size=1,
             max_size=20,
@@ -305,10 +304,7 @@ class TestRealisticDocumentRoundTrip:
         r = anon.anonymize(doc)
         decoded = deanon.deanonymize(r.text).text
         assert decoded == doc, (
-            f"Realistic-Doc-Drift\n"
-            f"  doc={doc!r}\n"
-            f"  anon={r.text!r}\n"
-            f"  decoded={decoded!r}"
+            f"Realistic-Doc-Drift\n  doc={doc!r}\n  anon={r.text!r}\n  decoded={decoded!r}"
         )
 
     @given(doc=realistic_document())
@@ -346,7 +342,11 @@ class TestPlaceholderShapedInput:
         assert r.text == text  # nichts ersetzt
         assert set(r.missing_placeholders) == {"<PERSON_999>", "<IBAN_042>"}
 
-    @given(body=st.text(alphabet=st.characters(blacklist_categories=("Cs", "Cc")), min_size=0, max_size=200))
+    @given(
+        body=st.text(
+            alphabet=st.characters(blacklist_categories=("Cs", "Cc")), min_size=0, max_size=200
+        )
+    )
     @FAST_FUZZ_SETTINGS
     def test_deanonymizing_random_text_never_crashes(
         self,

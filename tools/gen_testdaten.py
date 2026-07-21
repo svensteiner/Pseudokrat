@@ -38,8 +38,11 @@ manager = ProfileManager()
 store, audit = manager.open_or_create_simple("GenTmp")  # Wegwerf-Profil
 with store:
     anon = Anonymizer(
-        store=store, recognizers=recognizers_for_store(store),
-        detector=None, audit_log=None, model_version="disabled",
+        store=store,
+        recognizers=recognizers_for_store(store),
+        detector=None,
+        audit_log=None,
+        model_version="disabled",
     )
 
     def categories(text: str) -> set[str]:
@@ -81,19 +84,86 @@ with store:
                     return cand
         raise RuntimeError("keine gueltige SVNR erzeugt")
 
-    VORNAMEN = ["Anna", "Lukas", "Maria", "Florian", "Julia", "Stefan", "Sandra",
-                "Markus", "Birgit", "Thomas", "Eva", "Christoph", "Petra", "Andreas"]
-    NACHNAMEN = ["Huber", "Gruber", "Wagner", "Maier", "Steiner", "Moser", "Bauer",
-                 "Pichler", "Hofer", "Leitner", "Berger", "Fuchs", "Eder", "Lang"]
+    VORNAMEN = [
+        "Anna",
+        "Lukas",
+        "Maria",
+        "Florian",
+        "Julia",
+        "Stefan",
+        "Sandra",
+        "Markus",
+        "Birgit",
+        "Thomas",
+        "Eva",
+        "Christoph",
+        "Petra",
+        "Andreas",
+    ]
+    NACHNAMEN = [
+        "Huber",
+        "Gruber",
+        "Wagner",
+        "Maier",
+        "Steiner",
+        "Moser",
+        "Bauer",
+        "Pichler",
+        "Hofer",
+        "Leitner",
+        "Berger",
+        "Fuchs",
+        "Eder",
+        "Lang",
+    ]
     RECHTSFORM = ["GmbH", "AG", "KG", "OG", "e.U.", "GmbH & Co KG"]
-    FIRMENWORT = ["Alpen", "Donau", "Tirol", "Wien", "Styria", "Berg", "Sonnen",
-                  "Nord", "Central", "Prime", "Edel", "Austro", "Salzach", "Wald"]
-    BRANCHE = ["Bau", "Handel", "Consulting", "Immobilien", "Technik", "Gastro",
-               "Logistik", "Pharma", "Energie", "Druck"]
-    ORTE = [("Wien", "1010"), ("Graz", "8010"), ("Linz", "4020"), ("Salzburg", "5020"),
-            ("Innsbruck", "6020"), ("Klagenfurt", "9020"), ("Wels", "4600")]
-    STRASSEN = ["Hauptstrasse", "Bahnhofstrasse", "Ringstrasse", "Mariahilfer Strasse",
-                "Lindengasse", "Schulgasse", "Feldweg", "Industriestrasse"]
+    FIRMENWORT = [
+        "Alpen",
+        "Donau",
+        "Tirol",
+        "Wien",
+        "Styria",
+        "Berg",
+        "Sonnen",
+        "Nord",
+        "Central",
+        "Prime",
+        "Edel",
+        "Austro",
+        "Salzach",
+        "Wald",
+    ]
+    BRANCHE = [
+        "Bau",
+        "Handel",
+        "Consulting",
+        "Immobilien",
+        "Technik",
+        "Gastro",
+        "Logistik",
+        "Pharma",
+        "Energie",
+        "Druck",
+    ]
+    ORTE = [
+        ("Wien", "1010"),
+        ("Graz", "8010"),
+        ("Linz", "4020"),
+        ("Salzburg", "5020"),
+        ("Innsbruck", "6020"),
+        ("Klagenfurt", "9020"),
+        ("Wels", "4600"),
+    ]
+    STRASSEN = [
+        "Hauptstrasse",
+        "Bahnhofstrasse",
+        "Ringstrasse",
+        "Mariahilfer Strasse",
+        "Lindengasse",
+        "Schulgasse",
+        "Feldweg",
+        "Industriestrasse",
+    ]
 
     def person() -> str:
         return f"{rnd.choice(VORNAMEN)} {rnd.choice(NACHNAMEN)}"
@@ -102,8 +172,7 @@ with store:
         return f"{rnd.choice(FIRMENWORT)} {rnd.choice(BRANCHE)} {rnd.choice(RECHTSFORM)}"
 
     def email(name: str, fa: str) -> str:
-        n = (name.lower().replace(" ", ".").replace("ä", "ae")
-             .replace("ö", "oe").replace("ü", "ue"))
+        n = name.lower().replace(" ", ".").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
         return f"{n}@{fa.split()[0].lower()}.at"
 
     def telefon() -> str:
@@ -128,36 +197,92 @@ with store:
     uids = [gen_uid() for _ in range(40)]
     svnrs = [gen_svnr() for _ in range(90)]
     firmen = [firma() for _ in range(40)]
-    print(f"  IBAN={len(ibans)} UID={len(uids)} SVNR={len(svnrs)} Firmen={len(firmen)}",
-          flush=True)
+    print(f"  IBAN={len(ibans)} UID={len(uids)} SVNR={len(svnrs)} Firmen={len(firmen)}", flush=True)
 
     ws = wb.active
     ws.title = "Debitoren"
-    write_header(ws, ["KdNr", "Firma", "Ansprechpartner", "UID", "IBAN", "E-Mail",
-                      "Telefon", "Adresse", "Offener Betrag"])
+    write_header(
+        ws,
+        [
+            "KdNr",
+            "Firma",
+            "Ansprechpartner",
+            "UID",
+            "IBAN",
+            "E-Mail",
+            "Telefon",
+            "Adresse",
+            "Offener Betrag",
+        ],
+    )
     for i in range(60):
         fa = rnd.choice(firmen)
         p = person()
-        ws.append([f"D{1000 + i}", fa, p, rnd.choice(uids), rnd.choice(ibans),
-                   email(p, fa), telefon(), adresse(), round(rnd.uniform(500, 90000), 2)])
+        ws.append(
+            [
+                f"D{1000 + i}",
+                fa,
+                p,
+                rnd.choice(uids),
+                rnd.choice(ibans),
+                email(p, fa),
+                telefon(),
+                adresse(),
+                round(rnd.uniform(500, 90000), 2),
+            ]
+        )
 
     ws = wb.create_sheet("Kreditoren")
-    write_header(ws, ["LiefNr", "Firma", "Ansprechpartner", "UID", "IBAN", "E-Mail",
-                      "Telefon", "Adresse", "Verbindlichkeit"])
+    write_header(
+        ws,
+        [
+            "LiefNr",
+            "Firma",
+            "Ansprechpartner",
+            "UID",
+            "IBAN",
+            "E-Mail",
+            "Telefon",
+            "Adresse",
+            "Verbindlichkeit",
+        ],
+    )
     for i in range(55):
         fa = rnd.choice(firmen)
         p = person()
-        ws.append([f"K{2000 + i}", fa, p, rnd.choice(uids), rnd.choice(ibans),
-                   email(p, fa), telefon(), adresse(), round(rnd.uniform(200, 60000), 2)])
+        ws.append(
+            [
+                f"K{2000 + i}",
+                fa,
+                p,
+                rnd.choice(uids),
+                rnd.choice(ibans),
+                email(p, fa),
+                telefon(),
+                adresse(),
+                round(rnd.uniform(200, 60000), 2),
+            ]
+        )
 
     ws = wb.create_sheet("Mitarbeiter")
-    write_header(ws, ["PersNr", "Name", "SVNR", "Gehalts-IBAN", "E-Mail",
-                      "Telefon", "Adresse", "Bruttogehalt"])
+    write_header(
+        ws,
+        ["PersNr", "Name", "SVNR", "Gehalts-IBAN", "E-Mail", "Telefon", "Adresse", "Bruttogehalt"],
+    )
     for i in range(90):
         p = person()
-        ws.append([f"P{500 + i}", p, rnd.choice(svnrs), rnd.choice(ibans),
-                   email(p, "lohnbuero"), telefon(), adresse(),
-                   round(rnd.uniform(2200, 9500), 2)])
+        ws.append(
+            [
+                f"P{500 + i}",
+                p,
+                rnd.choice(svnrs),
+                rnd.choice(ibans),
+                email(p, "lohnbuero"),
+                telefon(),
+                adresse(),
+                round(rnd.uniform(2200, 9500), 2),
+            ]
+        )
 
     ws = wb.create_sheet("Stammdaten")
     write_header(ws, ["Feld", "Wert"])
@@ -175,15 +300,23 @@ with store:
         ws.append(row)
 
     ws = wb.create_sheet("Buchungen")
-    write_header(ws, ["BuchNr", "Datum", "Gegenkonto (Firma)", "IBAN", "Text",
-                      "Soll", "Haben"])
+    write_header(ws, ["BuchNr", "Datum", "Gegenkonto (Firma)", "IBAN", "Text", "Soll", "Haben"])
     N = 4000
     for i in range(N):
         fa = rnd.choice(firmen)
         soll = round(rnd.uniform(0, 25000), 2) if rnd.random() < 0.5 else 0
         haben = 0 if soll else round(rnd.uniform(0, 25000), 2)
-        ws.append([i + 1, f"2026-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d}",
-                   fa, rnd.choice(ibans), f"Rechnung {fa}", soll, haben])
+        ws.append(
+            [
+                i + 1,
+                f"2026-{rnd.randint(1, 12):02d}-{rnd.randint(1, 28):02d}",
+                fa,
+                rnd.choice(ibans),
+                f"Rechnung {fa}",
+                soll,
+                haben,
+            ]
+        )
     sumrow = N + 3
     ws.cell(row=sumrow, column=3, value="Summe Soll fuer:")
     ws.cell(row=sumrow, column=4, value=firmen[0])

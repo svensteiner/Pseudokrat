@@ -53,9 +53,7 @@ class TestFuzzyMerge:
         assert not self._merge("Maier Bau GmbH", "Mayer Bau GmbH")
 
     def test_long_core_typo_merges(self) -> None:
-        assert self._merge(
-            "Donauindustrieanlagen GmbH", "Donauindustrieanlgen GmbH"
-        )
+        assert self._merge("Donauindustrieanlagen GmbH", "Donauindustrieanlgen GmbH")
 
     def test_different_legal_form_no_merge(self) -> None:
         assert not self._merge("Hofer Bau GmbH", "Hofer Bau KG")

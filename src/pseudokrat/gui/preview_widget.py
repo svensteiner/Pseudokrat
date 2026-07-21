@@ -59,9 +59,7 @@ class PIIPreviewWidget(QTextEdit):
         mono = QFont("Consolas")
         mono.setStyleHint(QFont.StyleHint.Monospace)
         self.setFont(mono)
-        self.setPlaceholderText(
-            "Vorschau erscheint hier nach Klick auf 'Vorschau'."
-        )
+        self.setPlaceholderText("Vorschau erscheint hier nach Klick auf 'Vorschau'.")
 
     def set_preview(self, text: str, spans: Iterable[PreviewSpan]) -> None:
         """Befüllt den Editor mit ``text`` und färbt die übergebenen Spans.

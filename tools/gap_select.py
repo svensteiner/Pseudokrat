@@ -174,16 +174,13 @@ def identify_gaps(
                     Gap(
                         severity=3,
                         tier="tier-1",
-                        title=(
-                            f"{th.category} im recognizers-only-Report nicht enthalten"
-                        ),
+                        title=(f"{th.category} im recognizers-only-Report nicht enthalten"),
                         detail=(
                             "Kategorie braucht entweder Recognizer-Coverage oder "
                             "den ML-Pfad (`--with-ml`)."
                         ),
                         fix_hint=(
-                            f"Fixture mit {th.category}-Slot anlegen "
-                            "oder Recognizer registrieren."
+                            f"Fixture mit {th.category}-Slot anlegen oder Recognizer registrieren."
                         ),
                         metadata={"category": th.category, "min_f1": th.min_f1},
                     )
@@ -199,8 +196,7 @@ def identify_gaps(
                         f"`{mode}`-Report nicht enthalten."
                     ),
                     fix_hint=(
-                        f"Fixture mit {th.category}-Slot anlegen oder "
-                        "Recognizer registrieren."
+                        f"Fixture mit {th.category}-Slot anlegen oder Recognizer registrieren."
                     ),
                     metadata={"category": th.category, "min_f1": th.min_f1},
                 )
@@ -212,9 +208,7 @@ def identify_gaps(
                 Gap(
                     severity=1,
                     tier="tier-1",
-                    title=(
-                        f"Eval-Defizit: {th.category} F1 = {f1:.2f} < {th.min_f1}"
-                    ),
+                    title=(f"Eval-Defizit: {th.category} F1 = {f1:.2f} < {th.min_f1}"),
                     detail=(
                         f"Precision={float(score.get('precision', 0.0)):.2f}, "
                         f"Recall={float(score.get('recall', 0.0)):.2f}, "
@@ -222,8 +216,7 @@ def identify_gaps(
                         f"FN={score.get('fn', 0)}."
                     ),
                     fix_hint=(
-                        f"Recognizer/Detector für {th.category} härten "
-                        f"({_dominant_error(score)})."
+                        f"Recognizer/Detector für {th.category} härten ({_dominant_error(score)})."
                     ),
                     metadata={
                         "category": th.category,
@@ -244,9 +237,7 @@ def identify_gaps(
             Gap(
                 severity=2,
                 tier="tier-1",
-                title=(
-                    f"FP-Rate {fp_rate:.4f} > Gate-Limit {gate.max_fp_rate}"
-                ),
+                title=(f"FP-Rate {fp_rate:.4f} > Gate-Limit {gate.max_fp_rate}"),
                 detail=(
                     f"{totals.get('fp', 0)} False Positives bei "
                     f"{int(totals.get('tp', 0)) + int(totals.get('fp', 0))} "
@@ -275,10 +266,7 @@ def identify_gaps(
                     Gap(
                         severity=3,
                         tier="tier-3",
-                        title=(
-                            "Trust-Boundary ohne Test-Coverage: "
-                            f"{len(missing)} offen"
-                        ),
+                        title=(f"Trust-Boundary ohne Test-Coverage: {len(missing)} offen"),
                         detail="Ungetestete Boundaries:\n  - "
                         + "\n  - ".join(str(m) for m in missing),
                         fix_hint=(
@@ -295,9 +283,7 @@ def identify_gaps(
                         tier="tier-2",
                         title=f"Audit-Check '{name}' fehlgeschlagen",
                         detail=(
-                            (check.get("stderr_tail") or check.get("stdout_tail") or "")[
-                                :600
-                            ]
+                            (check.get("stderr_tail") or check.get("stdout_tail") or "")[:600]
                             or "Kein Stderr/Stdout im Report."
                         ),
                         fix_hint=(
@@ -387,9 +373,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.audit is not None:
         audit_report = json.loads(args.audit.read_text(encoding="utf-8"))
     gate = parse_gate(args.gate.read_text(encoding="utf-8"))
-    gaps = identify_gaps(
-        eval_report=eval_report, audit_report=audit_report, gate=gate
-    )
+    gaps = identify_gaps(eval_report=eval_report, audit_report=audit_report, gate=gate)
     mode = eval_report.get("mode", "recognizers-only")
     output = render_next_gap(gaps, mode=mode, gate=gate)
     if args.output is None:

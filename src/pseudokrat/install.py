@@ -80,9 +80,7 @@ class WinRegistryBackend:
         try:
             import winreg  # type: ignore[import-not-found,unused-ignore]
         except ImportError as exc:  # pragma: no cover - non-Windows path
-            raise RuntimeError(
-                "Explorer-Context-Menu ist nur unter Windows verfügbar."
-            ) from exc
+            raise RuntimeError("Explorer-Context-Menu ist nur unter Windows verfügbar.") from exc
         return winreg
 
     @staticmethod
@@ -213,38 +211,55 @@ class InMemoryRegistryBackend:
 
     def subkey_exists(self, hive: str, subkey: str) -> bool:
         hive_dict = self._ensure_hive(hive)
-        return subkey in hive_dict or any(
-            k.startswith(subkey + "\\") for k in hive_dict
-        )
+        return subkey in hive_dict or any(k.startswith(subkey + "\\") for k in hive_dict)
 
 
 # ---------- Befehls-Resolution ----------------------------------------------
 
 
-def resolve_pseudokrat_command() -> str:
+def _validate_command_profile(profile: str) -> None:
+    """Reject characters that could break a quoted Registry command line."""
+    if not profile or any(char in profile for char in ('"', "\r", "\n")):
+        raise ValueError("Profilname ist für einen Windows-Befehl ungeeignet.")
+
+
+def resolve_pseudokrat_command(profile: str = DEFAULT_PROFILE_NAME) -> str:
     """Liefert die Kommandozeile zum Aufruf von Pseudokrat — als Registry-
     REG_SZ-Wert mit Platzhalter ``%1`` für die anvisierte Datei.
 
     Reihenfolge:
 
-    1. Wenn ``pseudokrat.exe`` im PATH liegt (PyInstaller-Build oder
-       Scripts-Verzeichnis) → diesen Pfad direkt.
-    2. Sonst: ``"<python.exe>" -m pseudokrat`` (dev-install).
+    1. Im PyInstaller-Build → die laufende EXE direkt.
+    2. Wenn ``pseudokrat.exe`` im PATH liegt (pip/venv-Installation) →
+       diesen Pfad direkt.
+    3. Sonst: ``"<python.exe>" -m pseudokrat`` (dev-install).
 
     Pfade werden korrekt für REG_SZ gequotet (innere ``"`` werden zu
     ``""`` verdoppelt — das ist die übliche Convention für Windows-
     Kommandozeilen).
     """
+    _validate_command_profile(profile)
+
+    # ``sys.executable`` ist im PyInstaller-Build bereits Pseudokrat.exe.
+    # Der alte Fallback hing dort fälschlich ``-m pseudokrat`` an die EXE.
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}" anonymize --input "%1" --profile "{profile}" --no-ml'
+
     exe = shutil.which("pseudokrat")
     if exe is not None:
-        return f'"{exe}" anonymize --input "%1"'
+        return f'"{exe}" anonymize --input "%1" --profile "{profile}" --no-ml'
     python = sys.executable
-    return f'"{python}" -m pseudokrat anonymize --input "%1"'
+    return f'"{python}" -m pseudokrat anonymize --input "%1" --profile "{profile}" --no-ml'
 
 
 def resolve_hotkey_daemon_command(profile: str) -> str:
     """Kommandozeile für Hotkey-Autostart. Profil als expliziter Parameter,
     damit der Daemon nicht raten muss, welches Profil aktiv ist."""
+    _validate_command_profile(profile)
+
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}" hotkey-daemon --profile "{profile}"'
+
     exe = shutil.which("pseudokrat")
     if exe is not None:
         return f'"{exe}" hotkey-daemon --profile "{profile}"'
@@ -428,7 +443,10 @@ def perform_install(
             # konnten es nicht liefern. Wird in CLI/Tests inspiziert.
             profile_error = str(exc)
 
-    registered, skipped = install_context_menu(backend)
+    registered, skipped = install_context_menu(
+        backend,
+        command_template=resolve_pseudokrat_command(profile_name),
+    )
 
     autostart = False
     if with_hotkeys:

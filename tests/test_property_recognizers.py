@@ -49,15 +49,7 @@ def _at_uid_check_digit(d: list[int]) -> int:
     def cs(n: int) -> int:
         return n // 10 + n % 10
 
-    s = (
-        d[0]
-        + cs(d[1] * 2)
-        + d[2]
-        + cs(d[3] * 2)
-        + d[4]
-        + cs(d[5] * 2)
-        + d[6]
-    )
+    s = d[0] + cs(d[1] * 2) + d[2] + cs(d[3] * 2) + d[4] + cs(d[5] * 2) + d[6]
     return (10 - (s + 4) % 10) % 10
 
 
@@ -176,9 +168,7 @@ def valid_de_steuer_id(draw: st.DrawFn) -> str:
 
 @st.composite
 def valid_ch_ahv(draw: st.DrawFn) -> str:
-    middle = "".join(
-        str(draw(st.integers(min_value=0, max_value=9))) for _ in range(9)
-    )
+    middle = "".join(str(draw(st.integers(min_value=0, max_value=9))) for _ in range(9))
     digits12 = "756" + middle
     check = _ean13_check(digits12)
     raw = digits12 + str(check)

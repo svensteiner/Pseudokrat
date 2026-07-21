@@ -96,7 +96,7 @@ def check_profiles(manager: ProfileManager) -> Check:
                 "Kein Profil vorhanden. Lege eines an mit:\n"
                 "    pseudokrat install\n"
                 "  oder manuell:\n"
-                "    pseudokrat init --simple --profile \"Mein Konto\""
+                '    pseudokrat init --simple --profile "Mein Konto"'
             ),
         )
     names = ", ".join(p.name for p in profiles)
@@ -122,15 +122,12 @@ def _purge_legacy_sandbox_artifacts(profiles_dir: Path) -> None:
         if not path.is_file():
             continue
         if any(
-            path.stem == stem or path.name.startswith(f"{stem}.")
-            for stem in _LEGACY_SANDBOX_STEMS
+            path.stem == stem or path.name.startswith(f"{stem}.") for stem in _LEGACY_SANDBOX_STEMS
         ):
             path.unlink(missing_ok=True)
 
 
-def check_anonymize_roundtrip(
-    manager: ProfileManager, *, profile_name: str | None = None
-) -> Check:
+def check_anonymize_roundtrip(manager: ProfileManager, *, profile_name: str | None = None) -> Check:
     """Smoke-Test: führt Anonymize+Deanonymize gegen einen Test-String durch.
 
     Ohne ``profile_name`` läuft der Test in einer **echten Sandbox** —
@@ -146,10 +143,7 @@ def check_anonymize_roundtrip(
     ``profiles_dir``) werden vor dem Test geräumt — sie waren der
     eigentliche Auslöser für die Härtung dieses Checks.
     """
-    test_text = (
-        "Herr Müller (IBAN AT12 1200 0000 1234 5678) "
-        "schickt eine Rechnung über 4.300 EUR."
-    )
+    test_text = "Herr Müller (IBAN AT12 1200 0000 1234 5678) schickt eine Rechnung über 4.300 EUR."
     try:
         from pseudokrat.anonymizer import Anonymizer
         from pseudokrat.config import Settings
@@ -279,9 +273,7 @@ def check_profile_health(
     backend: KeyringBackend | None = None
     if keyring_backend is not None:
         if not isinstance(keyring_backend, KeyringBackend):
-            raise TypeError(
-                "keyring_backend muss das KeyringBackend-Protocol implementieren."
-            )
+            raise TypeError("keyring_backend muss das KeyringBackend-Protocol implementieren.")
         backend = keyring_backend
 
     profiles = manager.list_profiles()
@@ -305,9 +297,7 @@ def check_profile_health(
             continue
         try:
             protector = OsKeyringKeyProtector(profile.name, backend=backend)
-            store, _audit = manager.open_or_create(
-                profile.name, protector=protector
-            )
+            store, _audit = manager.open_or_create(profile.name, protector=protector)
         except Exception as exc:
             broken.append((profile.name, str(exc).splitlines()[0]))
             continue
@@ -317,9 +307,7 @@ def check_profile_health(
     if not broken:
         msg_parts = [f"{healthy} Simple-Mode-Profil(e) öffenbar"]
         if password_mode_count:
-            msg_parts.append(
-                f"{password_mode_count} Passwort-Profil(e) nicht offline prüfbar"
-            )
+            msg_parts.append(f"{password_mode_count} Passwort-Profil(e) nicht offline prüfbar")
         return Check(
             name="Profile-Health",
             status=Status.OK,
@@ -405,10 +393,7 @@ def check_ml_model() -> Check:
     return Check(
         name="ML-Modell",
         status=Status.OK,
-        message=(
-            f"Installiert: {status.cache_dir} "
-            f"({status.gigabytes_on_disk:.2f} GB)"
-        ),
+        message=(f"Installiert: {status.cache_dir} ({status.gigabytes_on_disk:.2f} GB)"),
     )
 
 
@@ -486,9 +471,7 @@ def check_ollama() -> Check:
     )
 
 
-def run_doctor(
-    manager: ProfileManager, *, profile_name: str | None = None
-) -> DoctorReport:
+def run_doctor(manager: ProfileManager, *, profile_name: str | None = None) -> DoctorReport:
     """Führe alle Diagnose-Checks aus und liefere einen Report.
 
     ``profile_name`` optional: wenn gesetzt, nutzt der Roundtrip-Check
@@ -529,9 +512,7 @@ def format_report(report: DoctorReport) -> str:
     if report.has_failures:
         lines.append("Ergebnis: NICHT EINSATZBEREIT — bitte FAIL-Punkte oben beheben.")
     elif report.has_warnings:
-        lines.append(
-            "Ergebnis: Einsatzbereit für Kern-Workflow. Optionale Komponenten warnen."
-        )
+        lines.append("Ergebnis: Einsatzbereit für Kern-Workflow. Optionale Komponenten warnen.")
     else:
         lines.append("Ergebnis: Vollständig einsatzbereit.")
     return "\n".join(lines)

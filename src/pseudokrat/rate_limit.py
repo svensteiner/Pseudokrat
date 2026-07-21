@@ -66,9 +66,7 @@ class TokenBucket:
             now = self._clock()
             elapsed = max(0.0, now - self._last)
             self._last = now
-            self._tokens = min(
-                float(self.capacity), self._tokens + elapsed * self.refill_per_sec
-            )
+            self._tokens = min(float(self.capacity), self._tokens + elapsed * self.refill_per_sec)
             if self._tokens >= n:
                 self._tokens -= n
                 return RateLimitDecision(allowed=True, retry_after_seconds=0.0)
@@ -83,9 +81,7 @@ class TokenBucket:
             now = self._clock()
             elapsed = max(0.0, now - self._last)
             self._last = now
-            self._tokens = min(
-                float(self.capacity), self._tokens + elapsed * self.refill_per_sec
-            )
+            self._tokens = min(float(self.capacity), self._tokens + elapsed * self.refill_per_sec)
             return self._tokens
 
 

@@ -49,8 +49,11 @@ class TestRoundtrip:
 
         store, audit = store_and_audit
         anon = Anonymizer(
-            store=store, recognizers=recognizers_for_store(store),
-            detector=None, audit_log=audit, model_version="disabled",
+            store=store,
+            recognizers=recognizers_for_store(store),
+            detector=None,
+            audit_log=audit,
+            model_version="disabled",
         )
         de = Deanonymizer(store=store, audit_log=audit, model_version="disabled")
 
@@ -82,8 +85,11 @@ class TestRedactPdf:
         doc.close()
 
         anon = Anonymizer(
-            store=store, recognizers=recognizers_for_store(store),
-            detector=None, audit_log=audit, model_version="disabled",
+            store=store,
+            recognizers=recognizers_for_store(store),
+            detector=None,
+            audit_log=audit,
+            model_version="disabled",
         )
         out = tmp_path / "out.pdf"
         hits = watcher.redact_pdf(

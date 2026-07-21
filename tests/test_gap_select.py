@@ -40,9 +40,7 @@ def test_parse_gate_extracts_tier1_thresholds_and_aliases_org() -> None:
 
 def test_parse_gate_handles_real_production_gate_file() -> None:
     """Der echte ``PRODUCTION_READY_GATE.md`` muss parsbar bleiben."""
-    md = (gap_select.REPO_ROOT / "PRODUCTION_READY_GATE.md").read_text(
-        encoding="utf-8"
-    )
+    md = (gap_select.REPO_ROOT / "PRODUCTION_READY_GATE.md").read_text(encoding="utf-8")
     spec = parse_gate(md)
     by_cat = {t.category: t.min_f1 for t in spec.thresholds}
     assert by_cat["PERSON"] == 0.95
@@ -283,9 +281,7 @@ def test_passing_audit_check_yields_no_gap() -> None:
         ],
         "totals": {"pass": 1, "fail": 0, "skipped": 1},
     }
-    assert identify_gaps(
-        eval_report=eval_rep, audit_report=audit_rep, gate=spec
-    ) == []
+    assert identify_gaps(eval_report=eval_rep, audit_report=audit_rep, gate=spec) == []
 
 
 # ---------- Sortierung -------------------------------------------------------
@@ -377,8 +373,7 @@ def test_cli_exit_zero_when_no_gaps(tmp_path: Path, capsys: pytest.CaptureFixtur
     )
     gate_path = tmp_path / "gate.md"
     gate_path.write_text(
-        "| `IBAN` | **1.00** | Mod-97 |\n"
-        "Falsch-Positiv-Rate `≤ 0.02` (max).\n",
+        "| `IBAN` | **1.00** | Mod-97 |\nFalsch-Positiv-Rate `≤ 0.02` (max).\n",
         encoding="utf-8",
     )
     rc = gap_select.main(["--eval", str(eval_path), "--gate", str(gate_path)])
@@ -408,8 +403,7 @@ def test_cli_exit_nonzero_writes_output_file(tmp_path: Path) -> None:
     )
     gate_path = tmp_path / "gate.md"
     gate_path.write_text(
-        "| `IBAN` | **1.00** | Mod-97 |\n"
-        "Falsch-Positiv-Rate `≤ 0.02` (max).\n",
+        "| `IBAN` | **1.00** | Mod-97 |\nFalsch-Positiv-Rate `≤ 0.02` (max).\n",
         encoding="utf-8",
     )
     out_path = tmp_path / "next_gap.md"
@@ -457,8 +451,7 @@ def test_cli_combines_audit_report(tmp_path: Path) -> None:
     )
     gate_path = tmp_path / "gate.md"
     gate_path.write_text(
-        "| `IBAN` | **1.00** | Mod-97 |\n"
-        "Falsch-Positiv-Rate `≤ 0.02`.\n",
+        "| `IBAN` | **1.00** | Mod-97 |\nFalsch-Positiv-Rate `≤ 0.02`.\n",
         encoding="utf-8",
     )
     out_path = tmp_path / "next_gap.md"

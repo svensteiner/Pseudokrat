@@ -82,13 +82,15 @@ def fresh_pipeline(
 _GLUE_ALPHABET = " abcdefghijklmnopqrstuvwxyzABCFGHIJKLMNPQRSTVWXYZ,;:-.!?"
 
 glue = st.text(alphabet=_GLUE_ALPHABET, min_size=1, max_size=40).filter(
-    lambda s: not any(c.isdigit() for c in s)
-    and "DE" not in s  # vermeide USt-Präfix-Kollisionen
-    and "ATU" not in s
-    and "AT" not in s
-    and "CH" not in s
-    and "LI" not in s
-    and "756" not in s
+    lambda s: (
+        not any(c.isdigit() for c in s)
+        and "DE" not in s  # vermeide USt-Präfix-Kollisionen
+        and "ATU" not in s
+        and "AT" not in s
+        and "CH" not in s
+        and "LI" not in s
+        and "756" not in s
+    )
 )
 
 
@@ -208,9 +210,7 @@ class TestPlaceholderUniqueness:
         # Wir akzeptieren entweder: 1 distinct Mapping (Fuzzy-Match) oder mind. 2 mit Hinweis.
         # Verhalten ist konfigurierbar — Test dokumentiert die aktuelle Policy.
         org_spans = [s for s in r.spans if s.category in ("ORG", "COMPANY")]
-        placeholders = {
-            store.get_or_create(s.text, s.category).placeholder for s in org_spans
-        }
+        placeholders = {store.get_or_create(s.text, s.category).placeholder for s in org_spans}
         # Mindestens nicht mehr als #spans:
         assert len(placeholders) <= len(org_spans)
 

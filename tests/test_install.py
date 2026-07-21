@@ -368,14 +368,70 @@ def test_resolve_pseudokrat_command_contains_placeholder() -> None:
     cmd = resolve_pseudokrat_command()
     assert "%1" in cmd
     assert "anonymize" in cmd
+    assert '--profile "Mein Konto"' in cmd
+    assert "--no-ml" in cmd
     # Quoting für Pfade mit Spaces
     assert cmd.count('"') >= 2
+
+
+def test_resolve_pseudokrat_command_uses_frozen_executable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("pseudokrat.install.sys.frozen", True, raising=False)
+    monkeypatch.setattr("pseudokrat.install.sys.executable", r"C:\Program Files\Pseudokrat.exe")
+    monkeypatch.setattr("pseudokrat.install.shutil.which", lambda _name: None)
+
+    cmd = resolve_pseudokrat_command("Kanzlei")
+
+    assert cmd.startswith(r'"C:\Program Files\Pseudokrat.exe" anonymize')
+    assert " -m pseudokrat " not in cmd
+    assert '--profile "Kanzlei"' in cmd
+
+
+def test_resolve_commands_reject_command_line_injection() -> None:
+    with pytest.raises(ValueError):
+        resolve_pseudokrat_command('Kanzlei" & calc.exe & "')
+    with pytest.raises(ValueError):
+        resolve_hotkey_daemon_command("Kanzlei\r\nBad")
+
+
+def test_perform_install_registers_selected_profile() -> None:
+    backend = InMemoryRegistryBackend()
+
+    perform_install(
+        backend=backend,
+        create_profile=False,
+        profile_name="Kanzlei",
+        with_hotkeys=False,
+    )
+
+    command = backend.get_string(
+        "HKCU",
+        f"{_context_menu_subkey('.pdf')}\\command",
+        "",
+    )
+    assert command is not None
+    assert '--profile "Kanzlei"' in command
+    assert "--no-ml" in command
 
 
 def test_resolve_hotkey_daemon_command_includes_profile() -> None:
     cmd = resolve_hotkey_daemon_command("Mein Konto")
     assert "hotkey-daemon" in cmd
     assert "Mein Konto" in cmd
+
+
+def test_resolve_hotkey_command_uses_frozen_executable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("pseudokrat.install.sys.frozen", True, raising=False)
+    monkeypatch.setattr("pseudokrat.install.sys.executable", r"C:\Pseudokrat.exe")
+    monkeypatch.setattr("pseudokrat.install.shutil.which", lambda _name: None)
+
+    cmd = resolve_hotkey_daemon_command("Mein Konto")
+
+    assert cmd.startswith(r'"C:\Pseudokrat.exe" hotkey-daemon')
+    assert " -m pseudokrat " not in cmd
 
 
 def test_context_menu_subkey_format() -> None:

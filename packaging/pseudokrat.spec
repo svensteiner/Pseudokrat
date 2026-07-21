@@ -14,13 +14,18 @@
 
 # ruff: noqa
 # type: ignore
+import re
 import sys
+import tomllib
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).parent  # packaging/ -> ..
 SRC = ROOT / "src"
+
+with (ROOT / "pyproject.toml").open("rb") as _pyproject_file:
+    APP_VERSION = tomllib.load(_pyproject_file)["project"]["version"]
 
 block_cipher = None
 
@@ -149,6 +154,51 @@ _icon_path = ROOT / "packaging" / "icon.ico"
 # Icon nur setzen, wenn die Datei existiert — sonst bricht PyInstaller ab.
 icon = str(_icon_path) if (is_windows and _icon_path.exists()) else None
 
+# Native Windows-Dateieigenschaften (Explorer -> Eigenschaften -> Details).
+# Die Datei wird bei jedem Build aus der kanonischen pyproject-Version erzeugt,
+# damit EXE, Installer und ``pseudokrat --version`` nicht auseinanderlaufen.
+version_info_cli = None
+version_info_gui = None
+if is_windows:
+    _match = re.match(r"^(\d+)\.(\d+)\.(\d+)", APP_VERSION)
+    if _match is None:
+        raise ValueError(f"Ungueltige Pseudokrat-Version: {APP_VERSION!r}")
+    _file_version = tuple(int(part) for part in _match.groups()) + (0,)
+
+    def _write_version_info(filename, description):
+        version_file = ROOT / "build" / f"{filename}-version-info.txt"
+        version_file.parent.mkdir(parents=True, exist_ok=True)
+        version_file.write_text(
+            f'''VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers={_file_version!r},
+    prodvers={_file_version!r},
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)),
+  kids=[
+    StringFileInfo([
+      StringTable('040904B0', [
+        StringStruct('CompanyName', 'Pseudokrat'),
+        StringStruct('FileDescription', '{description}'),
+        StringStruct('FileVersion', '{APP_VERSION}'),
+        StringStruct('InternalName', '{filename}'),
+        StringStruct('LegalCopyright', 'Copyright (c) 2026 Pseudokrat'),
+        StringStruct('OriginalFilename', '{filename}.exe'),
+        StringStruct('ProductName', 'Pseudokrat'),
+        StringStruct('ProductVersion', '{APP_VERSION}')])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])])
+''',
+            encoding="utf-8",
+        )
+        return str(version_file)
+
+    version_info_cli = _write_version_info("Pseudokrat", "Pseudokrat command line")
+    version_info_gui = _write_version_info("Pseudokrat-GUI", "Pseudokrat desktop application")
+
 # ---- Analyse 1: Konsolen-CLI ----------------------------------------------
 a_cli = Analysis(
     [str(SRC / "pseudokrat" / "__main__.py")],
@@ -192,6 +242,7 @@ exe_cli = EXE(
     upx=False,
     console=True,  # Ordner-Watcher/Setup brauchen die Konsole
     icon=icon,
+    version=version_info_cli,
 )
 
 pyz_gui = PYZ(a_gui.pure, a_gui.zipped_data, cipher=block_cipher)
@@ -207,6 +258,7 @@ exe_gui = EXE(
     upx=False,
     console=False,  # GUI
     icon=icon,
+    version=version_info_gui,
 )
 
 coll = COLLECT(
@@ -234,8 +286,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Pseudokrat",
             "CFBundleDisplayName": "Pseudokrat",
-            "CFBundleShortVersionString": "0.1.0",
-            "CFBundleVersion": "0.1.0",
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
             "NSHighResolutionCapable": True,
             "NSHumanReadableCopyright": "Copyright (c) 2026 Pseudokrat.",
             "LSMinimumSystemVersion": "11.0",

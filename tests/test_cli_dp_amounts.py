@@ -29,9 +29,7 @@ def _make_workbook(path: Path) -> list[int]:
     return amounts
 
 
-def test_cli_dp_amounts_preserves_sum(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_cli_dp_amounts_preserves_sum(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     src = tmp_path / "saldenliste.xlsx"
     out = tmp_path / "saldenliste.anon.xlsx"
     amounts = _make_workbook(src)

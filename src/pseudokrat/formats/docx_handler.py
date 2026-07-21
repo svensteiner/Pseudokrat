@@ -18,6 +18,7 @@ from pseudokrat.formats.base import (
     FormatProcessResult,
     TextTransform,
     derive_default_output,
+    validate_office_archive,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -62,6 +63,7 @@ class DocxHandler:
         from docx import Document  # lokaler Import — schwere Lib
         from docx.oxml.ns import qn
 
+        validate_office_archive(input_path)
         document = Document(str(input_path))
         processed = 0
         skipped = 0

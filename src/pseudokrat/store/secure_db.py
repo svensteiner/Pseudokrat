@@ -27,8 +27,10 @@ from __future__ import annotations
 import base64
 import os
 import sqlite3
+import stat
+import tempfile
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import UTC
 from pathlib import Path
 from typing import Any
@@ -153,6 +155,60 @@ def _read_file_magic(db_path: Path) -> bytes:
         return b""
 
 
+def _is_regular_file(path: Path) -> bool:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return False
+    return stat.S_ISREG(mode) and not stat.S_ISLNK(mode)
+
+
+def _read_private_file(path: Path, *, expected_size: int | None = None) -> bytes:
+    """Read a security sidecar without following symlinks.
+
+    Profile salts and keyring markers are trust inputs. Treating a symlink,
+    device, directory, or unexpectedly large/small salt as profile data would
+    turn a writable profiles directory into a file-read/write primitive.
+    """
+    try:
+        info = path.lstat()
+    except FileNotFoundError as exc:
+        raise InvalidPasswordError(f"Profil-Sicherheitsdatei fehlt: {path}") from exc
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+        raise InvalidPasswordError(f"Profil-Sicherheitsdatei ist keine reguläre Datei: {path}")
+    if expected_size is not None and info.st_size != expected_size:
+        raise InvalidPasswordError(f"Profil-Sicherheitsdatei hat ungültige Größe: {path}")
+    if os.name != "nt" and info.st_mode & 0o077:
+        path.chmod(0o600)
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise InvalidPasswordError(f"Profil-Sicherheitsdatei ist nicht lesbar: {path}") from exc
+
+
+def _atomic_private_write(path: Path, data: bytes) -> None:
+    """Atomically replace ``path`` with a user-private regular file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}-", dir=str(path.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        fchmod = getattr(os, "fchmod", None)
+        if fchmod is not None:
+            fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            fd = -1
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp_path.replace(path)
+        path.chmod(0o600)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        with suppress(FileNotFoundError):
+            tmp_path.unlink()
+
+
 def _file_is_sqlcipher(db_path: Path) -> bool:
     """True, wenn die existierende DB SQLCipher-verschlüsselt aussieht.
 
@@ -207,7 +263,7 @@ def profile_uses_keyring(db_path: Path) -> bool:
     """True, wenn das Profil im Simple-Mode angelegt wurde (OS-Keyring statt
     Passwort). Wird von der CLI/GUI für den Auto-Open-Pfad benutzt — ohne
     Passwort-Prompt."""
-    return _keyring_marker_path(db_path).exists()
+    return _is_regular_file(_keyring_marker_path(db_path))
 
 
 def _resolve_protector(
@@ -221,8 +277,16 @@ def _resolve_protector(
     if protector is not None:
         return protector
     marker_path = _keyring_marker_path(db_path)
-    if marker_path.exists():
-        profile_name = marker_path.read_text(encoding="utf-8").strip()
+    if marker_path.exists() or marker_path.is_symlink():
+        marker = _read_private_file(marker_path)
+        if len(marker) > 256:
+            raise InvalidPasswordError(f"Keyring-Marker {marker_path} ist unplausibel groß.")
+        try:
+            profile_name = marker.decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise InvalidPasswordError(
+                f"Keyring-Marker {marker_path} ist nicht gültiges UTF-8."
+            ) from exc
         if not profile_name:
             raise InvalidPasswordError(
                 f"Keyring-Marker {marker_path} ist leer — Profil-Metadaten beschädigt."
@@ -259,6 +323,8 @@ def open_or_init(
     weiteren Öffnen wird der abgeleitete Schlüssel über das
     Verifikations-Token geprüft; Mismatch → :class:`InvalidPasswordError`.
     """
+    if (db_path.exists() or db_path.is_symlink()) and not _is_regular_file(db_path):
+        raise InvalidPasswordError(f"Profil-DB ist keine reguläre Datei: {db_path}")
     is_new = not db_path.exists()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -277,16 +343,19 @@ def open_or_init(
             keys = active_protector.derive(salt)
         except KeyringSecretMissingError as exc:
             raise InvalidPasswordError(str(exc)) from exc
-        salt_path.write_bytes(salt)
         if isinstance(active_protector, OsKeyringKeyProtector):
             # Marker FIRST: bei einem späteren Crash zwischen DB-Create und
             # Marker-Write hätten wir sonst eine DB ohne Auto-Detect — der
             # Nutzer würde nach einem Passwort gefragt, das er nie gesetzt
             # hat. Reihenfolge: Marker → Salt → DB.
-            _keyring_marker_path(db_path).write_text(
-                active_protector.profile_name, encoding="utf-8"
+            _atomic_private_write(
+                _keyring_marker_path(db_path),
+                active_protector.profile_name.encode("utf-8"),
             )
+        _atomic_private_write(salt_path, salt)
         conn = _connect(db_path, encrypted=use_sqlcipher, key_hex=keys.sqlcipher_key_hex)
+        if db_path.exists():
+            db_path.chmod(0o600)
         conn.executescript(_SCHEMA)
         verification_ct = keys.fernet.encrypt(VERIFICATION_PLAINTEXT)
         from datetime import datetime
@@ -309,11 +378,7 @@ def open_or_init(
         return conn, keys
 
     # Open existing
-    if not salt_path.exists():
-        raise InvalidPasswordError(
-            f"Salt-Datei fehlt: {salt_path}. Profil ist nicht entschlüsselbar."
-        )
-    salt = salt_path.read_bytes()
+    salt = _read_private_file(salt_path, expected_size=SALT_BYTES)
     try:
         keys = active_protector.derive(salt)
     except KeyringSecretMissingError as exc:

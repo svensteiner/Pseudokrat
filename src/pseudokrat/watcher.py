@@ -28,11 +28,18 @@ Optionale Abhaengigkeiten:
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 import shutil
+import tempfile
 import time
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.deanonymizer import Deanonymizer
+    from pseudokrat.recognizers.base import Span
 
 #: Dateiendungen, die der Watcher verarbeitet.
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
@@ -133,11 +140,10 @@ class TermRecognizer:
 
 def _require_pymupdf() -> Any:
     try:
-        import pymupdf  # type: ignore[import-untyped]
+        import pymupdf
     except ImportError as exc:  # pragma: no cover - abh. von Optional-Install
         raise RuntimeError(
-            "PDF-Verarbeitung benoetigt PyMuPDF. Installation: "
-            "pip install 'pseudokrat[watcher]'"
+            "PDF-Verarbeitung benoetigt PyMuPDF. Installation: pip install 'pseudokrat[watcher]'"
         ) from exc
     return pymupdf
 
@@ -155,7 +161,7 @@ class _OcrEngine:
             return None
         if self._engine is None:
             try:
-                from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-untyped]
+                from rapidocr_onnxruntime import RapidOCR
             except ImportError:
                 self._log(
                     "     (OCR nicht installiert — Text in Bildern wird NICHT geprueft. "
@@ -183,6 +189,10 @@ class ResidualPIIError(RuntimeError):
             "schwaerzbar — Ausgabe nicht freigegeben (fail-closed)."
         )
         self.count = count
+
+
+class OutputInspectionError(RuntimeError):
+    """An output channel could not be inspected or sanitized safely."""
 
 
 def _pii_rect_groups(page: Any, original: str, pymupdf: Any) -> list[list[Any]]:
@@ -260,9 +270,7 @@ def redact_pdf(
                         counts[cat] = counts.get(cat, 0) + num
                 pairs: dict[str, str] = {}
                 for span in result.spans:
-                    pairs[span.text] = store.get_or_create(
-                        span.text, span.category
-                    ).placeholder
+                    pairs[span.text] = store.get_or_create(span.text, span.category).placeholder
                 for original in sorted(pairs, key=len, reverse=True):
                     placeholder = pairs[original]
                     groups = _pii_rect_groups(page, original, pymupdf)
@@ -319,21 +327,17 @@ def redact_pdf(
         # alle koennen Klartext-Namen enthalten, die die Redaction nicht sieht.
         for page in doc:
             for annot in list(page.annots() or []):
-                with contextlib.suppress(Exception):
-                    page.delete_annot(annot)
-        with contextlib.suppress(Exception):
-            for name in list(doc.embfile_names()):
-                doc.embfile_del(name)
-        with contextlib.suppress(Exception):
-            doc.set_toc([])
+                page.delete_annot(annot)
+        for name in list(doc.embfile_names()):
+            doc.embfile_del(name)
+        doc.set_toc([])
 
         # Dokument-Eigenschaften entfernen: /Title /Author /Subject /Keywords
         # /Creator /Producer sowie XMP-Metadaten (enthalten oft Mandant/Verfasser).
-        # Metadaten duerfen den Lauf nicht stoppen -> Fehler bewusst schlucken.
-        with contextlib.suppress(Exception):
-            doc.set_metadata({})
-        with contextlib.suppress(Exception):
-            doc.set_xml_metadata("")
+        # Sanitizing these channels is part of the privacy boundary. If it
+        # fails, no output may be released.
+        doc.set_metadata({})
+        doc.set_xml_metadata("")
 
         doc.save(str(dst), garbage=4, deflate=True)
     finally:
@@ -414,15 +418,22 @@ def _ocr_redact_images(
         try:
             base = doc.extract_image(xref)
             pil = Image.open(io.BytesIO(base["image"])).convert("RGB")
-        except Exception:  # noqa: BLE001 - defektes/unlesbares Bild ueberspringen
-            continue
+        except Exception as exc:  # noqa: BLE001
+            raise OutputInspectionError(
+                f"PDF-Bild xref={xref} konnte nicht sicher gelesen werden."
+            ) from exc
         if pil.width < 40 or pil.height < 20:
             continue
         try:
             ocr_result = ocr.read(base["image"])
         except Exception as exc:  # noqa: BLE001
-            log(f"     (OCR-Fehler bei xref={xref}: {exc})")
-            continue
+            raise OutputInspectionError(
+                f"OCR-Prüfung für PDF-Bild xref={xref} ist fehlgeschlagen."
+            ) from exc
+        if ocr_result is None:
+            raise OutputInspectionError(
+                "PDF enthält Bilder, aber die lokale OCR-Prüfung ist nicht verfügbar."
+            )
         if not ocr_result:
             continue
         draw = ImageDraw.Draw(pil)
@@ -441,7 +452,9 @@ def _ocr_redact_images(
             try:
                 page.replace_image(xref, stream=buf.getvalue())
             except Exception as exc:  # noqa: BLE001
-                log(f"     (Bild-Ersetzung fehlgeschlagen xref={xref}: {exc})")
+                raise OutputInspectionError(
+                    f"PDF-Bild xref={xref} konnte nicht sicher ersetzt werden."
+                ) from exc
     return hits
 
 
@@ -524,14 +537,17 @@ def strip_office_metadata(path: Path) -> None:
     """
     import zipfile
 
+    from pseudokrat.formats.base import validate_office_archive
+
     suffix = path.suffix.lower()
     if suffix not in (".xlsx", ".docx", ".pptx"):
         return
+    validate_office_archive(path)
 
     neutral = {
         "docProps/core.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<cp:coreProperties '
+            "<cp:coreProperties "
             'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
             'xmlns:dc="http://purl.org/dc/elements/1.1/" '
             'xmlns:dcterms="http://purl.org/dc/terms/" '
@@ -540,14 +556,14 @@ def strip_office_metadata(path: Path) -> None:
         ),
         "docProps/app.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Properties '
+            "<Properties "
             'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
             "</Properties>"
         ),
         # Benutzerdefinierte Eigenschaften (oft Mandant/Projekt/Ersteller).
         "docProps/custom.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Properties '
+            "<Properties "
             'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
             'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
             "</Properties>"
@@ -559,29 +575,51 @@ def strip_office_metadata(path: Path) -> None:
     # so bleiben Relationships intakt (kein Reparatur-Dialog), die Daten weg.
     custom_item_re = re.compile(r"^customXml/item\d+\.xml$")
 
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(
-        tmp, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
-        for item in zin.infolist():
-            fname = item.filename
-            data = neutral.get(fname)
-            if data is not None:
-                zout.writestr(fname, data)
-            elif custom_item_re.match(fname):
-                zout.writestr(fname, "<root/>")
-            else:
-                zout.writestr(item, zin.read(fname))
-    tmp.replace(path)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}-", dir=str(path.parent))
+    os.close(fd)
+    tmp = Path(tmp_name)
+    try:
+        tmp.chmod(0o600)
+        with (
+            zipfile.ZipFile(path, "r") as zin,
+            zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout,
+        ):
+            for item in zin.infolist():
+                fname = item.filename
+                data = neutral.get(fname)
+                if data is not None:
+                    zout.writestr(fname, data)
+                elif custom_item_re.match(fname):
+                    zout.writestr(fname, "<root/>")
+                else:
+                    zout.writestr(item, zin.read(fname))
+        tmp.replace(path)
+        path.chmod(0o600)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            tmp.unlink()
 
 
 #: PII-Kategorie -> deutsches Label für den Ergebnis-Bericht.
 _CATEGORY_LABELS: dict[str, str] = {
-    "IBAN": "IBAN", "CREDITCARD": "Kreditkarte", "UID": "UID", "SVNR": "SVNR",
-    "STEUERNR": "Steuernr", "FN": "Firmenbuch", "TAX_ID": "Steuer-ID",
-    "AHV": "AHV", "BIC": "BIC", "COMPANY": "Firma", "PERSON": "Person",
-    "ADDRESS": "Adresse", "EMAIL": "E-Mail", "PHONE": "Telefon", "URL": "URL",
-    "SECRET": "Schluessel", "BEGRIFF": "Begriff", "MANDANT_NR": "Mandantennr",
+    "IBAN": "IBAN",
+    "CREDITCARD": "Kreditkarte",
+    "UID": "UID",
+    "SVNR": "SVNR",
+    "STEUERNR": "Steuernr",
+    "FN": "Firmenbuch",
+    "TAX_ID": "Steuer-ID",
+    "AHV": "AHV",
+    "BIC": "BIC",
+    "COMPANY": "Firma",
+    "PERSON": "Person",
+    "ADDRESS": "Adresse",
+    "EMAIL": "E-Mail",
+    "PHONE": "Telefon",
+    "URL": "URL",
+    "SECRET": "Schluessel",
+    "BEGRIFF": "Begriff",
+    "MANDANT_NR": "Mandantennr",
     "BIRTHDATE": "Geburtsdatum",
 }
 
@@ -600,7 +638,7 @@ def _friendly_error(exc: Exception) -> str:
     """Erklärung in einfachem Deutsch, was der Nutzer tun kann."""
     from pseudokrat.formats import UnsupportedFormatError
 
-    if isinstance(exc, ResidualPIIError):
+    if isinstance(exc, (ResidualPIIError, OutputInspectionError)):
         return (
             "Es wurde etwas Identifizierendes gefunden, das an dieser Stelle "
             "nicht sicher geschwaerzt werden konnte. Die Datei wurde daher NICHT "
@@ -640,6 +678,8 @@ def extract_text_for_gate(path: Path) -> str:
     damit auch von ihm übersehene Kanäle geprüft werden.
     """
     suffix = path.suffix.lower()
+    if path.is_symlink() or not path.is_file():
+        raise OutputInspectionError("Ausgabedatei ist keine reguläre Datei.")
     if suffix == ".pdf":
         try:
             pymupdf = _require_pymupdf()
@@ -648,36 +688,44 @@ def extract_text_for_gate(path: Path) -> str:
                 return "\n".join(p.get_text() for p in doc)
             finally:
                 doc.close()
-        except Exception:  # noqa: BLE001
-            return ""
+        except Exception as exc:  # noqa: BLE001
+            raise OutputInspectionError(
+                "PDF-Ausgabe konnte nicht für die Rest-PII-Prüfung gelesen werden."
+            ) from exc
     if suffix in (".xlsx", ".docx", ".pptx"):
         import zipfile
 
+        from pseudokrat.formats.base import validate_office_archive
+
         parts: list[str] = []
         try:
+            validate_office_archive(path)
             with zipfile.ZipFile(path) as zf:
                 for name in zf.namelist():
                     if name.endswith(".xml") and "/media/" not in name:
-                        with contextlib.suppress(Exception):
-                            raw = zf.read(name).decode("utf-8", "replace")
-                            parts.append(_XML_TAG_RE.sub(" ", raw))
-        except Exception:  # noqa: BLE001
-            return ""
+                        raw = zf.read(name).decode("utf-8", "replace")
+                        parts.append(_XML_TAG_RE.sub(" ", raw))
+        except Exception as exc:  # noqa: BLE001
+            raise OutputInspectionError(
+                "Office-Ausgabe konnte nicht vollständig auf Rest-PII geprüft werden."
+            ) from exc
         return " ".join(parts)
     try:
         return path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
+    except OSError as exc:
+        raise OutputInspectionError(
+            "Textausgabe konnte nicht auf Rest-PII geprüft werden."
+        ) from exc
 
 
 def _unique_target(target: Path) -> Path:
     """Freien Zielnamen finden ('name (2).ext'), statt bestehende zu ueberschreiben."""
-    if not target.exists():
+    if not os.path.lexists(target):
         return target
     stem, suffix, parent = target.stem, target.suffix, target.parent
     for i in range(2, 1000):
         cand = parent / f"{stem} ({i}){suffix}"
-        if not cand.exists():
+        if not os.path.lexists(cand):
             return cand
     return target  # extrem unwahrscheinlich
 
@@ -693,8 +741,6 @@ def run(
     poll_seconds: float = 3.0,
 ) -> int:
     """Startet den Ordner-Watcher (laeuft, bis der Prozess beendet wird)."""
-    import os
-
     # Ohne KI-Modell laufen (regelbasiert + Begriffe) — fuer gesperrte Rechner.
     os.environ.setdefault("PSEUDOKRAT_DISABLE_ML", "1")
 
@@ -710,25 +756,27 @@ def run(
 
     for folder in (inbox, outbox, back_in, back_out, done, errors):
         folder.mkdir(parents=True, exist_ok=True)
+        if folder.is_symlink() or folder.resolve().parent != base:
+            raise RuntimeError(f"Watcher-Arbeitsordner liegt außerhalb des Basisordners: {folder}")
 
     # Wegweiser-Dateien in leeren Arbeitsordnern (nur einmalig).
-    _WEGWEISER = {
+    wegweiser = {
         inbox: "_Hier Dateien zum Anonymisieren hineinziehen.txt",
         outbox: "_Hier erscheinen die anonymisierten Ergebnisse.txt",
         back_in: "_Hier die KI-Antwort mit Platzhaltern hineinlegen.txt",
         back_out: "_Hier kommt der Klartext (Originale) zurueck.txt",
     }
-    for folder, marker in _WEGWEISER.items():
+    for folder, marker in wegweiser.items():
         with contextlib.suppress(OSError):
             if not any(folder.iterdir()):
                 (folder / marker).write_text("", encoding="utf-8")
 
     # Sitzungs-Trenner ins Log (klarere Historie über mehrere Läufe).
-    with contextlib.suppress(OSError):
-        with log_file.open("a", encoding="utf-8") as handle:
-            handle.write(
-                f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
-            )
+    with (
+        contextlib.suppress(OSError),
+        log_file.open("a", encoding="utf-8") as handle,
+    ):
+        handle.write(f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
 
     def log(message: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}"
@@ -754,8 +802,7 @@ def run(
 
             msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
         else:
-            import fcntl
-
+            fcntl: Any = __import__("fcntl")
             fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
         log(
@@ -764,6 +811,11 @@ def run(
         )
         lock_handle.close()
         return 0
+
+    staging_context = tempfile.TemporaryDirectory(prefix=".pseudokrat-stage-", dir=str(base))
+    staging = Path(staging_context.name)
+    if os.name != "nt":
+        staging.chmod(0o700)
 
     log("Starte ... lade Programm (erster Start dauert ueber das Netzlaufwerk etwas).")
     log("Lade Erkennungsmodule ...")
@@ -779,6 +831,7 @@ def run(
 
     log("  Lade Profilverwaltung ...")
     from pseudokrat.store.profile import ProfileManager
+
     log("Erkennungsmodule geladen.")
 
     manager = ProfileManager()
@@ -809,9 +862,7 @@ def run(
 
     # Rest-PII-Gate: hochpraezise Erkenner (+ eigene Begriffe) fuer die
     # Nachpruefung der fertigen Ausgabe (Defense-in-Depth, fail-closed).
-    gate_recognizers = [
-        r for r in recognizers if getattr(r, "category", "") in _GATE_CATEGORIES
-    ]
+    gate_recognizers = [r for r in recognizers if getattr(r, "category", "") in _GATE_CATEGORIES]
     if terms:
         gate_recognizers.append(TermRecognizer(terms))
 
@@ -851,8 +902,7 @@ def run(
             gate_text = extract_text_for_gate(target)
             total = 0
             for recognizer in gate_recognizers:
-                with contextlib.suppress(Exception):
-                    total += len(recognizer.analyze(gate_text))
+                total += len(recognizer.analyze(gate_text))
             return total
 
         def process(path: Path, *, reverse: bool) -> None:
@@ -861,13 +911,16 @@ def run(
             is_pdf = path.suffix.lower() == ".pdf"
             counts: dict[str, int] = {}
             if reverse:
-                target = _unique_target(back_out / f"{path.stem}.klartext{path.suffix}")
+                final_target = _unique_target(back_out / f"{path.stem}.klartext{path.suffix}")
                 log(f"Ruckuebersetze: {path.name}")
             else:
                 # Dateiname mit-anonymisieren (Klartext-Name -> Platzhalter).
                 safe_stem = safe_anonymized_stem(path.stem, anonymizer)
-                target = _unique_target(outbox / f"{safe_stem}.anon{path.suffix}")
-                log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {target.stem})")
+                final_target = _unique_target(outbox / f"{safe_stem}.anon{path.suffix}")
+                log(f"Anonymisiere: {path.name}  (Ausgabe-Name: {final_target.stem})")
+            # Never expose a partially written or not-yet-gated file in an
+            # OUTPUT directory. Processing happens in a private staging dir.
+            target = _unique_target(staging / final_target.name)
             try:
                 if reverse and is_pdf:
                     resolved, missing = deanon_pdf(path, target, deanonymizer)
@@ -888,9 +941,7 @@ def run(
                         missing_ph.update(result.missing_placeholders)
                         return result.text
 
-                    res = handler_for(path).process(
-                        path, target, transform=_reverse_transform
-                    )
+                    res = handler_for(path).process(path, target, transform=_reverse_transform)
                     if missing_ph:
                         log(
                             f"  -> OK ({res.segments_processed} Segmente), ABER "
@@ -901,10 +952,15 @@ def run(
                         log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
                 elif is_pdf:
                     redact_pdf(
-                        path, target, anonymizer, store,
-                        remove_logos=remove_logos, ocr=ocr, log=log, counts=counts,
+                        path,
+                        target,
+                        anonymizer,
+                        store,
+                        remove_logos=remove_logos,
+                        ocr=ocr,
+                        log=log,
+                        counts=counts,
                     )
-                    report_anon(counts, target)
                 else:
                     from pseudokrat.formats import handler_for
 
@@ -916,13 +972,20 @@ def run(
 
                     handler_for(path).process(path, target, transform=_counting_transform)
                     strip_office_metadata(target)  # Dokument-Eigenschaften entfernen
-                    report_anon(counts, target)
                 # Rest-PII-Gate (Defense-in-Depth): bleibt hochsensible PII in der
                 # Ausgabe, NICHT freigeben (fail-closed) — greift bei allen Formaten.
                 if not reverse:
                     residual = gate_residual(target)
                     if residual:
                         raise ResidualPIIError(residual)
+                # Re-check the public destination immediately before release
+                # to avoid overwriting a file created during processing.
+                final_target = _unique_target(final_target)
+                if os.name != "nt":
+                    target.chmod(0o600)
+                target.replace(final_target)
+                if not reverse:
+                    report_anon(counts, final_target)
                 relocate(path, done)
             except Exception as exc:  # noqa: BLE001 - im Watcher alles abfangen
                 log(f"  -> FEHLER bei {path.name}: {_friendly_error(exc)}")
@@ -936,7 +999,7 @@ def run(
                     )
                 # (Teilweise) geschriebene Ausgabe entfernen — nie ein Leck.
                 with contextlib.suppress(OSError):
-                    if not reverse and target.exists():
+                    if os.path.lexists(target):
                         target.unlink()
                 try:
                     relocate(path, errors)
@@ -968,11 +1031,16 @@ def run(
 
 def _scan(folder: Path) -> list[Path]:
     try:
-        return [
-            f for f in folder.iterdir()
-            if f.is_file()
-            and f.suffix.lower() in SUPPORTED_EXTENSIONS
-            and not f.name.startswith("_")  # Wegweiser-/Marker-Dateien überspringen
-        ]
+        root = folder.resolve(strict=True)
+        files: list[Path] = []
+        for entry in folder.iterdir():
+            if entry.is_symlink() or entry.name.startswith("_"):
+                continue
+            if entry.suffix.lower() not in SUPPORTED_EXTENSIONS or not entry.is_file():
+                continue
+            resolved = entry.resolve(strict=True)
+            if resolved.is_relative_to(root):
+                files.append(entry)
+        return files
     except OSError:
         return []

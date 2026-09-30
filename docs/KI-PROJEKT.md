@@ -48,13 +48,24 @@ keine durch die KI gelöschten Inhalte oder erfundenen Aussagen reparieren.
   statt. Unveränderte Zahlen sind kein Nachweis identischer Formelergebnisse.
 - Alle Excel-Blätter bekommen neutrale Namen. Der lokale Original-Arbeitsordner
   verwendet dieselben Namen, sodass Code mit neutralen Referenzen funktioniert.
-- Standard-Dokumenteigenschaften, Vorschaubilder und Custom-XML-Dateninseln
-  werden entfernt. Bilder, Diagramme, Pivot-Caches, Kommentare, externe Links,
+- Dokumenteigenschaften werden vollständig aus dem Paket entfernt: Ersteller,
+  letzter Bearbeiter, Erstellungs-/Änderungsdatum, Titel, Betreff, Firma,
+  Manager und benutzerdefinierte Eigenschaften. Zugehörige Paketverweise werden
+  ebenfalls entfernt. Die Entfernung hängt nicht von der Namenserkennung ab.
+- Excel-Benutzernamen in Freigabeeinstellungen, interne Arbeitsmappen-/Blatt-
+  Codenamen und gespeicherte Erzeuger-/Versionsangaben werden entfernt.
+  Benutzerdefinierte Ansichten werden wegen weiterer Herkunftsfelder blockiert.
+- Vorschaubilder und Custom-XML-Dateninseln werden entfernt. Bilder, Diagramme,
+  Pivot-Caches, Kommentare, externe Links,
   Makros und verschiedene komplexe Office-Elemente werden in dieser ersten
   Version ausdrücklich blockiert. Keine stille Freigabe unbekannter Bestandteile.
 - Word-Felder/Inhaltssteuerelemente und benutzerdefinierte Excel-Bereichsnamen
   benötigen noch zusätzliche Adapter. Die Dateigröße ist begrenzt.
 - Namenserkennung ist nicht vollständig. Die lokale Vorschau ist verpflichtend.
+- Die Rückwandlung stellt Inhalte wieder her, nicht entfernte Autorenmetadaten.
+  Originaldateien bleiben unverändert. Nur das erzeugte `KI-Paket.zip` freigeben;
+  Änderungen an der Vorschau, auch erneutes Speichern in Office, verletzen die
+  Hash-Prüfung und verlangen eine neue Vorbereitung.
 - Echte Zahlenkombinationen können Personen, Objekte oder Unternehmen erkennbar
   machen. Das Tool behauptet **keine garantierte Anonymität**. Wenn Zuordnung
   weiterhin möglich ist, Paket nicht weitergeben und nur lokal arbeiten.

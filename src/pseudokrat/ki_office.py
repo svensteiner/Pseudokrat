@@ -61,7 +61,7 @@ def read_office(path: Path) -> dict[str, Any]:
             for info in infos:
                 # Non-rendered custom data and original-page previews are never
                 # needed by the development copy. Remove their links below too.
-                if info.filename.startswith("customXml/") or info.filename.startswith("docProps/thumbnail."):
+                if info.filename.startswith(("customXml/", "docProps/")):
                     continue
                 if not _ALLOWED.fullmatch(info.filename):
                     raise ProjectError(
@@ -84,15 +84,25 @@ def read_office(path: Path) -> dict[str, Any]:
             for element in list(root.iter()):
                 local = tag_local(element)
                 if ((local == "Relationship" and element.get("Type", "").rsplit("/", 1)[-1]
-                     in {"customXml", "thumbnail"}) or
-                    (local == "Override" and element.get("PartName", "").startswith("/customXml/"))):
+                     in {"customXml", "thumbnail", "core-properties", "extended-properties", "custom-properties"}) or
+                    (local == "Override" and element.get("PartName", "").startswith(("/customXml/", "/docProps/")))):
                     element.getparent().remove(element)
                     continue
+                # These provenance fields are optional and must be removed even
+                # when a creator's opaque account name is not recognized as PII.
+                if element.tag == f"{{{S}}}fileVersion":
+                    element.getparent().remove(element)
+                    continue
+                if element.tag == f"{{{S}}}fileSharing":
+                    element.attrib.pop("userName", None)
+                if element.tag in {f"{{{S}}}workbookPr", f"{{{S}}}sheetPr"}:
+                    element.attrib.pop("codeName", None)
                 if local == "Relationship" and element.get("TargetMode") == "External":
                     raise ProjectError("Externe Office-Verknüpfungen werden nicht unterstützt.")
                 if local in {"oleObject", "object", "altChunk", "drawing", "pict", "extLst",
                              "hyperlink", "customXml", "sdt", "smartTag", "ins", "del",
-                             "moveFrom", "moveTo", "fldSimple", "instrText"}:
+                             "moveFrom", "moveTo", "fldSimple", "instrText",
+                             "customWorkbookViews", "customSheetViews"}:
                     raise ProjectError("Nicht unterstütztes Office-Element: " + local + ".")
                 if local == "definedName" and not element.get("name", "").startswith("_xlnm."):
                     raise ProjectError("Benutzerdefinierte Excel-Bereichsnamen werden noch nicht unterstützt.")

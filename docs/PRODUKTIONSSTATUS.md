@@ -35,6 +35,19 @@ Regressionstests decken Leckage, Referenzverschiebung und Datentyp-Rückweg ab.
 
 ## Vor einer Produktionsfreigabe offen
 
+Zusätzliche Metadatenhärtung: Dokumenteigenschaften werden vollständig entfernt,
+einschließlich unbekannter Autorenkennungen in Zusatzattributen und
+benutzerdefinierten Eigenschaften. Excel-Freigabe-Benutzername, Codenamen und
+Programmversionsangaben werden ebenfalls bereinigt; benutzerdefinierte Ansichten
+werden blockiert. Ein Lauf mit 31 Projekt-/CLI-/Rückwandlungstests bestand;
+anschließend bestanden alle vier Metadatentests einschließlich der ergänzten
+Ansichten-Prüfungen. Originale, Rechenwerte und Formeln blieben erhalten.
+
+Die OOXML-Herkunftsfelder sind unter anderem in Microsofts Dokumentation zu
+[FileSharing](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.filesharing)
+und [FileVersion](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.fileversion)
+beschrieben.
+
 1. Repräsentativen echten Bestand ausschließlich beim Anwender prüfen. Die
    95-%-Quote gilt für vollständige Arbeitsfälle; blockierte Fälle mitzählen.
 2. Tatsächliche Excel-Neuberechnung von Original und Entwicklungskopie

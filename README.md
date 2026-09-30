@@ -1,5 +1,11 @@
 # Pseudokrat
 
+**Neu: [KI-Projekt für Excel/Word](docs/KI-PROJEKT.md)** — gemeinsam
+pseudonymisierte Entwicklungsdateien mit unveränderten Rechenwerten,
+verschlüsselter lokaler Zuordnung, geprüftem Paketexport und einem getrennten
+Originaldaten-Arbeitsordner für die eigene Spark-KI. Unterstützungsgrenzen und
+Prüfpflichten stehen in der Anleitung; keine garantierte Anonymität.
+
 **Lokale PII-Anonymisierung für DACH-Berufsträger.**
 Damit Ihre Mandanten auch in der Cloud anonym bleiben.
 

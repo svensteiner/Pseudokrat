@@ -419,6 +419,9 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    from pseudokrat.ki_cli import add_commands
+
+    add_commands(sub, common)
     return parser
 
 
@@ -1549,6 +1552,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     from pseudokrat.logging_config import configure_logging
 
     configure_logging(args.log_level)
+
+    if args.command == "ki-project":
+        from pseudokrat.ki_cli import run
+
+        return run(args, _new_profile_manager())
 
     if args.command == "init":
         return _cmd_init(args, _new_profile_manager())

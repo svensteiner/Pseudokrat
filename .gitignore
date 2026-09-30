@@ -80,3 +80,10 @@ coverage.json
 
 # Claude Code harness state (user-local, never commit)
 .claude/
+
+# KI-project runtime artifacts: never publish identities or originals
+zuordnung.enc
+lokale-zuordnung.json
+KI-Paket.zip
+vorschau/
+originaldaten/

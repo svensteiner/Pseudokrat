@@ -21,6 +21,7 @@ from pseudokrat.ki_office import (
     S,
     W,
     cell_text,
+    compact_shared_strings,
     guard_numeric_identifiers,
     read_office,
     shared_text,
@@ -255,6 +256,7 @@ def prepare_project(
                     and value is not None and value.text and mapping.transform(value.text) != value.text):
                     raise ProjectError("Berechneter Identifikator könnte durch Neuberechnung wieder erscheinen. Export gesperrt.")
         _replace_identity_cells(identities, roots, mapping)
+        compact_shared_strings(roots)
         transform_office(roots, mapping.transform, sheets)
         if before != _numeric_snapshot(roots, excluded):
             raise ProjectError("Rechenwerte wurden verändert; Export gesperrt.")

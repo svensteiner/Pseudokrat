@@ -95,6 +95,9 @@ Vergleich und Wiederverwendungsentscheidungen: [GitHub-Vergleich](GITHUB-VERGLEI
 
 ## Reifegrad
 
+Aktueller Prüfstand und noch offene Freigabekriterien:
+[Produktionsstatus](PRODUKTIONSSTATUS.md).
+
 Validierung am 30.09.2026: Gesamtlauf mit 863 bestandenen Tests; danach ergänzte
 Fälle für 65 Word-Abschnitte und sensible Excel-Zahlenformate bestanden in einem
 gezielten Lauf mit insgesamt 36 Tests. Ruff und mypy über das gesamte Projekt

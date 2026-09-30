@@ -113,9 +113,12 @@ def write_office(roots: dict[str, Any]) -> bytes:
 
 def cell_text(cell: Any, shared: list[str]) -> str:
     value = cell.find(f"{{{S}}}v")
-    if cell.get("t") == "s" and value is not None:
+    if cell.get("t") == "s":
         try:
-            return shared[int(value.text)]
+            index = int(value.text) if value is not None else -1
+            if index < 0:
+                raise ValueError
+            return shared[index]
         except (IndexError, ValueError, TypeError) as exc:
             raise ProjectError("Ungültiger Excel-Textverweis.") from exc
     if cell.get("t") == "inlineStr":
@@ -128,6 +131,39 @@ def shared_text(roots: dict[str, Any]) -> list[str]:
     if root is None:
         return []
     return ["".join(si.itertext()) for si in root]
+
+
+def compact_shared_strings(roots: dict[str, Any]) -> None:
+    """Remove unused Excel strings, including former ID values, and remap indices."""
+    table = roots.get("xl/sharedStrings.xml")
+    if table is None:
+        return
+    entries = list(table)
+    references: list[tuple[Any, int]] = []
+    for name, root in roots.items():
+        if not name.startswith("xl/worksheets/"):
+            continue
+        for cell in root.iter(f"{{{S}}}c"):
+            if cell.get("t") != "s":
+                continue
+            value = cell.find(f"{{{S}}}v")
+            try:
+                index = int(value.text) if value is not None else -1
+                if not 0 <= index < len(entries):
+                    raise ValueError
+            except (ValueError, TypeError) as exc:
+                raise ProjectError("Ungültiger Excel-Textverweis.") from exc
+            references.append((value, index))
+    used = sorted({index for _, index in references})
+    remap = {old: new for new, old in enumerate(used)}
+    for entry in entries:
+        table.remove(entry)
+    for index in used:
+        table.append(entries[index])
+    for value, index in references:
+        value.text = str(remap[index])
+    table.set("count", str(len(references)))
+    table.set("uniqueCount", str(len(used)))
 
 
 def rewrite_runs(nodes: list[Any], transform: Callable[[str], str]) -> None:

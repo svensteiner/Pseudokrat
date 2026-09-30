@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import io
+import posixpath
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -16,12 +17,16 @@ from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 from lxml import etree
 from openpyxl.formula.tokenizer import Tokenizer
+from openpyxl.utils.cell import range_boundaries
+from openpyxl.utils.formulas import FORMULAE
 
 MAX_BYTES = 50 * 1024 * 1024
 MAX_PART = 10 * 1024 * 1024
 S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R = "http://schemas.openxmlformats.org/package/2006/relationships"
+_SAFE_FUNCTIONS = set(FORMULAE) | {"XLOOKUP", "XMATCH", "FILTER", "SORT", "SORTBY", "UNIQUE", "SEQUENCE", "LET", "IFS", "SWITCH", "TEXTJOIN", "CONCAT"}
+_UNSAFE_FUNCTIONS = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "RTD", "IMAGE", "STOCKHISTORY", "CALL", "EXEC", "REGISTER", "REGISTER.ID", "SQL.REQUEST"}
 _ALLOWED = re.compile(
     r"(?:\[Content_Types\]\.xml|_rels/\.rels|docProps/(?:core|app|custom)\.xml|"
     r"xl/(?:workbook|styles|sharedStrings)\.xml|xl/theme/theme\d+\.xml|"
@@ -176,12 +181,57 @@ def transform_formula(formula: str, transform: Callable[[str], str], sheets: dic
             if decoded not in sheets:
                 raise ProjectError("Externe oder mehrdeutige Blattreferenz wird nicht unterstützt.")
             value = "'" + sheets[decoded].replace("'", "''") + "'!" + ref
-        elif token.type == "FUNC" and re.match(
-            r"(?:_xlfn\.)?(?:INDIRECT|HYPERLINK|WEBSERVICE|RTD|IMAGE|STOCKHISTORY)\(", value, re.I
-        ):
-            raise ProjectError("Dynamische oder externe Formelfunktion wird nicht unterstützt.")
+        elif token.type == "FUNC" and token.subtype == "OPEN":
+            function = re.sub(r"^_xlfn\.", "", value[:-1], flags=re.I).upper()
+            if function in _UNSAFE_FUNCTIONS or function not in _SAFE_FUNCTIONS:
+                raise ProjectError("Unbekannte, dynamische oder externe Formelfunktion wird nicht unterstützt.")
         result.append(value)
     return ("=" if prefix else "") + "".join(result)
+
+
+def guard_numeric_identifiers(roots: dict[str, Any], identities: list[Any]) -> None:
+    """Changing numeric IDs to tokens must never silently alter a dependent formula."""
+    cells = [cell for cell in identities if cell.get("t", "n") == "n"]
+    if not cells:
+        return
+    workbook = roots["xl/workbook.xml"]
+    rels = roots.get("xl/_rels/workbook.xml.rels")
+    if rels is None:
+        raise ProjectError("Excel-Blattzuordnung kann nicht geprüft werden.")
+    targets = {r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
+               for r in rels}
+    parts = {s.get("name"): targets.get(s.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"))
+             for s in workbook.iter(f"{{{S}}}sheet")}
+    protected: dict[str, list[tuple[int, int]]] = {}
+    for cell in cells:
+        path = next(name for name, root in roots.items() if root is cell.getroottree().getroot())
+        col, row, _, _ = range_boundaries(cell.get("r"))
+        protected.setdefault(path, []).append((col, row))
+    for name, root in roots.items():
+        for formula in root.iter():
+            if tag_local(formula) not in {"f", "definedName", "formula", "formula1", "formula2"}:
+                continue
+            try:
+                tokens = Tokenizer("=" + (formula.text or "").lstrip("=")).items
+                for token in tokens:
+                    if token.subtype != "RANGE":
+                        continue
+                    ref, target = token.value, name
+                    if "!" in ref:
+                        sheet, ref = ref.rsplit("!", 1)
+                        sheet = sheet[1:-1].replace("''", "'") if sheet.startswith("'") else sheet
+                        target = parts.get(sheet) or ""
+                    if target not in protected:
+                        continue
+                    lo_col, lo_row, hi_col, hi_row = range_boundaries(ref)
+                    if any((lo_col is None or lo_col <= col <= hi_col) and
+                           (lo_row is None or lo_row <= row <= hi_row)
+                           for col, row in protected[target]):
+                        raise ProjectError("Formel verwendet eine numerische Kennung. Lokale Feldzuordnung erforderlich.")
+            except ProjectError:
+                raise
+            except (ValueError, TypeError) as exc:
+                raise ProjectError("Formelbezug auf numerische Kennungen kann nicht sicher geprüft werden.") from exc
 
 
 def transform_office(

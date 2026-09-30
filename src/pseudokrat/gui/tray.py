@@ -137,6 +137,10 @@ class PseudokratTrayIcon(QSystemTrayIcon):
         )
 
     def _on_quit(self) -> None:
+        tab = getattr(self._host, "ki_project_tab", None)
+        if tab is not None and tab.job is not None:
+            self.showMessage("Pseudokrat", "KI-Projekt wird noch verarbeitet. Danach erneut beenden.")
+            return
         app = QApplication.instance()
         self._host.controller.close()
         if app is not None:

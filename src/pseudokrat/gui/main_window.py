@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from pseudokrat import __version__
 from pseudokrat.gui.controller import GuiController, GuiError
+from pseudokrat.gui.ki_project_tab import KiProjectTab
 from pseudokrat.gui.preview_widget import PIIPreviewWidget
 from pseudokrat.gui.tray import PseudokratTrayIcon, attach_tray_icon
 
@@ -126,6 +127,8 @@ class MainWindow(QMainWindow):
 
         self.tabs.addTab(self._build_live_tab(), "Live")
         self.tabs.addTab(self._build_files_tab(), "Datei")
+        self.ki_project_tab = KiProjectTab(self._controller, self)
+        self.tabs.addTab(self.ki_project_tab, "KI-Projekt")
         # Profile-Tab nur im Power-User-Modus.
         if not self._simple_mode:
             self.tabs.addTab(self._build_profiles_tab(), "Profile")
@@ -314,6 +317,7 @@ class MainWindow(QMainWindow):
         return self._controller
 
     def _update_action_buttons_enabled(self, enabled: bool) -> None:
+        self.ki_project_tab.update_session(enabled)
         self.preview_button.setEnabled(enabled)
         self.anonymize_button.setEnabled(enabled)
         self.deanonymize_button.setEnabled(enabled)
@@ -563,6 +567,10 @@ class MainWindow(QMainWindow):
         * **Power-User-Mode** oder Tray nicht verfügbar: Standardverhalten,
           Controller schließen und Fenster zu.
         """
+        if self.ki_project_tab.job is not None:
+            event.ignore()
+            self.statusBar().showMessage("KI-Projekt wird noch verarbeitet. Danach kann Pseudokrat geschlossen werden.")
+            return
         if self._simple_mode and self.tray_icon.isVisible():
             event.ignore()
             self.hide()

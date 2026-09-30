@@ -63,6 +63,48 @@ def test_package_preserves_numbers_formulas_and_project_consistency(tmp_path, in
     assert b"Sondername" not in (project / "zuordnung.enc").read_bytes()
 
 
+def test_large_word_template_roundtrip_with_tables(tmp_path, store_and_audit):
+    """65 explicit page sections; this checks content, not Word pagination."""
+    source = tmp_path / "large.docx"
+    document = Document()
+    for index in range(65):
+        if index:
+            document.add_page_break()
+        document.add_heading(f"Abschnitt {index + 1}", level=1)
+        paragraph = document.add_paragraph()
+        paragraph.add_run("Sonder").bold = True
+        paragraph.add_run("name: Auswertung")
+        table = document.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Name"
+        table.cell(0, 1).text = "Betrag"
+        table.cell(1, 0).text = "Sondername"
+        table.cell(1, 1).text = f"{index + 1},50 EUR"
+    document.save(source)
+    key = store_and_audit[0].keys.fernet
+    project = prepare_project([source], tmp_path / "large-project", key, terms=["Sondername"])
+    preview = project / "vorschau" / "vorlage_01.docx"
+    masked = Document(preview)
+    assert len(masked.tables) == 65
+    assert all("Sondername" not in table.cell(1, 0).text for table in masked.tables)
+    restored = tmp_path / "restored.docx"
+    restore_file(project, key, preview, restored)
+    result = Document(restored)
+    for index, table in enumerate(result.tables):
+        assert table.cell(1, 0).text == "Sondername"
+        assert table.cell(1, 1).text == f"{index + 1},50 EUR"
+
+
+def test_identity_hidden_in_number_format_blocks_export(tmp_path, store_and_audit):
+    book = Workbook()
+    book.active["A1"] = 123
+    book.active["A1"].number_format = '0 "secret.person@example.com"'
+    source = tmp_path / "format.xlsx"
+    book.save(source)
+    with pytest.raises(ProjectError):
+        prepare_project([source], tmp_path / "blocked", store_and_audit[0].keys.fernet)
+    assert not (tmp_path / "blocked").exists()
+
+
 def test_release_requires_review_and_explicit_numeric_risk_acceptance(tmp_path, inputs, store_and_audit):
     project = prepare(tmp_path, inputs, store_and_audit)
     key = store_and_audit[0].keys.fernet
@@ -194,3 +236,82 @@ def test_foreign_key_cannot_unlock_vault(tmp_path, inputs, store_and_audit):
     project = prepare(tmp_path, inputs, store_and_audit)
     with pytest.raises(ProjectError, match="Profil"):
         publish_project(project, Fernet(Fernet.generate_key()), reviewed=True, accept_numeric_linkability=True)
+
+
+@pytest.mark.parametrize("formula", ["=COUNT(A2:A3)", "=SUM(A:A)", "=A2+1", '=COUNTIF(A2:A3,123456)'])
+def test_formulas_using_numeric_identifiers_block_instead_of_changing_results(tmp_path, inputs, store_and_audit, formula):
+    book = load_workbook(inputs[0])
+    book.active["F2"] = formula
+    book.save(inputs[0])
+    with pytest.raises(ProjectError, match="Kennung"):
+        prepare(tmp_path, inputs, store_and_audit)
+
+
+def test_numeric_id_does_not_replace_unrelated_word_amount(tmp_path, inputs, store_and_audit):
+    doc = Document(inputs[1])
+    doc.add_paragraph("Betrag 123456 EUR")
+    doc.save(inputs[1])
+    project = prepare(tmp_path, inputs, store_and_audit)
+    assert Document(project / "vorschau" / "vorlage_02.docx").paragraphs[-1].text == "Betrag 123456 EUR"
+
+
+def test_validation_list_pii_is_discovered_without_manual_terms(tmp_path, store_and_audit):
+    from openpyxl.worksheet.datavalidation import DataValidation
+    book = Workbook()
+    validation = DataValidation(type="list", formula1='"secret.person@example.com,other@example.com"')
+    validation.add("A1")
+    book.active.add_data_validation(validation)
+    source = tmp_path / "validation.xlsx"
+    book.save(source)
+    project = prepare_project([source], tmp_path / "project", store_and_audit[0].keys.fernet)
+    with ZipFile(project / "vorschau" / "daten_01.xlsx") as archive:
+        assert b"secret.person@example.com" not in archive.read("xl/worksheets/sheet1.xml")
+
+
+def test_equal_string_and_numeric_identifiers_keep_distinct_types(tmp_path, store_and_audit):
+    book = Workbook()
+    book.active.append(["Kundennummer", "Name"])
+    book.active.append([123456, "123456"])
+    source = tmp_path / "types.xlsx"
+    book.save(source)
+    key = store_and_audit[0].keys.fernet
+    project = prepare_project([source], tmp_path / "project", key)
+    restored = restore_file(project, key, project / "vorschau" / "daten_01.xlsx", tmp_path / "restored.xlsx")
+    result = load_workbook(restored).active
+    assert result["A2"].value == 123456
+    assert result["A2"].data_type == "n"
+    assert result["B2"].value == "123456"
+    assert result["B2"].data_type == "s"
+
+
+def test_phone_numbers_still_replace_in_prose(tmp_path, store_and_audit):
+    doc = Document()
+    doc.add_paragraph("Telefon +43 664 1234567")
+    source = tmp_path / "phone.docx"
+    doc.save(source)
+    project = prepare_project([source], tmp_path / "project", store_and_audit[0].keys.fernet)
+    assert "+43 664 1234567" not in Document(project / "vorschau" / "vorlage_01.docx").paragraphs[0].text
+
+
+def test_sensitive_cached_formula_result_blocks_reconstruction(tmp_path, store_and_audit):
+    import io
+
+    from lxml import etree
+    book = Workbook()
+    book.active["A1"] = '=CONCAT("secret",".person","@example.com")'
+    buffer = io.BytesIO()
+    book.save(buffer)
+    source = tmp_path / "cache.xlsx"
+    with ZipFile(buffer) as archive, ZipFile(source, "w", ZIP_DEFLATED) as target:
+        for name in archive.namelist():
+            data = archive.read(name)
+            if name == "xl/worksheets/sheet1.xml":
+                root = etree.fromstring(data)
+                ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                cell = next(root.iter(ns + "c"))
+                cell.set("t", "str")
+                cell.find(ns + "v").text = "secret.person@example.com"
+                data = etree.tostring(root)
+            target.writestr(name, data)
+    with pytest.raises(ProjectError, match="Berechnet"):
+        prepare_project([source], tmp_path / "project", store_and_audit[0].keys.fernet)

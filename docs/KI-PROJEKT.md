@@ -7,6 +7,12 @@ mit dem geöffneten Pseudokrat-Profil. Profile und Schlüssel sichern.
 
 ## Ablauf
 
+In der Desktop-Oberfläche steht nach dem Öffnen eines Profils der Reiter
+**KI-Projekt** zur Verfügung: Dateien hinzufügen, Vorschau erstellen und öffnen,
+lokale Prüfung bestätigen und das ZIP freigeben. Rückwandlung und vertraulicher
+Spark-Arbeitsordner sind dort ebenfalls erreichbar. Lange Verarbeitung läuft im
+Hintergrund; währenddessen verhindert das Programm ein versehentliches Beenden.
+
 1. Originaldateien lokal vorbereiten. Zusätzliche Namen, Firmen, Projekte und
    andere identifizierende Begriffe in eine lokale UTF-8-Datei schreiben,
    ein Begriff je Zeile. Diese Datei nicht weitergeben.
@@ -56,6 +62,36 @@ keine durch die KI gelöschten Inhalte oder erfundenen Aussagen reparieren.
 Der Standardablauf ist offline. GPT-OSS 120B und Qwen3-Coder-Next auf einem
 eigenen Spark können im vertraulichen Arbeitsordner die weitere Umsetzung
 übernehmen. BGE-M3 kann bei lokaler Suche helfen, ersetzt aber keine Prüfung.
+
+### Optionale Erkennung auf dem eigenen Spark
+
+Im Reiter KI-Projekt die zusätzliche eigene KI ausdrücklich einschalten und
+API-Adresse sowie den tatsächlich vom Server angebotenen Modellnamen eintragen.
+Die Schnittstelle muss OpenAI-kompatibles `POST /v1/chat/completions` mit einer
+JSON-Antwort im Nachrichteninhalt anbieten. GPT-OSS ist für Erkennung und Texte,
+Qwen3-Coder-Next für den späteren Berichtscode vorgesehen. BGE-M3 ist ein
+Embedding-Modell und gehört nicht in dieses Chat-Modell-Feld.
+
+CLI-Beispiel mit Platzhalter-Adresse im eigenen Netz:
+
+```powershell
+pseudokrat ki-project --profile mein-profil prepare --input daten.xlsx vorlage.docx --output mein-projekt --local-endpoint http://192.168.1.50:8000/v1 --local-model SERVER-MODELLNAME --allow-lan
+```
+
+Dabei erhält der eigene Server Originaltext. Nur Loopback oder explizit erlaubte
+private IP-Adressen werden akzeptiert; Proxys, Weiterleitungen und ein Cloud-
+Fallback sind ausgeschaltet. Fehlerhafte Antworten stoppen die Vorbereitung.
+Modellvorschläge müssen als exakte Textstellen im Original vorkommen; das Modell
+führt weder Code noch Ersetzungen aus. Diese Schnittstelle wurde mit simulierten
+Antworten getestet, noch nicht auf dem konkreten Spark des Anwenders.
+
+Formeln, die numerische Identifikatoren verwenden, werden blockiert, weil deren
+Ersetzung durch Text die Berechnung verändern könnte. Ebenso werden erkannte
+identifizierende zwischengespeicherte Formelergebnisse blockiert: Eine bloße
+Ersetzung könnte bei Neuberechnung rückgängig werden. Komplexe Formellogik wird
+nicht auf sämtliche möglichen Informationsableitungen geprüft.
+
+Vergleich und Wiederverwendungsentscheidungen: [GitHub-Vergleich](GITHUB-VERGLEICH.md).
 
 ## Reifegrad
 

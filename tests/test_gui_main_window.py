@@ -233,9 +233,9 @@ def test_anonymize_files_logs_error_on_missing(qt_app: QApplication, tmp_path: P
 def test_window_has_profiles_tab(qt_app: QApplication) -> None:
     win = MainWindow()
     try:
-        assert win.tabs.count() == 3
+        assert win.tabs.count() == 4
         labels = [win.tabs.tabText(i) for i in range(win.tabs.count())]
-        assert labels == ["Live", "Datei", "Profile"]
+        assert labels == ["Live", "Datei", "KI-Projekt", "Profile"]
     finally:
         win.close()
 

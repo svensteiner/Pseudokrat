@@ -92,7 +92,7 @@ def test_main_window_hides_profile_row_in_simple_mode(
         assert win._profile_row_widget.isHidden()
         # Tabs sind nur Live + Datei, kein Profile-Tab.
         tab_titles = [win.tabs.tabText(i) for i in range(win.tabs.count())]
-        assert tab_titles == ["Live", "Datei"]
+        assert tab_titles == ["Live", "Datei", "KI-Projekt"]
         # Simple-Mode-Flag ist gesetzt.
         assert win._simple_mode is True
         assert win._simple_default == "Mein Konto"

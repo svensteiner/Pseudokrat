@@ -21,6 +21,7 @@ from pseudokrat.ki_office import (
     S,
     W,
     cell_text,
+    guard_numeric_identifiers,
     read_office,
     shared_text,
     tag_local,
@@ -41,23 +42,28 @@ class _Mapping:
         self.entries: dict[str, str] = {}
         self.reverse: dict[str, str] = {}
         self.numeric: dict[str, str] = {}
+        self.numeric_entries: dict[str, str] = {}
+        self.contextual_entries: dict[str, str] = {}
         self.recognizers = [*default_recognizers(), PropertyIdentityRecognizer()]
-        if detector is not None:
-            self.recognizers.append(detector)
+        self.detector = detector
+        self.model_segments: set[str] = set()
+        self._pattern: re.Pattern[str] | None = None
         for term in terms:
             if term.strip():
                 self.token(term.strip())
 
-    def token(self, original: str) -> str:
+    def token(self, original: str, *, numeric: bool = False, contextual: bool = False) -> str:
         if _TOKEN.fullmatch(original):
             if original not in self.reverse:
                 raise ProjectError("Eingabe enthält fremde Projekt-Platzhalter.")
             return original
-        if original not in self.entries:
-            token = f"[[PK_{self.project_id}_{len(self.entries) + 1:05d}]]"
-            self.entries[original] = token
+        entries = self.numeric_entries if numeric else self.contextual_entries if contextual else self.entries
+        if original not in entries:
+            token = f"[[PK_{self.project_id}_{len(self.reverse) + 1:05d}]]"
+            entries[original] = token
             self.reverse[token] = original
-        return self.entries[original]
+            self._pattern = None
+        return entries[original]
 
     def discover(self, text: str) -> None:
         if "[[PK_" in text:
@@ -65,20 +71,32 @@ class _Mapping:
         spans = _resolve_overlaps([s for r in self.recognizers for s in r.analyze(text)])
         for span in spans:
             self.token(span.text)
+        self.model_segments.add(text)
+
+    def discover_with_model(self) -> None:
+        if self.detector is not None:
+            text = "\n\n".join(sorted(self.model_segments))
+            for span in self.detector.analyze(text):
+                self.token(span.text)
 
     def transform(self, text: str) -> str:
-        if not self.entries:
+        # Numeric identifiers are scoped to declared ID cells. The same digit
+        # sequence can be a legitimate amount in prose or another table.
+        textual = self.entries
+        if not textual:
             return text
         # One pass: replacement tokens never feed back into the replacement input.
-        pattern = re.compile(
-            r"(?<!\w)(?:" + "|".join(re.escape(s) for s in sorted(self.entries, key=len, reverse=True))
-            + r")(?!\w)"
-        )
+        if self._pattern is None:
+            self._pattern = re.compile(
+                r"(?<!\w)(?:" + "|".join(re.escape(s) for s in sorted(textual, key=len, reverse=True))
+                + r")(?!\w)"
+            )
+        pattern = self._pattern
         parts = _TOKEN.split(text)
         tokens = _TOKEN.findall(text)
         out = []
         for index, part in enumerate(parts):
-            out.append(pattern.sub(lambda m: self.entries[m.group()], part))
+            out.append(pattern.sub(lambda m: textual[m.group()], part))
             if index < len(tokens):
                 out.append(tokens[index])
         return "".join(out)
@@ -95,6 +113,16 @@ def _text_segments(roots: dict[str, Any]) -> list[str]:
         for element in containers:
             result.append("".join(e.text or "" for e in element.iter() if tag_local(e) == "t"))
         for element in root.iter():
+            if tag_local(element) == "c" and element.get("t") == "str":
+                value = element.find(f"{{{S}}}v")
+                if value is not None and value.text:
+                    result.append(value.text)
+            for attribute, value in element.attrib.items():
+                if etree.QName(attribute).localname in {
+                    "name", "displayName", "prompt", "promptTitle", "error", "errorTitle",
+                    "title", "descr", "tooltip", "display", "text", "formatCode",
+                }:
+                    result.append(value)
             if tag_local(element) in {"oddHeader", "oddFooter", "evenHeader", "evenFooter",
                                       "firstHeader", "firstFooter"} and element.text:
                 result.append(element.text)
@@ -130,7 +158,7 @@ def _identity_cells(roots: dict[str, Any], mapping: _Mapping) -> tuple[list[Any]
                 if row is not header_row and columns.get(column) == "identity" and text:
                     if cell.find(f"{{{S}}}f") is not None:
                         raise ProjectError("Berechnete Identifikatoren benötigen eine lokale Feldzuordnung.")
-                    token = mapping.token(text)
+                    token = mapping.token(text, numeric=is_number, contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)))
                     if is_number:
                         mapping.numeric[token] = text
                     identities.append(cell)
@@ -142,7 +170,8 @@ def _identity_cells(roots: dict[str, Any], mapping: _Mapping) -> tuple[list[Any]
 def _replace_identity_cells(cells: list[Any], roots: dict[str, Any], mapping: _Mapping) -> None:
     shared = shared_text(roots)
     for cell in cells:
-        token = mapping.token(cell_text(cell, shared))
+        text = cell_text(cell, shared)
+        token = mapping.token(text, numeric=cell.get("t", "n") == "n", contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)))
         for child in list(cell):
             cell.remove(child)
         cell.set("t", "inlineStr")
@@ -205,9 +234,12 @@ def prepare_project(
             mapping.discover(text)
         # Formula text literals also carry names (e.g. SUMIF criteria).
         for root in roots.values():
-            for element in root.iter(f"{{{S}}}f"):
+            for element in root.iter():
+                if tag_local(element) not in {"f", "definedName", "formula", "formula1", "formula2"}:
+                    continue
                 for literal in re.findall(r'"((?:[^"]|"")*)"', element.text or ""):
                     mapping.discover(literal.replace('""', '"'))
+    mapping.discover_with_model()
     outputs: dict[str, bytes] = {}
     bindings: list[dict[str, Any]] = []
     for i, (path, roots, sheets, identities, schema) in enumerate(
@@ -215,6 +247,13 @@ def prepare_project(
     ):
         excluded = {id(cell) for cell in identities}
         before = _numeric_snapshot(roots, excluded)
+        guard_numeric_identifiers(roots, identities)
+        for root in roots.values():
+            for cell in root.iter(f"{{{S}}}c"):
+                value = cell.find(f"{{{S}}}v")
+                if (cell.get("t") == "str" and cell.find(f"{{{S}}}f") is not None
+                    and value is not None and value.text and mapping.transform(value.text) != value.text):
+                    raise ProjectError("Berechneter Identifikator könnte durch Neuberechnung wieder erscheinen. Export gesperrt.")
         _replace_identity_cells(identities, roots, mapping)
         transform_office(roots, mapping.transform, sheets)
         if before != _numeric_snapshot(roots, excluded):
@@ -248,7 +287,7 @@ def prepare_project(
     }
     review = {
         "status": "local_review_required", "numbers_preserved": True,
-        "identity_replacements": len(mapping.entries),
+        "identity_replacements": len(mapping.reverse),
         "numeric_identifiers": len(mapping.numeric),
         "quasi_identifier_columns": sum(s["quasi_identifier_columns"] for schema in schemas for s in schema),
         "message": "Vorschau lokal vollständig prüfen. Echte Zahlen können Zuordnung ermöglichen. "

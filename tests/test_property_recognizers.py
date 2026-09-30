@@ -10,7 +10,7 @@ from __future__ import annotations
 import string
 
 import pytest
-from hypothesis import HealthCheck, example, given, settings
+from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 
 from pseudokrat.recognizers.at_svnr import (
@@ -127,13 +127,14 @@ def valid_at_uid(draw: st.DrawFn) -> str:
 
 @st.composite
 def valid_at_svnr(draw: st.DrawFn) -> str:
-    while True:
-        d = [draw(st.integers(min_value=0, max_value=9)) for _ in range(10)]
-        check = _at_svnr_check_digit(d)
-        if check is None:
-            continue
-        d[3] = check
-        return "".join(str(x) for x in d)
+    d = [draw(st.integers(min_value=0, max_value=9)) for _ in range(10)]
+    day = draw(st.integers(min_value=1, max_value=31))
+    month = draw(st.integers(min_value=1, max_value=12))
+    d[4:8] = [day // 10, day % 10, month // 10, month % 10]
+    check = _at_svnr_check_digit(d)
+    assume(check is not None)
+    d[3] = check
+    return "".join(str(x) for x in d)
 
 
 @st.composite

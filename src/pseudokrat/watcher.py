@@ -32,7 +32,12 @@ import re
 import shutil
 import time
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pseudokrat.anonymizer import Anonymizer
+    from pseudokrat.deanonymizer import Deanonymizer
+    from pseudokrat.recognizers.base import Span
 
 #: Dateiendungen, die der Watcher verarbeitet.
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
@@ -712,23 +717,22 @@ def run(
         folder.mkdir(parents=True, exist_ok=True)
 
     # Wegweiser-Dateien in leeren Arbeitsordnern (nur einmalig).
-    _WEGWEISER = {
+    wegweiser = {
         inbox: "_Hier Dateien zum Anonymisieren hineinziehen.txt",
         outbox: "_Hier erscheinen die anonymisierten Ergebnisse.txt",
         back_in: "_Hier die KI-Antwort mit Platzhaltern hineinlegen.txt",
         back_out: "_Hier kommt der Klartext (Originale) zurueck.txt",
     }
-    for folder, marker in _WEGWEISER.items():
+    for folder, marker in wegweiser.items():
         with contextlib.suppress(OSError):
             if not any(folder.iterdir()):
                 (folder / marker).write_text("", encoding="utf-8")
 
     # Sitzungs-Trenner ins Log (klarere Historie über mehrere Läufe).
-    with contextlib.suppress(OSError):
-        with log_file.open("a", encoding="utf-8") as handle:
-            handle.write(
-                f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
-            )
+    with contextlib.suppress(OSError), log_file.open("a", encoding="utf-8") as handle:
+        handle.write(
+            f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
+        )
 
     def log(message: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}"
@@ -756,7 +760,7 @@ def run(
         else:
             import fcntl
 
-            fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]  # Unix-only API
     except OSError:
         log(
             "Es läuft bereits ein Pseudokrat-Watcher auf diesem Ordner. "

@@ -4,7 +4,7 @@ WP-Mandate haben regelmässig ausländische Bankverbindungen (Beteiligungen,
 Lieferanten, Rechnungen). Diese IBANs sind hochsensible Daten und dürfen nicht
 ungeschwärzt in den Cloud-Prompt gelangen. Der MOD-97-Validator ist ohnehin
 länderunabhängig — es genügt, die Pflichtlängen-Tabelle zu erweitern und ein
-generisches Kandidaten-Pattern zu verwenden; ``is_valid_iban`` (Länge + MOD-97)
+das Kandidaten-Pattern daraus abzuleiten; ``is_valid_iban`` (Länge + MOD-97)
 filtert Falschtreffer zuverlässig.
 """
 
@@ -24,12 +24,15 @@ _IBAN_LENGTHS: dict[str, int] = {
     "MC": 27, "SM": 27, "AD": 24, "RS": 22, "TR": 26,
 }
 
-# Generisches Kandidaten-Pattern: 2 Buchstaben (Land) + 2 Prüfziffern + 11-30
-# alphanumerische Zeichen, optional 4er-gruppiert. Negative-Lookahead (?![A-Z0-9])
-# verhindert Überlaufen in Folgezeichen (Hypothesis-Regression D-033); die
-# eigentliche Filterung macht is_valid_iban (Land/Länge/MOD-97).
+# Kandidaten haben exakt die jeweilige Landeslänge, mit optionalen Leerzeichen.
+# So wird ein nachfolgendes Wort nicht Teil des Kandidaten. Der Lookahead
+# verhindert Teiltreffer in unmittelbar angehängten alphanumerischen Zeichen;
+# is_valid_iban prüft zusätzlich MOD-97.
 _IBAN_REGEX = re.compile(
-    r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}(?![A-Z0-9])"
+    r"\b(?:" + "|".join(
+        rf"{country}\d{{2}}(?:[ ]?[A-Z0-9]){{{length - 4}}}"
+        for country, length in _IBAN_LENGTHS.items()
+    ) + r")(?![A-Z0-9])"
 )
 
 

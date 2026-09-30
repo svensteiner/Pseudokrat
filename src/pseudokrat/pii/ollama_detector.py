@@ -155,9 +155,7 @@ class OllamaDetector:
             return False
         if not any(c.isupper() for c in value):  # Eigennamen sind gross
             return False
-        if value.lower().strip(".") in _STOPWORDS:
-            return False
-        return True
+        return value.lower().strip(".") not in _STOPWORDS
 
     # -- Recognizer-Schnittstelle ------------------------------------------
     def analyze(self, text: str) -> list[Span]:

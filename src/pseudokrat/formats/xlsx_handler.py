@@ -99,7 +99,7 @@ def _transform_headers_footers(sheet: object, transform: TextTransform) -> int:
         for part_name in ("left", "center", "right"):
             part = getattr(hf, part_name, None)
             text = getattr(part, "text", None)
-            if text:
+            if part is not None and text:
                 new_text = transform(text)
                 if new_text != text:
                     part.text = new_text

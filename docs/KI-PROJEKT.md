@@ -95,6 +95,13 @@ Vergleich und Wiederverwendungsentscheidungen: [GitHub-Vergleich](GITHUB-VERGLEI
 
 ## Reifegrad
 
+Validierung am 30.09.2026: Gesamtlauf mit 863 bestandenen Tests; danach ergänzte
+Fälle für 65 Word-Abschnitte und sensible Excel-Zahlenformate bestanden in einem
+gezielten Lauf mit insgesamt 36 Tests. Ruff und mypy über das gesamte Projekt
+bestanden. pytest meldete beim abschließenden Aufräumen einen Windows-Zugriffsfehler
+auf seinen temporären Verzeichnisverweis, keine fehlgeschlagenen Testfälle.
+Die Tests verwenden künstliche Daten. [Lokaler Abnahmeplan](LOKALE-ABNAHME.md).
+
 Dieser Modus ist eine neue, konservativ begrenzte Erweiterung. Ein erfolgreicher
 künstlicher Testbestand belegt nicht, dass 95 % unbekannter echter Dokumente
 automatisch bearbeitet werden. Das Produktivitätsziel muss auf einem lokalen,

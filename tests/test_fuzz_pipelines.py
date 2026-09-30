@@ -46,7 +46,7 @@ def _strict_roundtrip_recognizers() -> list:
     Siehe D-034 für das ursprüngliche Vorkommen in
     ``test_property_roundtrip``.
     """
-    return [r for r in default_recognizers() if not is_fuzzy_merge_category(r.category)]
+    return [r for r in default_recognizers() if not is_fuzzy_merge_category(getattr(r, "category", ""))]
 
 FUZZ_SETTINGS = settings(
     max_examples=50,

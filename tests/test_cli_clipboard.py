@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from pseudokrat import cli as cli_module
 from pseudokrat import clipboard as clipboard_module
 from pseudokrat.cli import main
 from pseudokrat.clipboard import Clipboard, ClipboardUnavailableError, InMemoryClipboard
@@ -32,7 +31,6 @@ def _patch_clipboard(monkeypatch: pytest.MonkeyPatch, cb: Clipboard) -> None:
     def factory() -> Clipboard:
         return cb
 
-    monkeypatch.setattr(cli_module, "default_clipboard", factory)
     monkeypatch.setattr(clipboard_module, "default_clipboard", factory)
 
 
@@ -95,7 +93,7 @@ def test_clipboard_unavailable_returns_dedicated_exit_code(
     def broken() -> Clipboard:
         raise ClipboardUnavailableError("pyperclip nicht installiert")
 
-    monkeypatch.setattr(cli_module, "default_clipboard", broken)
+    monkeypatch.setattr(clipboard_module, "default_clipboard", broken)
 
     rc = main(["clipboard", "--profile", "p", "anonymize", "--no-ml"])
     assert rc == 7

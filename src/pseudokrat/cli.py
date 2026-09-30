@@ -1050,8 +1050,8 @@ def _cmd_server(args: argparse.Namespace, manager: ProfileManager) -> int:
     Exit-Codes:
     * 18 — Port belegt / Socket-Bind fehlgeschlagen.
     """
-    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.server import ServerState, TokenStore, start_server
+    from pseudokrat.store.secure_db import InvalidPasswordError
 
     sub = getattr(args, "subcommand", None)
     token_path = manager.settings.data_dir / "server_token.txt"
@@ -1121,14 +1121,14 @@ def _cmd_hotkey_daemon(args: argparse.Namespace, manager: ProfileManager) -> int
     from pseudokrat.anonymizer import Anonymizer
     from pseudokrat.clipboard import ClipboardUnavailableError, default_clipboard
     from pseudokrat.deanonymizer import Deanonymizer
-    from pseudokrat.pii.privacy_filter import load_default_detector
-    from pseudokrat.recognizers import recognizers_for_store
-    from pseudokrat.store.secure_db import InvalidPasswordError
     from pseudokrat.hotkey import (
         HotkeyConfig,
         HotkeyDaemon,
         HotkeyUnavailableError,
     )
+    from pseudokrat.pii.privacy_filter import load_default_detector
+    from pseudokrat.recognizers import recognizers_for_store
+    from pseudokrat.store.secure_db import InvalidPasswordError
 
     try:
         store, audit = _open_profile(manager, args.profile, args.password)
@@ -1432,7 +1432,7 @@ def _cmd_doctor(args: argparse.Namespace, manager: ProfileManager) -> int:
     return report.exit_code()
 
 
-def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager) -> int:
+def _cmd_uninstall(args: argparse.Namespace, manager: ProfileManager | None) -> int:
     """Entferne alle Registry-Einträge. Profile bleiben unangetastet."""
     del manager  # nicht benötigt
     from pseudokrat.install import default_backend, perform_uninstall

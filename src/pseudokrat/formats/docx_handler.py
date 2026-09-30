@@ -65,14 +65,21 @@ class DocxHandler:
         document = Document(str(input_path))
         processed = 0
         skipped = 0
+        handled_paragraphs: set[object] = set()
+        handled_text: set[object] = set()
 
         def _handle(paragraph: Paragraph) -> None:
             nonlocal processed, skipped
+            if paragraph._p in handled_paragraphs:
+                return
+            handled_paragraphs.add(paragraph._p)
             if paragraph.text:
                 if self._transform_paragraph(paragraph, transform):
                     processed += 1
                 else:
                     skipped += 1
+            for run in paragraph.runs:
+                handled_text.update(run._r.findall(qn("w:t")))
 
         def _handle_tables(tables: object) -> None:
             for table in tables:  # type: ignore[attr-defined]
@@ -102,8 +109,8 @@ class DocxHandler:
 
         # 2) XML-Sweep über versteckte Kanäle: Kommentare, Fuss-/Endnoten,
         #    Textfelder (w:txbxContent) und Tracked-Changes-Löschungen
-        #    (w:delText). Bereits anonymisierter Text ist PII-frei -> erneutes
-        #    Anwenden ist ein No-op (idempotent).
+        #    (w:delText). Erzeugte Platzhalter dürfen nicht erneut transformiert
+        #    werden: der EscapedPlaceholderRecognizer schützt Original-Tokens.
         text_tags = {qn("w:t"), qn("w:delText")}
         roots: list[object] = [document.element]
         for rel in document.part.rels.values():
@@ -116,8 +123,9 @@ class DocxHandler:
                 roots.append(element)
         for root in roots:
             for el in root.iter():  # type: ignore[attr-defined]
-                if el.tag in text_tags and el.text:
+                if el.tag in text_tags and el.text and el not in handled_text:
                     new_text = transform(el.text)
+                    handled_text.add(el)
                     if new_text != el.text:
                         el.text = new_text
                         processed += 1

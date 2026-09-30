@@ -262,6 +262,9 @@ class TestRunDoctor:
             "Profile-Health",
             "Hotkey-Backend",
             "ML-Modell",
+            "PDF-Stack",
+            "OCR-Stack",
+            "LLM (Ollama)",
         }
 
 

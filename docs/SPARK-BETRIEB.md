@@ -41,6 +41,29 @@ auf Modellaufrufe ersetzt keine Netzwerkisolation des Betriebssystems.
 
 ## Ausführbarer Ablauf
 
+Vor echten Dateien kann die Installation mit vollständig künstlichen Daten
+geprüft werden. Benötigt werden LibreOffice Calc und Writer, `/usr/bin/libreoffice`
+sowie `python3-uno` für `/usr/bin/python3`:
+
+```bash
+.venv/bin/python -m pseudokrat.spark_smoke --output "$HOME/pseudokrat-selbsttest-001"
+```
+
+Dieser Befehl nimmt keine Originaldateien entgegen. Er erzeugt eine künstliche
+Excel-Mappe, eine 65-seitige Word-Vorlage und die passende geprüfte Testzuordnung.
+Anschließend rechnet Calc neu, der Generator befüllt Text und Tabelle, und Writer
+erstellt die PDF-Vorschau. Der Selbsttest prüft die vorgegebenen Sollbeträge,
+Textanzahl, Tabellenzeilen, 65 PDF-Seiten, erste/letzte Seitenzahl und unveränderte
+Eingaben. Die künstlichen Werte sind ausdrücklich kein Test echter Fachregeln.
+
+Der Ausgabeordner muss neu sein. `smoke.json` enthält die Einzelprüfungen,
+Hashes, Architektur und Python-Version. Exitcode 0 bedeutet bestandenen
+synthetischen Installationstest; Exitcode 20 einen Fehler. Bei einem Fehler können
+synthetische Zwischenstände zur lokalen Diagnose zurückbleiben; für einen neuen
+Lauf einen neuen Ordner wählen. Fehlende oder fehlerhafte `smoke.json` ist kein
+Erfolg. Auch ein bestandener Lauf setzt `production_approved: false`: Originale,
+freie Modelltexte und visuelle Qualität werden dadurch nicht abgenommen.
+
 1. [Bestandsaufnahme](SPARK-BESTANDSAUFNAHME.md) lokal erzeugen und prüfen.
 2. Unterstützte Word-Platzhalter und Excel-Quellen fachlich zuordnen. Die
    tatsächliche Vorlage nicht still vereinfachen, wenn Funktionen blockiert sind.

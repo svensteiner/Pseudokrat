@@ -46,3 +46,6 @@ Klammern. Hier ist eine vollständig künstliche Vorlage mit derselben Syntax.�
 
 Das Modul ist eine Vorbereitung für den Berichtsgenerator, nicht der Generator
 selbst und kein Nachweis vollständiger Anonymität oder Produktionsreife.
+
+Der erste ausführbare Folgeprozess ist im
+[lokalen Berichtsgenerator](LOKALER-BERICHTSGENERATOR.md) beschrieben.

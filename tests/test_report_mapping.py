@@ -68,3 +68,35 @@ def test_untrusted_or_ambiguous_mapping_blocks(sources, change):
         book.save(excel)
     with pytest.raises(ProjectError):
         resolve_mapping(excel, template, spec)
+
+
+@pytest.mark.parametrize("value,number_format,expected", [
+    (0, "General", "0,00"),
+    (-0.125, "General", "-0,13"),
+    (45292, "yyyy-mm-dd", None),
+    (True, "General", None),
+])
+def test_rounding_zero_dates_and_boolean_types(sources, value, number_format, expected):
+    from openpyxl import load_workbook
+    excel, template, spec = sources
+    book = load_workbook(excel)
+    book.active["B2"] = value
+    book.active["B2"].number_format = number_format
+    book.save(excel)
+    spec["fields"]["total"]["range"] = "B2"
+    if expected is None:
+        with pytest.raises(ProjectError):
+            resolve_mapping(excel, template, spec)
+    else:
+        assert resolve_mapping(excel, template, spec)["total"]["text"] == expected
+
+
+def test_unknown_locale_specific_number_format_blocks(sources):
+    from pseudokrat.ki_office import S, read_office, write_office
+    excel, template, spec = sources
+    roots = read_office(excel)
+    xf = roots["xl/styles.xml"].find(f"{{{S}}}cellXfs")[0]
+    xf.set("numFmtId", "27")
+    excel.write_bytes(write_office(roots))
+    with pytest.raises(ProjectError):
+        resolve_mapping(excel, template, spec)

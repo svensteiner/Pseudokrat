@@ -1,0 +1,93 @@
+# Lokaler Excel-zu-Word-Entwurf
+
+Dieser erste ausführbare Durchlauf liest fest zugeordnete Excel-Quellen und
+befüllt Word-Platzhalter ohne Modellaufruf oder Netzwerkzugriff. Er erzeugt einen
+**vertraulichen Entwurf**, keine automatische Produktionsfreigabe.
+
+## Vorlage und geprüfte Zuordnung
+
+Die lokale Word-Vorlage enthält beispielsweise `{{ name }}` im Text und
+`{{ total }}` in einer Tabellenzelle. Platzhalter können in mehreren Abschnitten,
+Tabellen, Kopf- oder Fußzeilen vorkommen. Durch Word aufgeteilte Textläufe werden
+unterstützt. Die aktuelle Syntax erlaubt ASCII-Feldnamen mit Buchstaben,
+Unterstrich, Ziffern und Punkten; der erste Buchstabe darf keine Ziffer sein.
+
+Eine lokale `mapping.json` beschreibt Quellen und Ausgabeformat:
+
+```json
+{
+  "version": 1,
+  "reviewed": true,
+  "template_sha256": "HIER_DEN_LOKAL_BERECHNETEN_SHA256_DER_VORLAGE_EINTRAGEN",
+  "headers": {
+    "Daten": {"A1": "Name", "B1": "Betrag EUR"}
+  },
+  "fields": {
+    "name": {
+      "sheet": "Daten", "range": "A2", "operation": "cell", "format": "text"
+    },
+    "total": {
+      "sheet": "Daten", "range": "B2:B10", "operation": "sum",
+      "format": "decimal", "decimals": 2
+    }
+  }
+}
+```
+
+Die Feldnamen müssen genau den in der Vorlage verwendeten Platzhaltern
+entsprechen. `reviewed: true` erst nach lokaler fachlicher Prüfung setzen:
+Zeilenumfang, Zeitraum, Einheit/Währung, Filter und Bedeutung jeder Kennzahl.
+Das Kennzeichen ist eine Bestätigung des Anwenders, kein unabhängiger Nachweis.
+
+Den Vorlagenhash lokal ermitteln:
+
+```bash
+python -c "import hashlib; from pathlib import Path; print(hashlib.sha256(Path('vorlage.docx').read_bytes()).hexdigest())"
+```
+
+Nach einer Änderung der Vorlage muss die Zuordnung erneut geprüft und der Hash
+aktualisiert werden. Änderungen an erwarteten Excel-Kopfzellen stoppen den Lauf.
+Weitere Strukturänderungen außerhalb der geprüften Kopfzellen werden noch nicht
+vollständig erkannt; diese bleiben Teil der lokalen fachlichen Prüfung.
+
+## Ausführen
+
+```bash
+python -m pseudokrat.local_report --excel daten.xlsx --template vorlage.docx --mapping mapping.json --output neuer-bericht
+```
+
+Ergebnis im neuen Ordner:
+
+- `bericht.docx`: befüllter Word-Entwurf.
+- `nachweis.json`: Originalwerte, Zellbezüge, Operationen und Hashes der Eingaben
+  und der Ausgabe. Diese Datei ist ebenso vertraulich wie der Bericht.
+
+Originale und bestehende Zielordner werden nicht überschrieben. Unter Unix gelten
+für neue Dateien 0600 und für den Ergebnisordner 0700. Unter Windows zusätzlich
+die Zugriffsrechte des Zielordners prüfen. Konsolenmeldungen enthalten keine
+Originalwerte. Exitcode 0 bedeutet Entwurf erstellt, nicht fachlich freigegeben;
+Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
+
+## Derzeit unterstützte Berechnungen und Grenzen
+
+- `cell`: genau eine Zelle; `sum`: vollständig belegter rechteckiger Zahlenbereich.
+- `text`: echte Textzelle einschließlich führender Nullen.
+- `decimal`: Dezimaldarstellung mit 0 bis 8 Stellen und Dezimalkomma.
+- `integer`: nur tatsächlich ganzzahliger Wert, keine stille Rundung.
+- `percent`: Zahlenwert mit 100 multiplizieren und Prozentzeichen anhängen.
+- Dezimalrechnung mit expliziter kaufmännischer Rundung, auch bei negativen Werten.
+- Leere Quellen, boolesche Werte oder Datumswerte als Beträge werden abgewiesen.
+  Unbekannte Zahlenformat-IDs werden nicht als normales Zahlenformat angenommen.
+- Formelquellen bleiben gesperrt, bis ein nachweisbarer lokaler
+  Neuberechnungsablauf angebunden ist. Ein Cache allein reicht nicht.
+- Tabellen mit fester Zeilenzahl können Feldplatzhalter enthalten. Dynamisch
+  wiederholte Tabellenzeilen, Fachfilter, freie KI-Texte und weitere Operationen
+  sind noch nicht implementiert.
+- Es gelten derzeit die Office-Funktionsgrenzen des KI-Projekt-Parsers, darunter
+  gesperrte Bilder, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
+  reale Vorlage noch gezielt erweitert werden; die Vorlage nicht still ändern.
+
+Geprüft sind ein vollständiger CLI-Durchlauf, Textläufe, Tabellen, Kopfzeilen,
+fehlende Zuordnungen und ein synthetischer Bericht mit 65 Abschnitten. Die
+tatsächliche Paginierung in Word und fachliche Richtigkeit echter Berichte
+bleiben lokal zu prüfen.

@@ -56,6 +56,9 @@ def read_local_template(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
         raise ProjectError("Lokale Berichtsvorlagen müssen DOCX-Dateien sein.")
     media: dict[str, bytes] = {}
     roots = _read_office(path, media)
+    from pseudokrat.word_fields import inspect_fields
+
+    inspect_fields(roots)
     image_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
     for name, root in roots.items():
         if not name.startswith("word/") or name.endswith(".rels"):
@@ -153,7 +156,7 @@ def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dic
                              "moveFrom", "moveTo", "fldSimple", "instrText",
                              "customWorkbookViews", "customSheetViews"}
                 if local_media is not None:
-                    blocked.remove("drawing")
+                    blocked.difference_update({"drawing", "fldSimple", "instrText"})
                 if local in blocked:
                     raise ProjectError("Nicht unterstütztes Office-Element: " + local + ".")
                 if local == "definedName" and not element.get("name", "").startswith("_xlnm."):

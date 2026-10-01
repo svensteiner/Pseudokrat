@@ -99,8 +99,17 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
   Zeilen werden neue interne Bildkennungen vergeben. Bildbytes und Metadaten
   bleiben unverändert; der Bild-Hash wird im Nachweis gespeichert. Der Bericht
   ist deshalb ausdrücklich kein anonymisiertes Exportpaket.
+- Lokale Seitenzahlfelder `PAGE`, `NUMPAGES`, `SECTION` und `SECTIONPAGES`
+  bleiben erhalten, sowohl einfache Felder als auch über Textläufe verteilte
+  Feldanweisungen. Normale Berichtsplatzhalter daneben werden separat ersetzt.
+  Platzhalter innerhalb eines Feldes oder über Feldgrenzen hinweg sind nicht
+  erlaubt. Die gespeicherten Feldwerte werden nicht als aktuell bestätigt:
+  `word_fields.updated` im Nachweis bleibt `false`. Nach Fertigstellung muss
+  eine lokale Word-/Layout-Engine die Felder aktualisieren und das Layout geprüft
+  werden; dieser Schritt wird noch nicht automatisch ausgeführt.
 - Weitere Office-Funktionsgrenzen bleiben bestehen, darunter gesperrte
-  VML-/SVG-/EMF-Bilder, Diagramme, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
+  VML-/SVG-/EMF-Bilder, Diagramme, Inhaltssteuerelemente und andere Word-Felder
+  (auch Inhaltsverzeichnisse). Diese müssen für die
   reale Vorlage noch gezielt erweitert werden; die Vorlage nicht still ändern.
 
 Geprüft sind ein vollständiger CLI-Durchlauf, Textläufe, Tabellen, Kopfzeilen,
@@ -115,6 +124,12 @@ unbekannte Zeichnungstypen und doppelte Beziehungskennungen stoppen den Lauf.
 Die Prüfung von Bildsignaturen ist keine vollständige Bilddecodierung,
 Schadsoftwareprüfung oder Erkennung vertraulicher Bildinhalte. Sichtprüfung
 und gegebenenfalls OCR bleiben Teil der lokalen fachlichen Abnahme.
+
+Die Freigabe der Seitenzahlfelder gilt ebenfalls nur für lokale Berichte.
+Der strikte KI-Exportparser blockiert Word-Feldanweisungen weiterhin. Lokale
+Feldanweisungen sind auf die vier genannten Codes und einfache Formatflags
+begrenzt. Externe Inhalte, DDE, unbekannte Schalter, verschachtelte oder nicht
+abgeschlossene Felder und zusätzliche eingebettete Felddaten werden abgewiesen.
 
 ## Dynamische Tabellen mit Version 2
 

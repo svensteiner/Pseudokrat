@@ -20,6 +20,7 @@ from pseudokrat.ki_office import (
     read_office,
     shared_text,
 )
+from pseudokrat.word_fields import inspect_fields
 
 
 def inspect_documents(paths: list[Path]) -> dict[str, Any]:
@@ -78,6 +79,7 @@ def inspect_documents(paths: list[Path]) -> dict[str, Any]:
                     "placeholder_syntax": "{{ field_name }} only; other target types require local mapping",
                     "mapping_confirmed": False, "layout_verified": False,
                     "embedded_image_count": len(media), "image_contents_reviewed": False,
+                    "pagination_fields": inspect_fields(roots)[0], "word_fields_updated": False,
                 })
         except ProjectError as exc:
             item.clear()

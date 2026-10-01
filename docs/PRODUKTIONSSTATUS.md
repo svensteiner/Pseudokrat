@@ -79,7 +79,9 @@ beschrieben.
    vergleichen, besonders bei Textkriterien und numerischen Kennungen.
 3. Echte Word-Vorlage einschließlich Formatierung und fachlicher Feldzuordnung
    lokal prüfen. Der Generator besteht, unterstützt aber noch nicht sämtliche
-   Office-Funktionen wie Diagramme, Inhaltssteuerelemente und Word-Felder.
+   Office-Funktionen wie Diagramme, Inhaltssteuerelemente und Inhaltsverzeichnisse.
+   Sichere Seitenzahlfelder bleiben lokal erhalten; die automatische Aktualisierung
+   und native Layoutabnahme sind noch nicht integriert.
    PNG-/JPEG-Bilder werden in lokalen Berichten inzwischen erhalten; dies
    gilt ausdrücklich nicht für exportierbare KI-Pakete.
 4. Spark-Betriebssystem, Endpunkt und tatsächliche Modellkennungen lokal prüfen.

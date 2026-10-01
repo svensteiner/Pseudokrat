@@ -8,6 +8,8 @@ from zipfile import ZipFile
 
 import pytest
 from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from openpyxl import Workbook, load_workbook
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -44,6 +46,34 @@ def test_conflicting_engines_never_create_report(tmp_path, report_inputs):
     with pytest.raises(ProjectError):
         generate_report(*report_inputs, tmp_path / "blocked", recalculate_excel=True, recalculate_libreoffice=True)
     assert not (tmp_path / "blocked").exists()
+
+
+def test_page_field_survives_next_to_report_placeholder(tmp_path, report_inputs):
+    excel, template, mapping = report_inputs
+    doc = Document(template)
+    footer = doc.sections[0].footer.paragraphs[0]
+    footer.text = "{{ name }} – Seite "
+    field = OxmlElement("w:fldSimple")
+    field.set(qn("w:instr"), "PAGE")
+    run = OxmlElement("w:r")
+    text = OxmlElement("w:t")
+    text.text = "1"
+    run.append(text)
+    field.append(run)
+    footer._p.append(field)
+    doc.save(template)
+    spec = json.loads(mapping.read_text("utf-8"))
+    spec["template_sha256"] = hashlib.sha256(template.read_bytes()).hexdigest()
+    mapping.write_text(json.dumps(spec), encoding="utf-8")
+    output = generate_report(excel, template, mapping, tmp_path / "result")
+    result = Document(output / "bericht.docx")
+    footer = result.sections[0].footer.paragraphs[0]
+    assert footer.text == "Originalname – Seite "
+    field = footer._p.find(qn("w:fldSimple"))
+    assert field.get(qn("w:instr")) == "PAGE"
+    assert field.find(".//" + qn("w:t")).text == "1"
+    evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
+    assert evidence["word_fields"] == {"codes": ["PAGE"], "updated": False}
 
 
 @pytest.mark.parametrize("image_format", ["PNG", "JPEG"])

@@ -10,6 +10,7 @@ from typing import Any
 from lxml import etree
 
 from pseudokrat.ki_office import ProjectError, W, rewrite_runs
+from pseudokrat.word_fields import inspect_fields, text_segments
 
 FIELD_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_.]{0,99})\s*\}\}")
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,23}")
@@ -72,6 +73,7 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
 def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]], facts: dict[str, Any]) -> dict[str, Any]:
     """Require one complete prototype row per table; never silently drop rows."""
     evidence = {}
+    _, protected = inspect_fields(roots)
     drawing_ids = [e.get("id", "") for root in roots.values() for e in root.iter()
                    if etree.QName(e).localname in {"docPr", "cNvPr"}]
     if any(not identifier.isdecimal() for identifier in drawing_ids):
@@ -86,11 +88,12 @@ def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]]
             for row in root.iter(f"{{{W}}}tr"):
                 found = set()
                 for paragraph in row.iter(f"{{{W}}}p"):
-                    text = "".join(n.text or "" for n in paragraph.iter(f"{{{W}}}t"))
-                    found.update(FIELD_PATTERN.findall(text))
-                    remainder = FIELD_PATTERN.sub("", text)
-                    if ("{{" in remainder or "}}" in remainder) and name + "." in text:
-                        raise ProjectError("Beschädigte Tabellenplatzhalter.")
+                    for nodes in text_segments(paragraph, protected):
+                        text = "".join(n.text or "" for n in nodes)
+                        found.update(FIELD_PATTERN.findall(text))
+                        remainder = FIELD_PATTERN.sub("", text)
+                        if ("{{" in remainder or "}}" in remainder) and name + "." in text:
+                            raise ProjectError("Beschädigte Tabellenplatzhalter.")
                 if any(field.startswith(name + ".") for field in found):
                     if found != expected:
                         raise ProjectError("Tabellenmusterzeile enthält fehlende, fremde oder gemischte Felder.")
@@ -109,6 +112,7 @@ def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]]
             if any("{{" in value or "}}" in value for value in values.values()):
                 raise ProjectError("Tabellenquelle enthält reservierte Platzhalterzeichen.")
             clone = deepcopy(prototype)
+            _, clone_protected = inspect_fields({"row": clone})
             for element in clone.iter():
                 if etree.QName(element).localname in {"docPr", "cNvPr"}:
                     if next_drawing_id > 4294967295:
@@ -119,8 +123,7 @@ def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]]
                     if etree.QName(attribute).localname in {"paraId", "textId"}:
                         del element.attrib[attribute]
             for p in clone.iter(f"{{{W}}}p"):
-                nodes = list(p.iter(f"{{{W}}}t"))
-                if nodes:
+                for nodes in text_segments(p, clone_protected):
                     rewrite_runs(nodes, partial(_render_fields, values=values))
             parent.insert(position + index, clone)
             row_facts.append({column: facts[key] for column, key in targets.items()})

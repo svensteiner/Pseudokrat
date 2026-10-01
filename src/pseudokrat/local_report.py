@@ -22,6 +22,7 @@ from pseudokrat.report_mapping import resolve_mapping
 from pseudokrat.report_narratives import compile_narratives, render_narratives
 from pseudokrat.report_tables import FIELD_PATTERN as _FIELD
 from pseudokrat.report_tables import compile_tables, render_tables
+from pseudokrat.word_fields import inspect_fields, text_segments
 
 
 def _hash(path: Path) -> str:
@@ -56,6 +57,7 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
     roots, media = read_local_template(template)
     tables = render_tables(roots, groups, facts)
     narratives, narrative_inputs = render_narratives(narrative_rules, facts)
+    field_codes, protected = inspect_fields(roots)
     render_values = {**facts, **narratives}
     paragraphs: list[tuple[list[Any], str]] = []
     found: set[str] = set()
@@ -63,13 +65,13 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
         if not name.startswith("word/"):
             continue
         for p in root.iter(f"{{{W}}}p"):
-            nodes = list(p.iter(f"{{{W}}}t"))
-            text = "".join(n.text or "" for n in nodes)
-            remainder = _FIELD.sub("", text)
-            if "{{" in remainder or "}}" in remainder:
-                raise ProjectError("Nicht unterstützte oder beschädigte Word-Platzhalter.")
-            found.update(_FIELD.findall(text))
-            paragraphs.append((nodes, text))
+            for nodes in text_segments(p, protected):
+                text = "".join(n.text or "" for n in nodes)
+                remainder = _FIELD.sub("", text)
+                if "{{" in remainder or "}}" in remainder:
+                    raise ProjectError("Nicht unterstützte oder beschädigte Word-Platzhalter.")
+                found.update(_FIELD.findall(text))
+                paragraphs.append((nodes, text))
     if (not found <= set(render_values) or not set(narratives) <= found
         or not set(facts) <= found | narrative_inputs):
         raise ProjectError("Word-Platzhalter und geprüfte Zuordnung stimmen nicht vollständig überein.")
@@ -94,6 +96,7 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
         "tables": tables,
         "narratives": narratives,
         "embedded_media_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in media.items()},
+        "word_fields": {"codes": field_codes, "updated": False},
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".pseudokrat-report-", dir=destination.parent) as staging:

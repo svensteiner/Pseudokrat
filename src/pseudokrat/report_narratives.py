@@ -10,13 +10,21 @@ from typing import Any
 from pseudokrat.ki_office import ProjectError
 from pseudokrat.report_tables import FIELD_PATTERN
 
-_OPS = {"eq": operator.eq, "ne": operator.ne, "lt": operator.lt,
-        "le": operator.le, "gt": operator.gt, "ge": operator.ge}
+_OPS = {
+    "eq": operator.eq,
+    "ne": operator.ne,
+    "lt": operator.lt,
+    "le": operator.le,
+    "gt": operator.gt,
+    "ge": operator.ge,
+}
 
 
 def _require(condition: bool) -> None:
     if not condition:
-        raise ProjectError("Textregel unvollständig, mehrdeutig oder nicht unterstützt. Lokal prüfen.")
+        raise ProjectError(
+            "Textregel unvollständig, mehrdeutig oder nicht unterstützt. Lokal prüfen."
+        )
 
 
 def compile_narratives(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -31,7 +39,9 @@ def compile_narratives(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, 
     _require(isinstance(narratives, dict) and 1 <= len(narratives) <= 200)
     _require(isinstance(spec["fields"], dict))
     for name in narratives:
-        _require(isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name) is not None)
+        _require(
+            isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name) is not None
+        )
         _require(name not in spec["fields"] and not name.startswith("__tbl_"))
         _require(not any(k.startswith(name + ".") for k in spec["fields"]))
         _require(name not in spec.get("tables", {}))
@@ -60,7 +70,9 @@ def _validate_template(text: Any, facts: dict[str, Any], used: set[str]) -> str:
     return str(text)
 
 
-def render_narratives(definitions: dict[str, Any], facts: dict[str, Any]) -> tuple[dict[str, Any], set[str]]:
+def render_narratives(
+    definitions: dict[str, Any], facts: dict[str, Any]
+) -> tuple[dict[str, Any], set[str]]:
     """Validate every branch; reject overlapping conditions instead of guessing."""
     result = {}
     all_used: set[str] = set()
@@ -80,14 +92,26 @@ def render_narratives(definitions: dict[str, Any], facts: dict[str, Any]) -> tup
             selected = "otherwise"
             matches = []
             for index, case in enumerate(cases):
-                _require(isinstance(case, dict) and set(case) == {"field", "op", "value", "template"})
+                _require(
+                    isinstance(case, dict) and set(case) == {"field", "op", "value", "template"}
+                )
                 field, op = case["field"], case["op"]
-                _require(isinstance(field, str) and field in facts and isinstance(op, str) and op in _OPS)
+                _require(
+                    isinstance(field, str) and field in facts and isinstance(op, str) and op in _OPS
+                )
                 actual, threshold = _number(facts[field]["exact_value"]), _number(case["value"])
                 branch = _validate_template(case["template"], facts, used)
                 used.add(field)
                 matched = _OPS[op](actual, threshold)
-                checks.append({"field": field, "op": op, "threshold": str(threshold), "actual": str(actual), "matched": matched})
+                checks.append(
+                    {
+                        "field": field,
+                        "op": op,
+                        "threshold": str(threshold),
+                        "actual": str(actual),
+                        "matched": matched,
+                    }
+                )
                 if matched:
                     matches.append((index, branch))
             _require(len(matches) <= 1)
@@ -98,7 +122,12 @@ def render_narratives(definitions: dict[str, Any], facts: dict[str, Any]) -> tup
             _require("{{" not in facts[field]["text"] and "}}" not in facts[field]["text"])
         text = FIELD_PATTERN.sub(lambda match: facts[match[1]]["text"], template)
         _require(len(text) <= 100_000)
-        result[name] = {"text": text, "selected_branch": selected, "template": template,
-                        "conditions": checks, "inputs": sorted(used)}
+        result[name] = {
+            "text": text,
+            "selected_branch": selected,
+            "template": template,
+            "conditions": checks,
+            "inputs": sorted(used),
+        }
         all_used.update(used)
     return result, all_used

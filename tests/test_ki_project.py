@@ -43,11 +43,17 @@ def inputs(tmp_path):
 
 def prepare(tmp_path, inputs, store_and_audit):
     store, _ = store_and_audit
-    return prepare_project(inputs, tmp_path / "project", store.keys.fernet,
-                           terms=["Geheimfirma", "Sondername", "Anderername"])
+    return prepare_project(
+        inputs,
+        tmp_path / "project",
+        store.keys.fernet,
+        terms=["Geheimfirma", "Sondername", "Anderername"],
+    )
 
 
-def test_package_preserves_numbers_formulas_and_project_consistency(tmp_path, inputs, store_and_audit):
+def test_package_preserves_numbers_formulas_and_project_consistency(
+    tmp_path, inputs, store_and_audit
+):
     project = prepare(tmp_path, inputs, store_and_audit)
     assert not (project / "KI-Paket.zip").exists()
     book = load_workbook(project / "vorschau" / "daten_01.xlsx")
@@ -105,7 +111,9 @@ def test_identity_hidden_in_number_format_blocks_export(tmp_path, store_and_audi
     assert not (tmp_path / "blocked").exists()
 
 
-def test_release_requires_review_and_explicit_numeric_risk_acceptance(tmp_path, inputs, store_and_audit):
+def test_release_requires_review_and_explicit_numeric_risk_acceptance(
+    tmp_path, inputs, store_and_audit
+):
     project = prepare(tmp_path, inputs, store_and_audit)
     key = store_and_audit[0].keys.fernet
     with pytest.raises(ProjectError, match="Prüfung"):
@@ -119,15 +127,18 @@ def test_release_requires_review_and_explicit_numeric_risk_acceptance(tmp_path, 
             raw = archive.read(name)
             assert b"Geheimfirma" not in raw
         assert "entwicklungsauftrag.md" in archive.namelist()
-    assert json.loads((project / "vorschau" / "schema.json").read_text("utf-8"))["numbers_preserved"]
+    assert json.loads((project / "vorschau" / "schema.json").read_text("utf-8"))[
+        "numbers_preserved"
+    ]
 
 
 def test_modified_preview_cannot_be_published(tmp_path, inputs, store_and_audit):
     project = prepare(tmp_path, inputs, store_and_audit)
     (project / "vorschau" / "schema.json").write_text("secret", encoding="utf-8")
     with pytest.raises(ProjectError, match="verändert"):
-        publish_project(project, store_and_audit[0].keys.fernet,
-                        reviewed=True, accept_numeric_linkability=True)
+        publish_project(
+            project, store_and_audit[0].keys.fernet, reviewed=True, accept_numeric_linkability=True
+        )
 
 
 def test_restore_resolves_split_word_and_numeric_identifiers(tmp_path, inputs, store_and_audit):
@@ -176,9 +187,13 @@ def test_duplicate_basename_and_shared_identifiers(tmp_path, inputs, store_and_a
     assert (project / "vorschau" / "vorlage_02.docx").is_file()
 
 
-def test_original_workspace_for_spark_uses_real_values_with_development_sheet_names(tmp_path, inputs, store_and_audit):
+def test_original_workspace_for_spark_uses_real_values_with_development_sheet_names(
+    tmp_path, inputs, store_and_audit
+):
     project = prepare(tmp_path, inputs, store_and_audit)
-    result = prepare_original_workspace(project, store_and_audit[0].keys.fernet, tmp_path / "local-only")
+    result = prepare_original_workspace(
+        project, store_and_audit[0].keys.fernet, tmp_path / "local-only"
+    )
     book = load_workbook(result / "daten_01.xlsx")
     assert book.sheetnames[0] == "Blatt_001"
     assert book.worksheets[0]["B2"].value == "Sondername"
@@ -233,13 +248,20 @@ def test_hidden_sheet_is_processed(tmp_path, inputs, store_and_audit):
 
 def test_foreign_key_cannot_unlock_vault(tmp_path, inputs, store_and_audit):
     from cryptography.fernet import Fernet
+
     project = prepare(tmp_path, inputs, store_and_audit)
     with pytest.raises(ProjectError, match="Profil"):
-        publish_project(project, Fernet(Fernet.generate_key()), reviewed=True, accept_numeric_linkability=True)
+        publish_project(
+            project, Fernet(Fernet.generate_key()), reviewed=True, accept_numeric_linkability=True
+        )
 
 
-@pytest.mark.parametrize("formula", ["=COUNT(A2:A3)", "=SUM(A:A)", "=A2+1", '=COUNTIF(A2:A3,123456)'])
-def test_formulas_using_numeric_identifiers_block_instead_of_changing_results(tmp_path, inputs, store_and_audit, formula):
+@pytest.mark.parametrize(
+    "formula", ["=COUNT(A2:A3)", "=SUM(A:A)", "=A2+1", "=COUNTIF(A2:A3,123456)"]
+)
+def test_formulas_using_numeric_identifiers_block_instead_of_changing_results(
+    tmp_path, inputs, store_and_audit, formula
+):
     book = load_workbook(inputs[0])
     book.active["F2"] = formula
     book.save(inputs[0])
@@ -252,13 +274,19 @@ def test_numeric_id_does_not_replace_unrelated_word_amount(tmp_path, inputs, sto
     doc.add_paragraph("Betrag 123456 EUR")
     doc.save(inputs[1])
     project = prepare(tmp_path, inputs, store_and_audit)
-    assert Document(project / "vorschau" / "vorlage_02.docx").paragraphs[-1].text == "Betrag 123456 EUR"
+    assert (
+        Document(project / "vorschau" / "vorlage_02.docx").paragraphs[-1].text
+        == "Betrag 123456 EUR"
+    )
 
 
 def test_validation_list_pii_is_discovered_without_manual_terms(tmp_path, store_and_audit):
     from openpyxl.worksheet.datavalidation import DataValidation
+
     book = Workbook()
-    validation = DataValidation(type="list", formula1='"secret.person@example.com,other@example.com"')
+    validation = DataValidation(
+        type="list", formula1='"secret.person@example.com,other@example.com"'
+    )
     validation.add("A1")
     book.active.add_data_validation(validation)
     source = tmp_path / "validation.xlsx"
@@ -276,7 +304,9 @@ def test_equal_string_and_numeric_identifiers_keep_distinct_types(tmp_path, stor
     book.save(source)
     key = store_and_audit[0].keys.fernet
     project = prepare_project([source], tmp_path / "project", key)
-    restored = restore_file(project, key, project / "vorschau" / "daten_01.xlsx", tmp_path / "restored.xlsx")
+    restored = restore_file(
+        project, key, project / "vorschau" / "daten_01.xlsx", tmp_path / "restored.xlsx"
+    )
     result = load_workbook(restored).active
     assert result["A2"].value == 123456
     assert result["A2"].data_type == "n"
@@ -290,13 +320,17 @@ def test_phone_numbers_still_replace_in_prose(tmp_path, store_and_audit):
     source = tmp_path / "phone.docx"
     doc.save(source)
     project = prepare_project([source], tmp_path / "project", store_and_audit[0].keys.fernet)
-    assert "+43 664 1234567" not in Document(project / "vorschau" / "vorlage_01.docx").paragraphs[0].text
+    assert (
+        "+43 664 1234567"
+        not in Document(project / "vorschau" / "vorlage_01.docx").paragraphs[0].text
+    )
 
 
 def test_sensitive_cached_formula_result_blocks_reconstruction(tmp_path, store_and_audit):
     import io
 
     from lxml import etree
+
     book = Workbook()
     book.active["A1"] = '=CONCAT("secret",".person","@example.com")'
     buffer = io.BytesIO()

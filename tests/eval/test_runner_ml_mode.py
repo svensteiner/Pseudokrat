@@ -63,7 +63,9 @@ def test_ml_mode_raises_when_model_not_cached(tmp_path: Path) -> None:
     assert "ohne --with-ml" in msg
 
 
-def test_main_exits_2_when_model_not_cached(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_exits_2_when_model_not_cached(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """CLI: ``--with-ml`` mit fehlendem Cache → Exit-Code 2 + klare
     Fehlermeldung auf stderr."""
     rc = main(["--with-ml"])
@@ -89,9 +91,7 @@ def test_model_not_cached_error_is_runtime_subclass() -> None:
     assert issubclass(ModelNotCachedError, RuntimeError)
 
 
-def test_ml_mode_clears_disable_ml_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ml_mode_clears_disable_ml_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``with_ml=True`` muss ``PSEUDOKRAT_DISABLE_ML`` aus der ENV
     entfernen — sonst läuft der Settings.load() in den Null-Detector,
     auch wenn das Flag gesetzt ist."""

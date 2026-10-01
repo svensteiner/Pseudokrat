@@ -569,7 +569,9 @@ class MainWindow(QMainWindow):
         """
         if self.ki_project_tab.job is not None:
             event.ignore()
-            self.statusBar().showMessage("KI-Projekt wird noch verarbeitet. Danach kann Pseudokrat geschlossen werden.")
+            self.statusBar().showMessage(
+                "KI-Projekt wird noch verarbeitet. Danach kann Pseudokrat geschlossen werden."
+            )
             return
         if self._simple_mode and self.tray_icon.isVisible():
             event.ignore()

@@ -105,9 +105,7 @@ class ServerState:
     ) -> tuple[Anonymizer, Deanonymizer]:
         from pseudokrat.store.mapping_store import MappingStore
 
-        store, audit = self.profile_manager.open_or_create(
-            self.profile_name, self.password
-        )
+        store, audit = self.profile_manager.open_or_create(self.profile_name, self.password)
         assert isinstance(store, MappingStore)
         self._store = store
         settings = self.profile_manager.settings
@@ -148,9 +146,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
         """Logging über structlog, nicht stderr-Direct-Print."""
         from pseudokrat.logging_config import get_logger
 
-        get_logger("pseudokrat.server").info(
-            "http", method=self.command, path=self.path, args=args
-        )
+        get_logger("pseudokrat.server").info("http", method=self.command, path=self.path, args=args)
 
     # ----- helpers ----------------------------------------------------------
 
@@ -240,13 +236,11 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 try:
                     if self.path.endswith("/anonymize"):
                         results = [
-                            {"input": t, "output": anonymizer.anonymize(t).text}
-                            for t in texts
+                            {"input": t, "output": anonymizer.anonymize(t).text} for t in texts
                         ]
                     else:
                         results = [
-                            {"input": t, "output": deanonymizer.deanonymize(t).text}
-                            for t in texts
+                            {"input": t, "output": deanonymizer.deanonymize(t).text} for t in texts
                         ]
                 finally:
                     self.state.close()

@@ -80,9 +80,7 @@ class WinRegistryBackend:
         try:
             import winreg  # type: ignore[import-not-found,unused-ignore]
         except ImportError as exc:  # pragma: no cover - non-Windows path
-            raise RuntimeError(
-                "Explorer-Context-Menu ist nur unter Windows verfügbar."
-            ) from exc
+            raise RuntimeError("Explorer-Context-Menu ist nur unter Windows verfügbar.") from exc
         return winreg
 
     @staticmethod
@@ -213,9 +211,7 @@ class InMemoryRegistryBackend:
 
     def subkey_exists(self, hive: str, subkey: str) -> bool:
         hive_dict = self._ensure_hive(hive)
-        return subkey in hive_dict or any(
-            k.startswith(subkey + "\\") for k in hive_dict
-        )
+        return subkey in hive_dict or any(k.startswith(subkey + "\\") for k in hive_dict)
 
 
 # ---------- Befehls-Resolution ----------------------------------------------

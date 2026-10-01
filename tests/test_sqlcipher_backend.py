@@ -51,16 +51,12 @@ def test_new_profile_writes_sqlcipher_encrypted_file(tmp_path: Path) -> None:
 def test_reopen_with_correct_password_returns_data(tmp_path: Path) -> None:
     db = tmp_path / "sc.sqlite"
     conn, _ = open_or_init(db, "supergeheim", profile_name="SC-Test")
-    conn.execute(
-        "INSERT INTO profile_metadata (key, value) VALUES ('test_key', 'test_value')"
-    )
+    conn.execute("INSERT INTO profile_metadata (key, value) VALUES ('test_key', 'test_value')")
     conn.commit()
     conn.close()
 
     conn2, _ = open_or_init(db, "supergeheim")
-    row = conn2.execute(
-        "SELECT value FROM profile_metadata WHERE key = 'test_key'"
-    ).fetchone()
+    row = conn2.execute("SELECT value FROM profile_metadata WHERE key = 'test_key'").fetchone()
     assert row["value"] == "test_value"
     conn2.close()
 

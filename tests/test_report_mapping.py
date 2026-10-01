@@ -24,12 +24,19 @@ def sources(tmp_path):
     doc.add_paragraph("{{ name }}: {{ total }} EUR")
     doc.save(template)
     spec = {
-        "version": 1, "reviewed": True,
+        "version": 1,
+        "reviewed": True,
         "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
         "headers": {"Daten": {"A1": "Name", "B1": "Betrag"}},
         "fields": {
             "name": {"sheet": "Daten", "range": "A2", "operation": "cell", "format": "text"},
-            "total": {"sheet": "Daten", "range": "B2:B3", "operation": "sum", "format": "decimal", "decimals": 2},
+            "total": {
+                "sheet": "Daten",
+                "range": "B2:B3",
+                "operation": "sum",
+                "format": "decimal",
+                "decimals": 2,
+            },
         },
     }
     return excel, template, spec
@@ -44,7 +51,9 @@ def test_exact_decimal_sum_with_provenance(sources):
     assert result["total"]["source"] == {"sheet": "Daten", "range": "B2:B3", "operation": "sum"}
 
 
-@pytest.mark.parametrize("change", ["review", "template", "header", "missing", "formula", "unknown", "integer"])
+@pytest.mark.parametrize(
+    "change", ["review", "template", "header", "missing", "formula", "unknown", "integer"]
+)
 def test_untrusted_or_ambiguous_mapping_blocks(sources, change):
     excel, template, spec = sources
     if change == "review":
@@ -58,6 +67,7 @@ def test_untrusted_or_ambiguous_mapping_blocks(sources, change):
         spec["fields"]["total"].pop("decimals")
     else:
         from openpyxl import load_workbook
+
         book = load_workbook(excel)
         if change == "header":
             book.active["B1"] = "Andere Einheit"
@@ -70,14 +80,18 @@ def test_untrusted_or_ambiguous_mapping_blocks(sources, change):
         resolve_mapping(excel, template, spec)
 
 
-@pytest.mark.parametrize("value,number_format,expected", [
-    (0, "General", "0,00"),
-    (-0.125, "General", "-0,13"),
-    (45292, "yyyy-mm-dd", None),
-    (True, "General", None),
-])
+@pytest.mark.parametrize(
+    "value,number_format,expected",
+    [
+        (0, "General", "0,00"),
+        (-0.125, "General", "-0,13"),
+        (45292, "yyyy-mm-dd", None),
+        (True, "General", None),
+    ],
+)
 def test_rounding_zero_dates_and_boolean_types(sources, value, number_format, expected):
     from openpyxl import load_workbook
+
     excel, template, spec = sources
     book = load_workbook(excel)
     book.active["B2"] = value
@@ -93,6 +107,7 @@ def test_rounding_zero_dates_and_boolean_types(sources, value, number_format, ex
 
 def test_unknown_locale_specific_number_format_blocks(sources):
     from pseudokrat.ki_office import S, read_office, write_office
+
     excel, template, spec = sources
     roots = read_office(excel)
     xf = roots["xl/styles.xml"].find(f"{{{S}}}cellXfs")[0]

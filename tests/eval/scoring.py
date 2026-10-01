@@ -75,8 +75,16 @@ def score_spans(
     scores: dict[str, CategoryScore] = {}
 
     for cat in categories:
-        preds_cat = [Span(s.start, s.end, _norm_cat(s.category)) for s in predicted if _norm_cat(s.category) == cat]
-        truth_cat = [Span(s.start, s.end, _norm_cat(s.category)) for s in truth if _norm_cat(s.category) == cat]
+        preds_cat = [
+            Span(s.start, s.end, _norm_cat(s.category))
+            for s in predicted
+            if _norm_cat(s.category) == cat
+        ]
+        truth_cat = [
+            Span(s.start, s.end, _norm_cat(s.category))
+            for s in truth
+            if _norm_cat(s.category) == cat
+        ]
         matched_truth: set[int] = set()
         tp = 0
         for pred in preds_cat:

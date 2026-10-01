@@ -34,18 +34,28 @@ def test_orphan_shared_strings_are_removed_after_identity_replacement(tmp_path, 
                 remaining.set("t", "s")
                 etree.SubElement(remaining, f"{{{S}}}v").text = "2"
             elif name == "[Content_Types].xml":
-                etree.SubElement(root, "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
-                                 PartName="/xl/sharedStrings.xml",
-                                 ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
+                etree.SubElement(
+                    root,
+                    "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
+                    PartName="/xl/sharedStrings.xml",
+                    ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml",
+                )
             elif name == "xl/_rels/workbook.xml.rels":
-                etree.SubElement(root, "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
-                                 Id="rIdStrings", Target="sharedStrings.xml",
-                                 Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings")
+                etree.SubElement(
+                    root,
+                    "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
+                    Id="rIdStrings",
+                    Target="sharedStrings.xml",
+                    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
+                )
             target.writestr(name, etree.tostring(root))
-        target.writestr("xl/sharedStrings.xml", (
-            f'<sst xmlns="{S}" count="2" uniqueCount="3"><si><t>00000001</t></si>'
-            '<si><t>OrphanProjectOrchid</t></si><si><t>Visible ordinary label</t></si></sst>'
-        ))
+        target.writestr(
+            "xl/sharedStrings.xml",
+            (
+                f'<sst xmlns="{S}" count="2" uniqueCount="3"><si><t>00000001</t></si>'
+                "<si><t>OrphanProjectOrchid</t></si><si><t>Visible ordinary label</t></si></sst>"
+            ),
+        )
     key = store_and_audit[0].keys.fernet
     project = prepare_project([source], tmp_path / "project", key)
     preview = project / "vorschau" / "daten_01.xlsx"

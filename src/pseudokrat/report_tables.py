@@ -30,7 +30,11 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
         raise ProjectError("Ungültige Zuordnungsversion.")
     if set(spec) != {"version", "reviewed", "template_sha256", "headers", "fields", "tables"}:
         raise ProjectError("Unbekannte Tabellenzuordnung.")
-    if not isinstance(spec["fields"], dict) or not isinstance(spec["tables"], dict) or not 1 <= len(spec["tables"]) <= 50:
+    if (
+        not isinstance(spec["fields"], dict)
+        or not isinstance(spec["tables"], dict)
+        or not 1 <= len(spec["tables"]) <= 50
+    ):
         raise ProjectError("Tabellenzuordnung fehlt oder überschreitet die Begrenzung.")
     fields = dict(spec["fields"])
     if any(not isinstance(k, str) or k.startswith("__tbl_") for k in fields):
@@ -42,8 +46,14 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
         if set(table) != {"sheet", "first_row", "last_row", "columns"}:
             raise ProjectError("Unbekannte Tabelleneinstellung.")
         first, last, columns = table["first_row"], table["last_row"], table["columns"]
-        if (type(first) is not int or type(last) is not int or not 1 <= first <= last <= 1048576
-            or last - first + 1 > 1000 or not isinstance(columns, dict) or not 1 <= len(columns) <= 50):
+        if (
+            type(first) is not int
+            or type(last) is not int
+            or not 1 <= first <= last <= 1048576
+            or last - first + 1 > 1000
+            or not isinstance(columns, dict)
+            or not 1 <= len(columns) <= 50
+        ):
             raise ProjectError("Tabellenbereich ungültig oder zu groß.")
         if any(k.startswith(name + ".") for k in fields):
             raise ProjectError("Tabellen- und Einzelfelder überschneiden sich.")
@@ -51,15 +61,26 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
         for row in range(first, last + 1):
             targets = {}
             for column_name, definition in columns.items():
-                if (not isinstance(column_name, str) or not _NAME.fullmatch(column_name)
+                if (
+                    not isinstance(column_name, str)
+                    or not _NAME.fullmatch(column_name)
                     or not isinstance(definition, dict)
-                    or not {"column", "format"} <= set(definition) <= {"column", "format", "decimals"}
+                    or not {"column", "format"}
+                    <= set(definition)
+                    <= {"column", "format", "decimals"}
                     or not isinstance(definition["column"], str)
-                    or not re.fullmatch(r"[A-Z]{1,3}", definition["column"])):
+                    or not re.fullmatch(r"[A-Z]{1,3}", definition["column"])
+                ):
                     raise ProjectError("Ungültige Tabellenspalte.")
                 key = f"__tbl_{len(fields):05d}"
                 fields[key] = {k: v for k, v in definition.items() if k != "column"}
-                fields[key].update({"sheet": table["sheet"], "range": f"{definition['column']}{row}", "operation": "cell"})
+                fields[key].update(
+                    {
+                        "sheet": table["sheet"],
+                        "range": f"{definition['column']}{row}",
+                        "operation": "cell",
+                    }
+                )
                 targets[column_name] = key
                 if len(fields) > 10_000:
                     raise ProjectError("Zu viele Berichts- und Tabellenfelder.")
@@ -70,12 +91,18 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
     return compiled, groups
 
 
-def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]], facts: dict[str, Any]) -> dict[str, Any]:
+def render_tables(
+    roots: dict[str, Any], groups: dict[str, list[dict[str, str]]], facts: dict[str, Any]
+) -> dict[str, Any]:
     """Require one complete prototype row per table; never silently drop rows."""
     evidence = {}
     _, protected = inspect_fields(roots)
-    drawing_ids = [e.get("id", "") for root in roots.values() for e in root.iter()
-                   if etree.QName(e).localname in {"docPr", "cNvPr"}]
+    drawing_ids = [
+        e.get("id", "")
+        for root in roots.values()
+        for e in root.iter()
+        if etree.QName(e).localname in {"docPr", "cNvPr"}
+    ]
     if any(not identifier.isdecimal() for identifier in drawing_ids):
         raise ProjectError("Ungültige Bildkennung in der Word-Vorlage.")
     next_drawing_id = max((int(identifier) for identifier in drawing_ids), default=0) + 1
@@ -96,14 +123,26 @@ def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]]
                             raise ProjectError("Beschädigte Tabellenplatzhalter.")
                 if any(field.startswith(name + ".") for field in found):
                     if found != expected:
-                        raise ProjectError("Tabellenmusterzeile enthält fehlende, fremde oder gemischte Felder.")
+                        raise ProjectError(
+                            "Tabellenmusterzeile enthält fehlende, fremde oder gemischte Felder."
+                        )
                     candidates.append(row)
         if len(candidates) != 1:
             raise ProjectError("Tabellenmusterzeile fehlt oder ist mehrdeutig.")
         prototype = candidates[0]
-        blocked = {"vMerge", "bookmarkStart", "bookmarkEnd", "footnoteReference", "endnoteReference", "commentReference", "tbl"}
+        blocked = {
+            "vMerge",
+            "bookmarkStart",
+            "bookmarkEnd",
+            "footnoteReference",
+            "endnoteReference",
+            "commentReference",
+            "tbl",
+        }
         if any(etree.QName(e).localname in blocked for e in prototype.iter()):
-            raise ProjectError("Verknüpfte, verschachtelte oder vertikal verbundene Tabellenmusterzeile wird nicht unterstützt.")
+            raise ProjectError(
+                "Verknüpfte, verschachtelte oder vertikal verbundene Tabellenmusterzeile wird nicht unterstützt."
+            )
         parent = prototype.getparent()
         position = parent.index(prototype)
         row_facts = []

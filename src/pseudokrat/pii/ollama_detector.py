@@ -28,10 +28,35 @@ _DEFAULT_HOST = "http://localhost:11434"
 # Werte, die das LLM manchmal faelschlich als Eigenname zurueckgibt.
 _STOPWORDS: frozenset[str] = frozenset(
     {
-        "gmbh", "ag", "kg", "og", "ug", "se", "ohg", "kgaa", "e.u", "eu",
-        "der", "die", "das", "und", "oder", "firma", "gesellschaft", "konto",
-        "rechnung", "bilanz", "summe", "betrag", "datum", "seite", "jahr",
-        "company", "the", "and", "gmbh & co kg",
+        "gmbh",
+        "ag",
+        "kg",
+        "og",
+        "ug",
+        "se",
+        "ohg",
+        "kgaa",
+        "e.u",
+        "eu",
+        "der",
+        "die",
+        "das",
+        "und",
+        "oder",
+        "firma",
+        "gesellschaft",
+        "konto",
+        "rechnung",
+        "bilanz",
+        "summe",
+        "betrag",
+        "datum",
+        "seite",
+        "jahr",
+        "company",
+        "the",
+        "and",
+        "gmbh & co kg",
     }
 )
 
@@ -63,9 +88,7 @@ _PROMPT = (
 )
 
 
-def _http_urlopen(
-    target: str | urllib.request.Request, *, timeout: float
-) -> Any:
+def _http_urlopen(target: str | urllib.request.Request, *, timeout: float) -> Any:
     """``urlopen``, das ausschliesslich ``http``/``https`` zulaesst.
 
     Schliesst aus, dass eine manipulierte Host-Konfiguration über ``file://``

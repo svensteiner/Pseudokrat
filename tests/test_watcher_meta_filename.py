@@ -30,7 +30,7 @@ class TestSafeFilename:
         assert stem == "COMPANY_001_Bilanz_2025"
 
     def test_invalid_windows_chars_neutralised(self) -> None:
-        stem = watcher.safe_anonymized_stem('A/B:C?D', _FakeAnonymizer())
+        stem = watcher.safe_anonymized_stem("A/B:C?D", _FakeAnonymizer())
         for bad in '<>:"/\\|?*':
             assert bad not in stem
 

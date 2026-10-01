@@ -10,15 +10,15 @@ from pseudokrat.recognizers.bic import BICRecognizer, is_valid_bic
 @pytest.mark.parametrize(
     "bic",
     [
-        "DEUTDEFF",     # Deutsche Bank Frankfurt — 8-stellig
+        "DEUTDEFF",  # Deutsche Bank Frankfurt — 8-stellig
         "DEUTDEFFXXX",  # Deutsche Bank Frankfurt — 11-stellig
         "GIBAATWWXXX",  # Erste Bank Wien
         "UBSWCHZH80A",  # UBS Zürich
         "INGBDEFFXXX",  # ING-DiBa
-        "BKAUATWW",     # Bank Austria
+        "BKAUATWW",  # Bank Austria
         "POFICHBEXXX",  # PostFinance Bern
-        "RBOSGB2L",     # NatWest London
-        "CHASUS33",     # JP Morgan Chase
+        "RBOSGB2L",  # NatWest London
+        "CHASUS33",  # JP Morgan Chase
     ],
 )
 def test_valid_real_bic_accepted(bic: str) -> None:
@@ -28,16 +28,16 @@ def test_valid_real_bic_accepted(bic: str) -> None:
 @pytest.mark.parametrize(
     "not_bic",
     [
-        "DEUTDEFFX",     # 9 Zeichen — ungültige Länge
-        "DEUTDEFFXX",    # 10 Zeichen — ungültige Länge
-        "DEUT",          # zu kurz
-        "DEUTDEFFXXXXX", # zu lang
-        "deutdeff",      # lowercase
-        "1234DEFFXXX",   # erste 4 keine Buchstaben
-        "DEUT99FFXXX",   # Country-Stellen mit Ziffern
-        "DEUTZZFF",      # ZZ ist kein gültiger ISO-3166-1-Alpha-2
-        "SCHWEIZ",       # echtes Wort (7 Zeichen, falsche Länge)
-        "PROFISTART",    # zufälliges Wort
+        "DEUTDEFFX",  # 9 Zeichen — ungültige Länge
+        "DEUTDEFFXX",  # 10 Zeichen — ungültige Länge
+        "DEUT",  # zu kurz
+        "DEUTDEFFXXXXX",  # zu lang
+        "deutdeff",  # lowercase
+        "1234DEFFXXX",  # erste 4 keine Buchstaben
+        "DEUT99FFXXX",  # Country-Stellen mit Ziffern
+        "DEUTZZFF",  # ZZ ist kein gültiger ISO-3166-1-Alpha-2
+        "SCHWEIZ",  # echtes Wort (7 Zeichen, falsche Länge)
+        "PROFISTART",  # zufälliges Wort
     ],
 )
 def test_invalid_bic_rejected(not_bic: str) -> None:
@@ -61,10 +61,7 @@ def test_recognizer_filters_invalid_country_code() -> None:
 
 
 def test_recognizer_extracts_multiple_bics() -> None:
-    text = (
-        "Empfänger BIC: DEUTDEFFXXX. Absender BIC: UBSWCHZH80A. "
-        "Vermittler BIC: BKAUATWW."
-    )
+    text = "Empfänger BIC: DEUTDEFFXXX. Absender BIC: UBSWCHZH80A. Vermittler BIC: BKAUATWW."
     spans = BICRecognizer().analyze(text)
     extracted = [text[s.start : s.end] for s in spans]
     assert set(extracted) == {"DEUTDEFFXXX", "UBSWCHZH80A", "BKAUATWW"}

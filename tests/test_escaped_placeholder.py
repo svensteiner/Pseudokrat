@@ -37,9 +37,7 @@ def test_matches_placeholder_shaped_tokens(
         "",
     ],
 )
-def test_ignores_non_placeholders(
-    recognizer: EscapedPlaceholderRecognizer, text: str
-) -> None:
+def test_ignores_non_placeholders(recognizer: EscapedPlaceholderRecognizer, text: str) -> None:
     assert recognizer.analyze(text) == []
 
 

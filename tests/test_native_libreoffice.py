@@ -12,8 +12,10 @@ from pseudokrat import native_libreoffice
 from pseudokrat.ki_office import ProjectError
 from pseudokrat.native_libreoffice import recalculate
 
-pytestmark = pytest.mark.skipif(sys.platform != "linux" or os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1",
-                               reason="Requires explicit Linux LibreOffice opt-in")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "linux" or os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1",
+    reason="Requires explicit Linux LibreOffice opt-in",
+)
 
 
 def test_real_xlsx_calculation_preserves_original(tmp_path):
@@ -103,7 +105,10 @@ def test_timeout_cleans_working_copy(tmp_path, monkeypatch):
     original = path.read_bytes()
     marker = tmp_path / "ownership.json"
     worker = Path(native_libreoffice.__file__).with_name("libreoffice_worker.py").read_text()
-    worker = worker.replace("        document.calculateAll()", f"        Path({str(marker)!r}).write_text(json.dumps({{'folder': str(folder), 'group': __import__('os').getpgrp()}}))\n        time.sleep(60)\n        document.calculateAll()")
+    worker = worker.replace(
+        "        document.calculateAll()",
+        f"        Path({str(marker)!r}).write_text(json.dumps({{'folder': str(folder), 'group': __import__('os').getpgrp()}}))\n        time.sleep(60)\n        document.calculateAll()",
+    )
     (tmp_path / "libreoffice_worker.py").write_text(worker)
     monkeypatch.setattr(native_libreoffice, "__file__", str(tmp_path / "native_libreoffice.py"))
     with pytest.raises(ProjectError):

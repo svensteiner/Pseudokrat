@@ -27,7 +27,9 @@ def test_unsafe_conditional_formula_never_reaches_excel(tmp_path):
     source = tmp_path / "conditional.xlsx"
     book = Workbook()
     book.active["A1"] = 1
-    book.active.conditional_formatting.add("A1", FormulaRule(formula=['WEBSERVICE("https://example.invalid")']))
+    book.active.conditional_formatting.add(
+        "A1", FormulaRule(formula=['WEBSERVICE("https://example.invalid")'])
+    )
     book.save(source)
     with pytest.raises(ProjectError):
         validate_source(source)
@@ -44,7 +46,9 @@ def test_calculation_semantics_are_not_silently_changed(tmp_path, setting, value
         validate_source(source)
 
 
-@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in")
+@pytest.mark.skipif(
+    os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in"
+)
 def test_real_excel_rebuild_returns_fresh_values_without_modifying_original(tmp_path):
     source = tmp_path / "input.xlsx"
     book = Workbook()
@@ -68,7 +72,9 @@ def test_real_excel_rebuild_returns_fresh_values_without_modifying_original(tmp_
     assert source.read_bytes() == original
 
 
-@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in")
+@pytest.mark.skipif(
+    os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in"
+)
 def test_real_excel_error_cell_stops_result(tmp_path):
     source = tmp_path / "error.xlsx"
     book = Workbook()
@@ -78,7 +84,9 @@ def test_real_excel_error_cell_stops_result(tmp_path):
         recalculate(source)
 
 
-@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in")
+@pytest.mark.skipif(
+    os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in"
+)
 @pytest.mark.parametrize("formula", ["=A1+1", "=B1+1"])
 def test_real_excel_circular_reference_stops_result(tmp_path, formula):
     source = tmp_path / "circular.xlsx"
@@ -90,7 +98,9 @@ def test_real_excel_circular_reference_stops_result(tmp_path, formula):
         recalculate(source)
 
 
-@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in")
+@pytest.mark.skipif(
+    os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in"
+)
 def test_timeout_kills_owned_excel_and_removes_working_copy(tmp_path, monkeypatch):
     source = tmp_path / "timeout.xlsx"
     book = Workbook()
@@ -111,9 +121,15 @@ def test_timeout_kills_owned_excel_and_removes_working_copy(tmp_path, monkeypatc
         recalculate(source, timeout=15)
     ownership = json.loads(marker.read_text())
     probe = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-         f"if (Get-Process -Id {int(ownership['pid'])} -ErrorAction SilentlyContinue) {{ exit 1 }}"],
-        capture_output=True, timeout=10,
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            f"if (Get-Process -Id {int(ownership['pid'])} -ErrorAction SilentlyContinue) {{ exit 1 }}",
+        ],
+        capture_output=True,
+        timeout=10,
     )
     assert probe.returncode == 0
     assert not Path(ownership["directory"]).exists()
@@ -130,9 +146,14 @@ def test_invalid_worker_values_are_never_released(tmp_path, monkeypatch, invalid
 
     def worker(command, **kwargs):
         folder = Path(command[-1])
-        (folder / "result.json").write_text(json.dumps({
-            "engine": "Microsoft Excel", "cells": {"Sheet": {"A1": {"value": invalid}}},
-        }))
+        (folder / "result.json").write_text(
+            json.dumps(
+                {
+                    "engine": "Microsoft Excel",
+                    "cells": {"Sheet": {"A1": {"value": invalid}}},
+                }
+            )
+        )
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(native_excel.subprocess, "run", worker)
@@ -148,9 +169,14 @@ def test_source_change_discards_worker_result(tmp_path, monkeypatch):
     book.save(source)
 
     def worker(command, **kwargs):
-        (Path(command[-1]) / "result.json").write_text(json.dumps({
-            "engine": "Microsoft Excel", "cells": {"Sheet": {"A1": {"value": 3}}},
-        }))
+        (Path(command[-1]) / "result.json").write_text(
+            json.dumps(
+                {
+                    "engine": "Microsoft Excel",
+                    "cells": {"Sheet": {"A1": {"value": 3}}},
+                }
+            )
+        )
         book.active["A1"] = "=10+20"
         book.save(source)
         return subprocess.CompletedProcess(command, 0)

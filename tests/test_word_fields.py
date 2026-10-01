@@ -28,7 +28,9 @@ def complex_field(paragraph, instructions, cached="1", close=True):
         paragraph.add_run()._r.append(end)
 
 
-@pytest.mark.parametrize("code", ["PAGE", "NUMPAGES", "SECTION", "SECTIONPAGES", r"PAGE \* MERGEFORMAT"])
+@pytest.mark.parametrize(
+    "code", ["PAGE", "NUMPAGES", "SECTION", "SECTIONPAGES", r"PAGE \* MERGEFORMAT"]
+)
 def test_local_pagination_is_preserved_but_export_stays_blocked(tmp_path, code):
     path = tmp_path / "template.docx"
     doc = Document()
@@ -44,7 +46,17 @@ def test_local_pagination_is_preserved_but_export_stays_blocked(tmp_path, code):
         read_office(path)
 
 
-@pytest.mark.parametrize("instruction", ["DDEAUTO cmd", 'INCLUDETEXT "https://example.invalid"', 'INCLUDEPICTURE "file:///secret"', "PAGE DDE", r"PAGE \x unknown", "TOC"])
+@pytest.mark.parametrize(
+    "instruction",
+    [
+        "DDEAUTO cmd",
+        'INCLUDETEXT "https://example.invalid"',
+        'INCLUDEPICTURE "file:///secret"',
+        "PAGE DDE",
+        r"PAGE \x unknown",
+        "TOC",
+    ],
+)
 def test_other_fields_are_blocked_even_with_split_instruction(tmp_path, instruction):
     path = tmp_path / "bad.docx"
     doc = Document()
@@ -69,7 +81,10 @@ def test_placeholder_cannot_cross_field_boundary():
     complex_field(p, ["PAGE"])
     p.add_run(" }}")
     _, protected = inspect_fields({"part": doc._element})
-    assert ["".join(n.text for n in segment) for segment in text_segments(p._p, protected)] == ["{{ name", " }}"]
+    assert ["".join(n.text for n in segment) for segment in text_segments(p._p, protected)] == [
+        "{{ name",
+        " }}",
+    ]
 
 
 def test_placeholder_inside_field_result_is_rejected():

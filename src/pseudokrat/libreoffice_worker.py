@@ -21,19 +21,29 @@ def run(folder: Path) -> None:
         return item
 
     pipe = "pseudokrat_" + uuid.uuid4().hex
-    command = ["/usr/bin/libreoffice", "-env:UserInstallation=" + (folder / "profile").as_uri(),
-               "--headless", "--norestore", "--nodefault", "--nofirststartwizard",
-               "--accept=pipe,name=" + pipe + ";urp;StarOffice.ComponentContext"]
+    command = [
+        "/usr/bin/libreoffice",
+        "-env:UserInstallation=" + (folder / "profile").as_uri(),
+        "--headless",
+        "--norestore",
+        "--nodefault",
+        "--nofirststartwizard",
+        "--accept=pipe,name=" + pipe + ";urp;StarOffice.ComponentContext",
+    ]
     # No new session here: the parent owns and kills our entire process group.
     office = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     document = None
     try:
         local = uno.getComponentContext()
-        resolver = local.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", local)
+        resolver = local.ServiceManager.createInstanceWithContext(
+            "com.sun.star.bridge.UnoUrlResolver", local
+        )
         context = None
         for _ in range(100):
             try:
-                context = resolver.resolve("uno:pipe,name=" + pipe + ";urp;StarOffice.ComponentContext")
+                context = resolver.resolve(
+                    "uno:pipe,name=" + pipe + ";urp;StarOffice.ComponentContext"
+                )
                 break
             except Exception:
                 if office.poll() is not None:
@@ -43,8 +53,17 @@ def run(folder: Path) -> None:
             raise RuntimeError("Office startup timed out")
         manager = context.ServiceManager
         desktop = manager.createInstanceWithContext("com.sun.star.frame.Desktop", context)
-        document = desktop.loadComponentFromURL((folder / "input.xlsx").as_uri(), "_blank", 0,
-            (prop("Hidden", True), prop("ReadOnly", True), prop("MacroExecutionMode", 0), prop("UpdateDocMode", 0)))
+        document = desktop.loadComponentFromURL(
+            (folder / "input.xlsx").as_uri(),
+            "_blank",
+            0,
+            (
+                prop("Hidden", True),
+                prop("ReadOnly", True),
+                prop("MacroExecutionMode", 0),
+                prop("UpdateDocMode", 0),
+            ),
+        )
         if document is None:
             raise RuntimeError("No document")
         requests = json.loads((folder / "request.json").read_text("utf-8"))
@@ -79,10 +98,18 @@ def run(folder: Path) -> None:
                     raise RuntimeError("Unsupported result")
                 values[address] = {"value": value}
             cells[name] = values
-        provider = manager.createInstanceWithContext("com.sun.star.configuration.ConfigurationProvider", context)
-        config = provider.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess",
-                   (prop("nodepath", "/org.openoffice.Setup/Product"),))
-        result = {"engine": "LibreOffice Calc", "version": config.getPropertyValue("ooSetupVersionAboutBox"), "cells": cells}
+        provider = manager.createInstanceWithContext(
+            "com.sun.star.configuration.ConfigurationProvider", context
+        )
+        config = provider.createInstanceWithArguments(
+            "com.sun.star.configuration.ConfigurationAccess",
+            (prop("nodepath", "/org.openoffice.Setup/Product"),),
+        )
+        result = {
+            "engine": "LibreOffice Calc",
+            "version": config.getPropertyValue("ooSetupVersionAboutBox"),
+            "cells": cells,
+        }
         (folder / "result.json").write_text(json.dumps(result, allow_nan=False), encoding="utf-8")
     finally:
         if document is not None:

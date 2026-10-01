@@ -39,22 +39,34 @@ def test_export_removes_creator_and_hidden_provenance(tmp_path, store_and_audit,
                     root.set("origin", marker)
                     root.text = marker
                 if name == "xl/workbook.xml":
-                    etree.SubElement(root, f"{{{S}}}fileSharing", userName=marker, readOnlyRecommended="1")
+                    etree.SubElement(
+                        root, f"{{{S}}}fileSharing", userName=marker, readOnlyRecommended="1"
+                    )
                     etree.SubElement(root, f"{{{S}}}fileVersion", appName=marker, codeName=marker)
                     root.find(f"{{{S}}}workbookPr").set("codeName", marker)
                 if name == "xl/worksheets/sheet1.xml":
                     root.find(f"{{{S}}}sheetPr").set("codeName", marker)
                 if name == "[Content_Types].xml":
-                    etree.SubElement(root, "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
-                                     PartName="/docProps/custom.xml",
-                                     ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml")
+                    etree.SubElement(
+                        root,
+                        "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
+                        PartName="/docProps/custom.xml",
+                        ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml",
+                    )
                 if name == "_rels/.rels":
-                    etree.SubElement(root, "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
-                                     Id="rIdCustom", Target="docProps/custom.xml",
-                                     Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties")
+                    etree.SubElement(
+                        root,
+                        "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
+                        Id="rIdCustom",
+                        Target="docProps/custom.xml",
+                        Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
+                    )
                 data = etree.tostring(root)
             target.writestr(name, data)
-        target.writestr("docProps/custom.xml", f'<Properties origin="{marker}"><Company>{marker}</Company></Properties>')
+        target.writestr(
+            "docProps/custom.xml",
+            f'<Properties origin="{marker}"><Company>{marker}</Company></Properties>',
+        )
     before = source.read_bytes()
     key = store_and_audit[0].keys.fernet
     project = prepare_project([source], tmp_path / "project", key)
@@ -84,10 +96,13 @@ def test_export_removes_creator_and_hidden_provenance(tmp_path, store_and_audit,
     assert source.read_bytes() == before
 
 
-@pytest.mark.parametrize("tag,part", [
-    ("customWorkbookViews", "xl/workbook.xml"),
-    ("customSheetViews", "xl/worksheets/sheet1.xml"),
-])
+@pytest.mark.parametrize(
+    "tag,part",
+    [
+        ("customWorkbookViews", "xl/workbook.xml"),
+        ("customSheetViews", "xl/worksheets/sheet1.xml"),
+    ],
+)
 def test_custom_views_with_provenance_are_blocked(tmp_path, tag, part):
     source = tmp_path / "views.xlsx"
     Workbook().save(source)

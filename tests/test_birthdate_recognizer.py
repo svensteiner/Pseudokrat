@@ -23,25 +23,19 @@ def recognizer() -> BirthDateRecognizer:
 class TestBirthDateRecognizer:
     """Positive Cases — Datum MUSS erkannt werden."""
 
-    def test_geburtsdatum_label_dd_mm_yyyy_at(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_geburtsdatum_label_dd_mm_yyyy_at(self, recognizer: BirthDateRecognizer) -> None:
         text = "Geburtsdatum:          15.03.1985"
         spans = recognizer.analyze(text)
         assert len(spans) == 1
         assert spans[0].text == "15.03.1985"
         assert spans[0].category == "DATE"
 
-    def test_geburtsdatum_label_dd_mm_yyyy_de(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_geburtsdatum_label_dd_mm_yyyy_de(self, recognizer: BirthDateRecognizer) -> None:
         text = "Geburtsdatum:          07.11.1978"
         spans = recognizer.analyze(text)
         assert [s.text for s in spans] == ["07.11.1978"]
 
-    def test_geburtsdatum_label_dd_mm_yyyy_ch(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_geburtsdatum_label_dd_mm_yyyy_ch(self, recognizer: BirthDateRecognizer) -> None:
         text = "Geburtsdatum:         22.08.1972"
         spans = recognizer.analyze(text)
         assert [s.text for s in spans] == ["22.08.1972"]
@@ -56,9 +50,7 @@ class TestBirthDateRecognizer:
         spans = recognizer.analyze(text)
         assert [s.text for s in spans] == ["1985-03-15"]
 
-    def test_date_of_birth_with_em_dash(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_date_of_birth_with_em_dash(self, recognizer: BirthDateRecognizer) -> None:
         text = "Date of Birth — 07.11.1978"
         spans = recognizer.analyze(text)
         assert [s.text for s in spans] == ["07.11.1978"]
@@ -77,16 +69,12 @@ class TestBirthDateRecognizer:
 class TestBirthDateRecognizerNegativeCases:
     """Negative Cases — Datum darf NICHT erkannt werden ohne Kontext."""
 
-    def test_eintrittsdatum_is_not_birth(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_eintrittsdatum_is_not_birth(self, recognizer: BirthDateRecognizer) -> None:
         text = "Eintrittsdatum: 01.06.2024 — Pendlerpauschale aktiv."
         spans = recognizer.analyze(text)
         assert spans == []
 
-    def test_erstellungsdatum_is_not_birth(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_erstellungsdatum_is_not_birth(self, recognizer: BirthDateRecognizer) -> None:
         text = "Erstellt am 31.01.2026 von der Lohnverrechnung."
         spans = recognizer.analyze(text)
         assert spans == []
@@ -96,9 +84,7 @@ class TestBirthDateRecognizerNegativeCases:
         spans = recognizer.analyze(text)
         assert spans == []
 
-    def test_label_with_intervening_words(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_label_with_intervening_words(self, recognizer: BirthDateRecognizer) -> None:
         """Wenn ein Volltextsatz zwischen Label und Datum steht — kein Match."""
         text = "Geburtsdatum ist nicht relevant. Stattdessen 15.03.1985 als Stichtag."
         spans = recognizer.analyze(text)
@@ -114,9 +100,7 @@ class TestBirthDateRecognizerNegativeCases:
         spans = recognizer.analyze(text)
         assert spans == []
 
-    def test_two_digit_year_rejected(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_two_digit_year_rejected(self, recognizer: BirthDateRecognizer) -> None:
         """Zwei-stelliges Jahr ist mehrdeutig — wir matchen nur 4-stellig."""
         text = "Geburtsdatum: 15.03.85"
         spans = recognizer.analyze(text)
@@ -138,22 +122,15 @@ class TestBirthDateRecognizerNegativeCases:
 class TestSpanOffsets:
     """Span-Offsets müssen 1:1 in den Originaltext zurückgreifen."""
 
-    def test_offsets_match_original_text(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
+    def test_offsets_match_original_text(self, recognizer: BirthDateRecognizer) -> None:
         text = "Geburtsdatum: 15.03.1985 — Steuerberater"
         spans = recognizer.analyze(text)
         assert len(spans) == 1
         s = spans[0]
         assert text[s.start : s.end] == "15.03.1985"
 
-    def test_multiple_birthdates_in_one_text(
-        self, recognizer: BirthDateRecognizer
-    ) -> None:
-        text = (
-            "Ehefrau: Geburtsdatum 01.02.1985.\n"
-            "Ehemann: Geburtsdatum 03.04.1980."
-        )
+    def test_multiple_birthdates_in_one_text(self, recognizer: BirthDateRecognizer) -> None:
+        text = "Ehefrau: Geburtsdatum 01.02.1985.\nEhemann: Geburtsdatum 03.04.1980."
         spans = recognizer.analyze(text)
         texts = [s.text for s in spans]
         assert texts == ["01.02.1985", "03.04.1980"]

@@ -26,18 +26,31 @@ from pseudokrat.native_libreoffice import recalculate as recalculate_with_libreo
 
 def _require(condition: bool) -> None:
     if not condition:
-        raise ProjectError("Berichtszuordnung unvollständig, verändert oder nicht unterstützt. Lokal prüfen.")
+        raise ProjectError(
+            "Berichtszuordnung unvollständig, verändert oder nicht unterstützt. Lokal prüfen."
+        )
 
 
 def _addresses(reference: str) -> list[str]:
-    _require(isinstance(reference, str) and re.fullmatch(r"[A-Z]{1,3}[1-9][0-9]{0,6}(?::[A-Z]{1,3}[1-9][0-9]{0,6})?", reference) is not None)
+    _require(
+        isinstance(reference, str)
+        and re.fullmatch(r"[A-Z]{1,3}[1-9][0-9]{0,6}(?::[A-Z]{1,3}[1-9][0-9]{0,6})?", reference)
+        is not None
+    )
     c1, r1, c2, r2 = range_boundaries(reference)
     _require(1 <= c1 <= c2 <= 16384 and 1 <= r1 <= r2 <= 1048576)
     _require((c2 - c1 + 1) * (r2 - r1 + 1) <= 100_000)
     return [f"{get_column_letter(c)}{r}" for r in range(r1, r2 + 1) for c in range(c1, c2 + 1)]
 
 
-def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalculate_excel: bool = False, recalculate_libreoffice: bool = False) -> dict[str, Any]:
+def resolve_mapping(
+    excel: Path,
+    template: Path,
+    spec: dict[str, Any],
+    *,
+    recalculate_excel: bool = False,
+    recalculate_libreoffice: bool = False,
+) -> dict[str, Any]:
     """Resolve reviewed fields, optionally rebuilding formulas in local Excel.
 
     Results contain original facts and source references and must stay local.
@@ -51,25 +64,50 @@ def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalc
             return _resolve(excel, template, spec, recalculate_excel, recalculate_libreoffice)
     except ProjectError:
         raise
-    except (OSError, KeyError, ValueError, TypeError, AttributeError, InvalidOperation, OverflowError) as exc:
-        raise ProjectError("Berichtsquellen oder Zuordnung konnten nicht sicher ausgewertet werden.") from exc
+    except (
+        OSError,
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        InvalidOperation,
+        OverflowError,
+    ) as exc:
+        raise ProjectError(
+            "Berichtsquellen oder Zuordnung konnten nicht sicher ausgewertet werden."
+        ) from exc
 
 
-def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_excel: bool, recalculate_libreoffice: bool) -> dict[str, Any]:
+def _resolve(
+    excel: Path,
+    template: Path,
+    spec: dict[str, Any],
+    recalculate_excel: bool,
+    recalculate_libreoffice: bool,
+) -> dict[str, Any]:
     _require(excel.suffix.lower() == ".xlsx" and template.suffix.lower() == ".docx")
     _require(set(spec) == {"version", "reviewed", "template_sha256", "headers", "fields"})
     _require(type(spec["version"]) is int and spec["version"] == 1 and spec["reviewed"] is True)
     _require(spec["template_sha256"] == hashlib.sha256(template.read_bytes()).hexdigest())
-    _require(isinstance(spec["headers"], dict) and isinstance(spec["fields"], dict) and 1 <= len(spec["fields"]) <= 10_000)
+    _require(
+        isinstance(spec["headers"], dict)
+        and isinstance(spec["fields"], dict)
+        and 1 <= len(spec["fields"]) <= 10_000
+    )
     source_hash = hashlib.sha256(excel.read_bytes()).hexdigest()
     roots = read_office(excel)
     read_local_template(template)
     strings = shared_text(roots)
     rels = roots["xl/_rels/workbook.xml.rels"]
-    targets = {r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/") for r in rels}
+    targets = {
+        r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
+        for r in rels
+    }
     sheets = {}
     for sheet in roots["xl/workbook.xml"].iter(f"{{{S}}}sheet"):
-        target = targets[sheet.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")]
+        target = targets[
+            sheet.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+        ]
         name = sheet.get("name")
         _require(name not in sheets)
         cells = list(roots[target].iter(f"{{{S}}}c"))
@@ -79,7 +117,9 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
     formats = dict(BUILTIN_FORMATS)
     xfs = []
     if styles is not None:
-        formats.update({int(e.get("numFmtId")): e.get("formatCode", "") for e in styles.iter(f"{{{S}}}numFmt")})
+        formats.update(
+            {int(e.get("numFmtId")): e.get("formatCode", "") for e in styles.iter(f"{{{S}}}numFmt")}
+        )
         cell_xfs = styles.find(f"{{{S}}}cellXfs")
         xfs = list(cell_xfs) if cell_xfs is not None else []
     for sheet, headers in spec["headers"].items():
@@ -93,10 +133,22 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
     calculation = None
     referenced_cells = 0
     for name, field in spec["fields"].items():
-        _require(isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,99}", name) is not None)
-        _require(isinstance(field, dict) and set(field) <= {"sheet", "range", "operation", "format", "decimals"})
-        sheet, reference, operation, formatting = (field[k] for k in ("sheet", "range", "operation", "format"))
-        _require(sheet in spec["headers"] and operation in {"cell", "sum"} and formatting in {"text", "decimal", "integer", "percent"})
+        _require(
+            isinstance(name, str)
+            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,99}", name) is not None
+        )
+        _require(
+            isinstance(field, dict)
+            and set(field) <= {"sheet", "range", "operation", "format", "decimals"}
+        )
+        sheet, reference, operation, formatting = (
+            field[k] for k in ("sheet", "range", "operation", "format")
+        )
+        _require(
+            sheet in spec["headers"]
+            and operation in {"cell", "sum"}
+            and formatting in {"text", "decimal", "integer", "percent"}
+        )
         addresses = _addresses(reference)
         referenced_cells += len(addresses)
         _require(referenced_cells <= 100_000)
@@ -113,9 +165,15 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
             formula = cell.find(f"{{{S}}}f")
             if formula is not None:
                 if not (recalculate_excel or recalculate_libreoffice):
-                    raise ProjectError("Formelquelle benötigt nachgewiesene lokale Neuberechnung; Cache allein wird nicht freigegeben.")
+                    raise ProjectError(
+                        "Formelquelle benötigt nachgewiesene lokale Neuberechnung; Cache allein wird nicht freigegeben."
+                    )
                 if calculation is None:
-                    calculation = recalculate(excel) if recalculate_excel else recalculate_with_libreoffice(excel)
+                    calculation = (
+                        recalculate(excel)
+                        if recalculate_excel
+                        else recalculate_with_libreoffice(excel)
+                    )
                     _require(calculation["source_sha256"] == source_hash)
                 fresh = calculation["cells"][sheet][address]["value"]
                 _require(type(fresh) in {str, int, float})
@@ -124,7 +182,11 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
                 formulas[address] = {"formula": "=" + (formula.text or ""), "value": value}
             _require(bool(value))
             if formatting == "text":
-                _require(operation == "cell" and cell_type in {"s", "inlineStr", "str"} and "decimals" not in field)
+                _require(
+                    operation == "cell"
+                    and cell_type in {"s", "inlineStr", "str"}
+                    and "decimals" not in field
+                )
                 text = value
             else:
                 _require(cell_type == "n" and len(value) <= 64)
@@ -142,18 +204,29 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
             value_number = sum(numbers, Decimal(0))
             exact = str(value_number)
             if formatting == "integer":
-                _require("decimals" not in field and value_number == value_number.to_integral_value())
+                _require(
+                    "decimals" not in field and value_number == value_number.to_integral_value()
+                )
                 text = format(value_number, ".0f")
             else:
                 decimals = field.get("decimals")
                 _require(type(decimals) is int and 0 <= decimals <= 8)
                 display = value_number * (100 if formatting == "percent" else 1)
                 rounded = display.quantize(Decimal(1).scaleb(-decimals), rounding=ROUND_HALF_UP)
-                text = format(rounded, f".{decimals}f").replace(".", ",") + (" %" if formatting == "percent" else "")
-        result[name] = {"text": text, "exact_value": exact,
-                        "source": {"sheet": sheet, "range": reference, "operation": operation}}
+                text = format(rounded, f".{decimals}f").replace(".", ",") + (
+                    " %" if formatting == "percent" else ""
+                )
+        result[name] = {
+            "text": text,
+            "exact_value": exact,
+            "source": {"sheet": sheet, "range": reference, "operation": operation},
+        }
         if formulas and calculation is not None:
-            result[name]["calculation"] = {"engine": calculation["engine"], "version": calculation["version"],
-                                           "source_sha256": source_hash, "formulas": formulas}
+            result[name]["calculation"] = {
+                "engine": calculation["engine"],
+                "version": calculation["version"],
+                "source_sha256": source_hash,
+                "formulas": formulas,
+            }
     _require(hashlib.sha256(excel.read_bytes()).hexdigest() == source_hash)
     return result

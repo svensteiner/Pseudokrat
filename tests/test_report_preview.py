@@ -16,8 +16,10 @@ from pseudokrat import report_preview
 from pseudokrat.ki_office import ProjectError
 from pseudokrat.report_preview import render_preview
 
-pytestmark = pytest.mark.skipif(sys.platform != "linux" or os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1",
-                               reason="Requires explicit Linux LibreOffice opt-in")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "linux" or os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1",
+    reason="Requires explicit Linux LibreOffice opt-in",
+)
 
 
 def field(paragraph, code, locked=False):
@@ -89,7 +91,11 @@ def test_writer_timeout_leaves_no_preview_or_working_copy(tmp_path, monkeypatch)
     original = source.read_bytes()
     marker = tmp_path / "ownership.json"
     worker = Path(report_preview.__file__).with_name("writer_preview_worker.py").read_text()
-    worker = worker.replace("        document.reformat()", f"        Path({str(marker)!r}).write_text(json.dumps({{'folder': str(folder), 'group': __import__('os').getpgrp()}}))\n        time.sleep(60)\n        document.reformat()", 1)
+    worker = worker.replace(
+        "        document.reformat()",
+        f"        Path({str(marker)!r}).write_text(json.dumps({{'folder': str(folder), 'group': __import__('os').getpgrp()}}))\n        time.sleep(60)\n        document.reformat()",
+        1,
+    )
     (tmp_path / "writer_preview_worker.py").write_text(worker)
     monkeypatch.setattr(report_preview, "__file__", str(tmp_path / "report_preview.py"))
     with pytest.raises(ProjectError):

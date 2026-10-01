@@ -53,8 +53,17 @@ def render_preview(source: Path, destination: Path, *, timeout: int = 120) -> Pa
                 if "{{" in text or "}}" in text:
                     raise ProjectError("Bericht enthält noch nicht befüllte Platzhalter.")
             (folder / "input.docx").write_bytes(write_local_template(roots, media))
-            command = ["/usr/bin/python3", str(Path(__file__).with_name("writer_preview_worker.py")), str(folder)]
-            with subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True) as process:
+            command = [
+                "/usr/bin/python3",
+                str(Path(__file__).with_name("writer_preview_worker.py")),
+                str(folder),
+            ]
+            with subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            ) as process:
                 try:
                     code = process.wait(timeout=timeout)
                 finally:
@@ -73,19 +82,33 @@ def render_preview(source: Path, destination: Path, *, timeout: int = 120) -> Pa
             engine = json.loads((folder / "engine.json").read_text("utf-8"))
         if hashlib.sha256(source.read_bytes()).hexdigest() != digest:
             raise ProjectError("Bericht wurde während der Vorschauerstellung geändert.")
-        if engine.get("engine") != "LibreOffice Writer" or not isinstance(engine.get("version"), str):
+        if engine.get("engine") != "LibreOffice Writer" or not isinstance(
+            engine.get("version"), str
+        ):
             raise ProjectError("Rendering-Nachweis ist unvollständig.")
-        evidence = {"classification": "CONFIDENTIAL_LOCAL_ONLY", "status": "requires_visual_review",
-                    "production_approved": False, "visual_reviewed": False, "source_docx_updated": False,
-                    "source_sha256": digest, "pdf_sha256": hashlib.sha256(payload).hexdigest(),
-                    "pages": len(reader.pages), "engine": engine, "pagination_fields": codes,
-                    "field_refresh_requested_in_preview": True}
+        evidence = {
+            "classification": "CONFIDENTIAL_LOCAL_ONLY",
+            "status": "requires_visual_review",
+            "production_approved": False,
+            "visual_reviewed": False,
+            "source_docx_updated": False,
+            "source_sha256": digest,
+            "pdf_sha256": hashlib.sha256(payload).hexdigest(),
+            "pages": len(reader.pages),
+            "engine": engine,
+            "pagination_fields": codes,
+            "field_refresh_requested_in_preview": True,
+        }
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".pseudokrat-preview-", dir=destination.parent) as staging:
+        with tempfile.TemporaryDirectory(
+            prefix=".pseudokrat-preview-", dir=destination.parent
+        ) as staging:
             output = Path(staging) / "result"
             output.mkdir(mode=0o700)
             (output / "preview.pdf").write_bytes(payload)
-            (output / "preview.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+            (output / "preview.json").write_text(
+                json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             for path in output.iterdir():
                 path.chmod(0o600)
             if destination.exists():
@@ -94,12 +117,22 @@ def render_preview(source: Path, destination: Path, *, timeout: int = 120) -> Pa
         return destination
     except ProjectError:
         raise
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, PyPdfError, subprocess.SubprocessError) as exc:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        PyPdfError,
+        subprocess.SubprocessError,
+    ) as exc:
         raise ProjectError("Lokale PDF-Vorschau konnte nicht sicher erstellt werden.") from exc
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Vertrauliche lokale PDF-Vorschau eines DOCX-Berichts.")
+    parser = argparse.ArgumentParser(
+        description="Vertrauliche lokale PDF-Vorschau eines DOCX-Berichts."
+    )
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -108,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Vertrauliche Vorschau erstellt. Layout lokal prüfen; keine Produktionsfreigabe.")
         return 0
     except ProjectError:
-        print("Vorschauerstellung gestoppt. Lokale Eingaben und Writer-Installation prüfen.", file=sys.stderr)
+        print(
+            "Vorschauerstellung gestoppt. Lokale Eingaben und Writer-Installation prüfen.",
+            file=sys.stderr,
+        )
         return 20
 
 

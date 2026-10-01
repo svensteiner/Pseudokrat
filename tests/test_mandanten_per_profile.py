@@ -212,9 +212,7 @@ def test_cli_set_mandanten_pattern_clear(
     assert main(["init", "--profile", "K-Clear", "--mandanten-pattern", r"X-\d+"]) == 0
     capsys.readouterr()
 
-    assert (
-        main(["profiles", "set-mandanten-pattern", "--profile", "K-Clear", "--clear"]) == 0
-    )
+    assert main(["profiles", "set-mandanten-pattern", "--profile", "K-Clear", "--clear"]) == 0
     capsys.readouterr()
 
     # Show liefert "kein Pattern hinterlegt"

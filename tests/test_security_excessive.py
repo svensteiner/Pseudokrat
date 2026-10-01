@@ -201,9 +201,7 @@ def test_audit_chain_detects_modified_hash(
         anon.anonymize("UID ATU12345675.")
         anon.anonymize("UID ATU12345675.")
         # Manipuliere `this_hash` der ersten Zeile → Kette bricht ab Zeile 2.
-        store.connection.execute(
-            "UPDATE audit_log SET this_hash = ? WHERE id = 1", ("00" * 32,)
-        )
+        store.connection.execute("UPDATE audit_log SET this_hash = ? WHERE id = 1", ("00" * 32,))
         store.connection.commit()
         assert not audit.verify_chain()
     finally:
@@ -232,18 +230,16 @@ def test_originals_not_in_raw_sqlite_bytes(
         secret_iban = "AT611904300234573201"
         secret_uid = "ATU12345675"
         anon.anonymize(
-            "Geheim-Mandant Hofer Bau GmbH mit IBAN "
-            + secret_iban
-            + " und UID "
-            + secret_uid
-            + "."
+            "Geheim-Mandant Hofer Bau GmbH mit IBAN " + secret_iban + " und UID " + secret_uid + "."
         )
     finally:
         store.close()
 
     # Lese die rohe SQLite-DB
     db_files = list(data_dir.rglob("*.sqlite"))
-    assert db_files, f"Erwartete .sqlite-Datei unter {data_dir}, fanden: {list(data_dir.rglob('*'))}"
+    assert db_files, (
+        f"Erwartete .sqlite-Datei unter {data_dir}, fanden: {list(data_dir.rglob('*'))}"
+    )
     raw = db_files[0].read_bytes()
     # Originaltexte dürfen NICHT im Plaintext erscheinen.
     assert b"Hofer Bau GmbH" not in raw

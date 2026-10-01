@@ -128,9 +128,7 @@ class GuiController:
 
     def list_profile_summaries(self) -> list[ProfileSummary]:
         """Listet alle Profile inkl. Anlage-Datum und Mapping-Anzahl auf."""
-        return [
-            _read_profile_summary(p.name, p.db_path) for p in self._manager.list_profiles()
-        ]
+        return [_read_profile_summary(p.name, p.db_path) for p in self._manager.list_profiles()]
 
     def create_profile(
         self,
@@ -305,9 +303,7 @@ class GuiController:
         """Schreibe das Audit-Log der offenen Session als PDF an ``output_path``."""
         if self._session is None:
             raise GuiError("Kein Profil geöffnet.")
-        return self._session.audit.export_pdf(
-            output_path, profile_name=self._session.profile_name
-        )
+        return self._session.audit.export_pdf(output_path, profile_name=self._session.profile_name)
 
     def supported_file_suffixes(self) -> list[str]:
         return supported_suffixes()

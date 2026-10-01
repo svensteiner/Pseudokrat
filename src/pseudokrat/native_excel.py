@@ -29,26 +29,38 @@ def _validated(path: Path) -> tuple[dict[str, Any], dict[str, list[str]]]:
     if path.suffix.lower() != ".xlsx":
         raise ProjectError("Neuberechnung unterstützt nur geprüfte XLSX-Dateien.")
     roots = read_office(path)
-    targets = {r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
-               for r in roots["xl/_rels/workbook.xml.rels"]}
+    targets = {
+        r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
+        for r in roots["xl/_rels/workbook.xml.rels"]
+    }
     sheets = list(roots["xl/workbook.xml"].iter(f"{{{S}}}sheet"))
     names = {s.get("name"): s.get("name") for s in sheets}
     if len(names) != len(sheets) or None in names:
         raise ProjectError("Ungültige Tabellenstruktur.")
     for root in roots.values():
         for element in root.iter():
-            if element.tag in {f"{{{S}}}{tag}" for tag in ("f", "formula", "formula1", "formula2", "definedName")}:
-                transform_formula("=" + (element.text or "").lstrip("="), lambda value: value, names)
+            if element.tag in {
+                f"{{{S}}}{tag}" for tag in ("f", "formula", "formula1", "formula2", "definedName")
+            }:
+                transform_formula(
+                    "=" + (element.text or "").lstrip("="), lambda value: value, names
+                )
     calculation = roots["xl/workbook.xml"].find(f"{{{S}}}calcPr")
     if calculation is not None:
-        if calculation.get("iterate", "0") not in {"0", "false"} or calculation.get("fullPrecision", "1") not in {"1", "true"}:
-            raise ProjectError("Iterative Berechnung oder Genauigkeit wie angezeigt benötigt gesonderte Unterstützung.")
+        if calculation.get("iterate", "0") not in {"0", "false"} or calculation.get(
+            "fullPrecision", "1"
+        ) not in {"1", "true"}:
+            raise ProjectError(
+                "Iterative Berechnung oder Genauigkeit wie angezeigt benötigt gesonderte Unterstützung."
+            )
         calculation.set("iterate", "0")
     requests: dict[str, list[str]] = {}
     count = 0
     for sheet in sheets:
         name = sheet.get("name")
-        target = targets[sheet.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")]
+        target = targets[
+            sheet.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+        ]
         addresses: set[str] = set()
         requests[name] = []
         for cell in roots[target].iter(f"{{{S}}}c"):
@@ -85,7 +97,9 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
     """
     try:
         if os.name != "nt" or type(timeout) is not int or not 1 <= timeout <= 600:
-            raise ProjectError("Lokale Excel-Neuberechnung benötigt Windows und ein gültiges Zeitlimit.")
+            raise ProjectError(
+                "Lokale Excel-Neuberechnung benötigt Windows und ein gültiges Zeitlimit."
+            )
         if path.suffix.lower() != ".xlsx":
             raise ProjectError("Neuberechnung unterstützt nur geprüfte XLSX-Dateien.")
         with path.open("rb") as source:
@@ -103,19 +117,34 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
             snapshot_path.unlink()
             (folder / "input.xlsx").write_bytes(write_office(roots))
             (folder / "request.json").write_text(json.dumps(requests), encoding="utf-8")
-            shell = Path(os.environ["SYSTEMROOT"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+            shell = (
+                Path(os.environ["SYSTEMROOT"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+            )
             process = subprocess.run(
-                [str(shell), "-NoProfile", "-NonInteractive", "-File",
-                 str(Path(__file__).with_name("native_excel.ps1")), "-Directory", str(folder)],
-                capture_output=True, timeout=timeout, check=False,
+                [
+                    str(shell),
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-File",
+                    str(Path(__file__).with_name("native_excel.ps1")),
+                    "-Directory",
+                    str(folder),
+                ],
+                capture_output=True,
+                timeout=timeout,
+                check=False,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             if process.returncode != 0:
                 raise ProjectError("Excel-Neuberechnung fehlgeschlagen; keine Werte freigegeben.")
-            result: dict[str, Any] = json.loads((folder / "result.json").read_text(encoding="utf-8-sig"))
+            result: dict[str, Any] = json.loads(
+                (folder / "result.json").read_text(encoding="utf-8-sig")
+            )
         if hashlib.sha256(path.read_bytes()).hexdigest() != before:
             raise ProjectError("Excel-Quelle hat sich während der Berechnung verändert.")
-        if result.get("engine") != "Microsoft Excel" or set(result.get("cells", {})) != set(requests):
+        if result.get("engine") != "Microsoft Excel" or set(result.get("cells", {})) != set(
+            requests
+        ):
             raise ProjectError("Unvollständiger Berechnungsnachweis.")
         for sheet, addresses in requests.items():
             if set(result["cells"][sheet]) != set(addresses):
@@ -132,5 +161,12 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
         return result
     except ProjectError:
         raise
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        subprocess.SubprocessError,
+    ) as exc:
         raise ProjectError("Lokale Excel-Neuberechnung konnte nicht abgeschlossen werden.") from exc

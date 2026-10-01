@@ -25,8 +25,33 @@ MAX_PART = 10 * 1024 * 1024
 S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R = "http://schemas.openxmlformats.org/package/2006/relationships"
-_SAFE_FUNCTIONS = set(FORMULAE) | {"XLOOKUP", "XMATCH", "FILTER", "SORT", "SORTBY", "UNIQUE", "SEQUENCE", "LET", "IFS", "SWITCH", "TEXTJOIN", "CONCAT"}
-_UNSAFE_FUNCTIONS = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "RTD", "IMAGE", "STOCKHISTORY", "CALL", "EXEC", "REGISTER", "REGISTER.ID", "SQL.REQUEST"}
+_SAFE_FUNCTIONS = set(FORMULAE) | {
+    "XLOOKUP",
+    "XMATCH",
+    "FILTER",
+    "SORT",
+    "SORTBY",
+    "UNIQUE",
+    "SEQUENCE",
+    "LET",
+    "IFS",
+    "SWITCH",
+    "TEXTJOIN",
+    "CONCAT",
+}
+_UNSAFE_FUNCTIONS = {
+    "INDIRECT",
+    "HYPERLINK",
+    "WEBSERVICE",
+    "RTD",
+    "IMAGE",
+    "STOCKHISTORY",
+    "CALL",
+    "EXEC",
+    "REGISTER",
+    "REGISTER.ID",
+    "SQL.REQUEST",
+}
 _ALLOWED = re.compile(
     r"(?:\[Content_Types\]\.xml|_rels/\.rels|docProps/(?:core|app|custom)\.xml|"
     r"xl/(?:workbook|styles|sharedStrings)\.xml|xl/theme/theme\d+\.xml|"
@@ -63,26 +88,51 @@ def read_local_template(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
     for name, root in roots.items():
         if not name.startswith("word/") or name.endswith(".rels"):
             continue
-        relationships = roots.get(posixpath.join(posixpath.dirname(name), "_rels", posixpath.basename(name) + ".rels"))
+        relationships = roots.get(
+            posixpath.join(posixpath.dirname(name), "_rels", posixpath.basename(name) + ".rels")
+        )
         images = {}
         if relationships is not None:
             identifiers = [rel.get("Id") for rel in relationships]
-            if any(not identifier for identifier in identifiers) or len(set(identifiers)) != len(identifiers):
+            if any(not identifier for identifier in identifiers) or len(set(identifiers)) != len(
+                identifiers
+            ):
                 raise ProjectError("Fehlende oder doppelte Word-Verknüpfungskennung.")
             for rel in relationships:
                 if rel.get("Type") == image_type:
-                    target = posixpath.normpath(posixpath.join(posixpath.dirname(name), rel.get("Target", ""))).lstrip("/")
+                    target = posixpath.normpath(
+                        posixpath.join(posixpath.dirname(name), rel.get("Target", ""))
+                    ).lstrip("/")
                     if target not in media:
-                        raise ProjectError("Bildverweis fehlt oder verwendet ein nicht unterstütztes Format.")
+                        raise ProjectError(
+                            "Bildverweis fehlt oder verwendet ein nicht unterstütztes Format."
+                        )
                     images[rel.get("Id")] = target
         for element in root.iter():
-            if tag_local(element) == "drawing" and sum(tag_local(e) == "graphicData" for e in element.iter()) != 1:
+            if (
+                tag_local(element) == "drawing"
+                and sum(tag_local(e) == "graphicData" for e in element.iter()) != 1
+            ):
                 raise ProjectError("Nicht unterstützter Word-Zeichnungsbereich.")
-            if tag_local(element) == "graphicData" and element.get("uri") != "http://schemas.openxmlformats.org/drawingml/2006/picture":
-                raise ProjectError("Nur eingebettete Bilder werden in lokalen Zeichnungsbereichen unterstützt.")
+            if (
+                tag_local(element) == "graphicData"
+                and element.get("uri") != "http://schemas.openxmlformats.org/drawingml/2006/picture"
+            ):
+                raise ProjectError(
+                    "Nur eingebettete Bilder werden in lokalen Zeichnungsbereichen unterstützt."
+                )
             if tag_local(element) == "blip":
-                reference = element.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
-                if not reference or reference not in images or element.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link") is not None:
+                reference = element.get(
+                    "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+                )
+                if (
+                    not reference
+                    or reference not in images
+                    or element.get(
+                        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link"
+                    )
+                    is not None
+                ):
                     raise ProjectError("Bildverweis ist nicht vollständig lokal eingebettet.")
     return roots, media
 
@@ -105,12 +155,16 @@ def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dic
                 # needed by the development copy. Remove their links below too.
                 if info.filename.startswith(("customXml/", "docProps/")):
                     continue
-                if local_media is not None and re.fullmatch(r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", info.filename):
+                if local_media is not None and re.fullmatch(
+                    r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", info.filename
+                ):
                     if info.file_size > MAX_PART:
                         raise ProjectError("Bild überschreitet die Größenbegrenzung.")
                     data = archive.read(info)
                     png = info.filename.endswith(".png") and data.startswith(b"\x89PNG\r\n\x1a\n")
-                    jpeg = info.filename.endswith((".jpg", ".jpeg")) and data.startswith(b"\xff\xd8\xff")
+                    jpeg = info.filename.endswith((".jpg", ".jpeg")) and data.startswith(
+                        b"\xff\xd8\xff"
+                    )
                     if not (png or jpeg):
                         raise ProjectError("Bildformat und Bildinhalt stimmen nicht überein.")
                     local_media[info.filename] = data
@@ -122,10 +176,16 @@ def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dic
                     )
                 if info.file_size > MAX_PART:
                     raise ProjectError("Office-Bestandteil überschreitet die Größenbegrenzung.")
-                root = etree.fromstring(archive.read(info), etree.XMLParser(
-                    resolve_entities=False, no_network=True, load_dtd=False,
-                    remove_comments=True, remove_pis=True,
-                ))
+                root = etree.fromstring(
+                    archive.read(info),
+                    etree.XMLParser(
+                        resolve_entities=False,
+                        no_network=True,
+                        load_dtd=False,
+                        remove_comments=True,
+                        remove_pis=True,
+                    ),
+                )
                 if root.getroottree().docinfo.doctype:
                     raise ProjectError("XML-Dokumenttypdeklarationen werden nicht unterstützt.")
                 roots[info.filename] = root
@@ -135,9 +195,20 @@ def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dic
         for root in roots.values():
             for element in list(root.iter()):
                 local = tag_local(element)
-                if ((local == "Relationship" and element.get("Type", "").rsplit("/", 1)[-1]
-                     in {"customXml", "thumbnail", "core-properties", "extended-properties", "custom-properties"}) or
-                    (local == "Override" and element.get("PartName", "").startswith(("/customXml/", "/docProps/")))):
+                if (
+                    local == "Relationship"
+                    and element.get("Type", "").rsplit("/", 1)[-1]
+                    in {
+                        "customXml",
+                        "thumbnail",
+                        "core-properties",
+                        "extended-properties",
+                        "custom-properties",
+                    }
+                ) or (
+                    local == "Override"
+                    and element.get("PartName", "").startswith(("/customXml/", "/docProps/"))
+                ):
                     element.getparent().remove(element)
                     continue
                 # These provenance fields are optional and must be removed even
@@ -151,18 +222,38 @@ def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dic
                     element.attrib.pop("codeName", None)
                 if local == "Relationship" and element.get("TargetMode") == "External":
                     raise ProjectError("Externe Office-Verknüpfungen werden nicht unterstützt.")
-                blocked = {"oleObject", "object", "altChunk", "drawing", "pict", "extLst",
-                             "hyperlink", "customXml", "sdt", "smartTag", "ins", "del",
-                             "moveFrom", "moveTo", "fldSimple", "instrText",
-                             "customWorkbookViews", "customSheetViews"}
+                blocked = {
+                    "oleObject",
+                    "object",
+                    "altChunk",
+                    "drawing",
+                    "pict",
+                    "extLst",
+                    "hyperlink",
+                    "customXml",
+                    "sdt",
+                    "smartTag",
+                    "ins",
+                    "del",
+                    "moveFrom",
+                    "moveTo",
+                    "fldSimple",
+                    "instrText",
+                    "customWorkbookViews",
+                    "customSheetViews",
+                }
                 if local_media is not None:
                     blocked.difference_update({"drawing", "fldSimple", "instrText"})
                 if local in blocked:
                     raise ProjectError("Nicht unterstütztes Office-Element: " + local + ".")
                 if local == "definedName" and not element.get("name", "").startswith("_xlnm."):
-                    raise ProjectError("Benutzerdefinierte Excel-Bereichsnamen werden noch nicht unterstützt.")
+                    raise ProjectError(
+                        "Benutzerdefinierte Excel-Bereichsnamen werden noch nicht unterstützt."
+                    )
                 if local == "f" and element.attrib:
-                    raise ProjectError("Geteilte, Array- oder spezielle Formeln werden noch nicht unterstützt.")
+                    raise ProjectError(
+                        "Geteilte, Array- oder spezielle Formeln werden noch nicht unterstützt."
+                    )
         return roots
     except (OSError, BadZipFile, etree.XMLSyntaxError, RuntimeError, KeyError) as exc:
         raise ProjectError("Office-Datei konnte nicht sicher gelesen werden.") from exc
@@ -181,7 +272,9 @@ def write_local_template(roots: dict[str, Any], media: dict[str, bytes]) -> byte
     output = io.BytesIO(write_office(roots))
     with ZipFile(output, "a", ZIP_DEFLATED) as archive:
         for name, data in media.items():
-            if name in roots or not re.fullmatch(r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", name):
+            if name in roots or not re.fullmatch(
+                r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", name
+            ):
                 raise ProjectError("Ungültiger lokaler Bildbestandteil.")
             archive.writestr(name, data)
     return output.getvalue()
@@ -253,16 +346,16 @@ def rewrite_runs(nodes: list[Any], transform: Callable[[str], str]) -> None:
         size = len(node.text or "")
         bounds.append((offset, offset + size))
         offset += size
-    for op, i, end, j, stop in reversed(difflib.SequenceMatcher(
-        a=original, b=new, autojunk=False
-    ).get_opcodes()):
+    for op, i, end, j, stop in reversed(
+        difflib.SequenceMatcher(a=original, b=new, autojunk=False).get_opcodes()
+    ):
         if op == "equal":
             continue
         start_node = next((n for n, (_, b) in enumerate(bounds) if b > i), len(nodes) - 1)
         end_node = next((n for n, (_, b) in enumerate(bounds) if b >= end), len(nodes) - 1)
         end_node = max(start_node, end_node)
-        prefix = (nodes[start_node].text or "")[:i - bounds[start_node][0]]
-        suffix = (nodes[end_node].text or "")[end - bounds[end_node][0]:]
+        prefix = (nodes[start_node].text or "")[: i - bounds[start_node][0]]
+        suffix = (nodes[end_node].text or "")[end - bounds[end_node][0] :]
         if start_node == end_node:
             nodes[start_node].text = prefix + new[j:stop] + suffix
         else:
@@ -296,7 +389,9 @@ def transform_formula(formula: str, transform: Callable[[str], str], sheets: dic
         elif token.type == "FUNC" and token.subtype == "OPEN":
             function = re.sub(r"^_xlfn\.", "", value[:-1], flags=re.I).upper()
             if function in _UNSAFE_FUNCTIONS or function not in _SAFE_FUNCTIONS:
-                raise ProjectError("Unbekannte, dynamische oder externe Formelfunktion wird nicht unterstützt.")
+                raise ProjectError(
+                    "Unbekannte, dynamische oder externe Formelfunktion wird nicht unterstützt."
+                )
         result.append(value)
     return ("=" if prefix else "") + "".join(result)
 
@@ -310,10 +405,16 @@ def guard_numeric_identifiers(roots: dict[str, Any], identities: list[Any]) -> N
     rels = roots.get("xl/_rels/workbook.xml.rels")
     if rels is None:
         raise ProjectError("Excel-Blattzuordnung kann nicht geprüft werden.")
-    targets = {r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
-               for r in rels}
-    parts = {s.get("name"): targets.get(s.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"))
-             for s in workbook.iter(f"{{{S}}}sheet")}
+    targets = {
+        r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/")
+        for r in rels
+    }
+    parts = {
+        s.get("name"): targets.get(
+            s.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+        )
+        for s in workbook.iter(f"{{{S}}}sheet")
+    }
     protected: dict[str, list[tuple[int, int]]] = {}
     for cell in cells:
         path = next(name for name, root in roots.items() if root is cell.getroottree().getroot())
@@ -336,18 +437,26 @@ def guard_numeric_identifiers(roots: dict[str, Any], identities: list[Any]) -> N
                     if target not in protected:
                         continue
                     lo_col, lo_row, hi_col, hi_row = range_boundaries(ref)
-                    if any((lo_col is None or lo_col <= col <= hi_col) and
-                           (lo_row is None or lo_row <= row <= hi_row)
-                           for col, row in protected[target]):
-                        raise ProjectError("Formel verwendet eine numerische Kennung. Lokale Feldzuordnung erforderlich.")
+                    if any(
+                        (lo_col is None or lo_col <= col <= hi_col)
+                        and (lo_row is None or lo_row <= row <= hi_row)
+                        for col, row in protected[target]
+                    ):
+                        raise ProjectError(
+                            "Formel verwendet eine numerische Kennung. Lokale Feldzuordnung erforderlich."
+                        )
             except ProjectError:
                 raise
             except (ValueError, TypeError) as exc:
-                raise ProjectError("Formelbezug auf numerische Kennungen kann nicht sicher geprüft werden.") from exc
+                raise ProjectError(
+                    "Formelbezug auf numerische Kennungen kann nicht sicher geprüft werden."
+                ) from exc
 
 
 def transform_office(
-    roots: dict[str, Any], transform: Callable[[str], str], sheets: dict[str, str],
+    roots: dict[str, Any],
+    transform: Callable[[str], str],
+    sheets: dict[str, str],
 ) -> None:
     """Transform text containers, strip properties, retain numeric/formula XML."""
     for name, root in roots.items():
@@ -369,9 +478,23 @@ def transform_office(
                         rewrite_runs(nodes, transform)
                 elif local == "sheet" and element.get("name") in sheets:
                     element.set("name", sheets[element.get("name")])
-                elif local in {"f", "definedName", "formula", "formula1", "formula2"} and element.text:
+                elif (
+                    local in {"f", "definedName", "formula", "formula1", "formula2"}
+                    and element.text
+                ):
                     element.text = transform_formula(element.text, transform, sheets)
-                elif local in {"oddHeader", "oddFooter", "evenHeader", "evenFooter", "firstHeader", "firstFooter"} and element.text:
+                elif (
+                    local
+                    in {
+                        "oddHeader",
+                        "oddFooter",
+                        "evenHeader",
+                        "evenFooter",
+                        "firstHeader",
+                        "firstFooter",
+                    }
+                    and element.text
+                ):
                     element.text = transform(element.text)
                 elif local == "c" and element.get("t") == "str":
                     value = element.find(f"{{{S}}}v")
@@ -382,9 +505,27 @@ def transform_office(
         for element in root.iter():
             for value in element.attrib.values():
                 if transform(value) != value:
-                    raise ProjectError("Identifikator in einem nicht unterstützten Office-Attribut.")
-            if (element.text and tag_local(element) not in {
-                "t", "v", "f", "definedName", "formula", "formula1", "formula2",
-                "oddHeader", "oddFooter", "evenHeader", "evenFooter", "firstHeader", "firstFooter",
-            } and transform(element.text) != element.text):
+                    raise ProjectError(
+                        "Identifikator in einem nicht unterstützten Office-Attribut."
+                    )
+            if (
+                element.text
+                and tag_local(element)
+                not in {
+                    "t",
+                    "v",
+                    "f",
+                    "definedName",
+                    "formula",
+                    "formula1",
+                    "formula2",
+                    "oddHeader",
+                    "oddFooter",
+                    "evenHeader",
+                    "evenFooter",
+                    "firstHeader",
+                    "firstFooter",
+                }
+                and transform(element.text) != element.text
+            ):
                 raise ProjectError("Identifikator in einem nicht unterstützten Office-Inhalt.")

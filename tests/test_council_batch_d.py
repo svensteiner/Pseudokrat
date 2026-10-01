@@ -69,13 +69,14 @@ class TestPdfAnnotationsRemoved:
         doc.close()
 
         anon = Anonymizer(
-            store=store, recognizers=recognizers_for_store(store),
-            detector=None, audit_log=audit, model_version="disabled",
+            store=store,
+            recognizers=recognizers_for_store(store),
+            detector=None,
+            audit_log=audit,
+            model_version="disabled",
         )
         out = tmp_path / "o.pdf"
-        watcher.redact_pdf(
-            src, out, anon, store, remove_logos=False, ocr=None, log=lambda _m: None
-        )
+        watcher.redact_pdf(src, out, anon, store, remove_logos=False, ocr=None, log=lambda _m: None)
 
         d2 = pymupdf.open(str(out))
         remaining = [a for p in d2 for a in list(p.annots() or [])]

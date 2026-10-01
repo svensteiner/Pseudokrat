@@ -125,9 +125,7 @@ def test_trust_boundary_coverage_pass_when_all_referenced(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo = tmp_path
-    (repo / "SELF_AUDIT.md").write_text(
-        "### S1 — Beispielboundary\n", encoding="utf-8"
-    )
+    (repo / "SELF_AUDIT.md").write_text("### S1 — Beispielboundary\n", encoding="utf-8")
     tests_dir = repo / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_x.py").write_text(
@@ -229,7 +227,9 @@ def test_run_checks_unknown_name_marked_skipped() -> None:
 
 def test_main_returns_0_when_all_pass(capsys: pytest.CaptureFixture[str]) -> None:
     def pass_check():
-        return audit_run.CheckResult(name="ruff", status="pass", returncode=0, duration_seconds=0.01)
+        return audit_run.CheckResult(
+            name="ruff", status="pass", returncode=0, duration_seconds=0.01
+        )
 
     with patch.dict(audit_run._ALL_CHECKS, {"ruff": pass_check}, clear=True):
         rc = audit_run.main(["--only", "ruff"])
@@ -238,7 +238,9 @@ def test_main_returns_0_when_all_pass(capsys: pytest.CaptureFixture[str]) -> Non
 
 def test_main_returns_1_when_any_fail(capsys: pytest.CaptureFixture[str]) -> None:
     def fail_check():
-        return audit_run.CheckResult(name="ruff", status="fail", returncode=1, duration_seconds=0.01)
+        return audit_run.CheckResult(
+            name="ruff", status="fail", returncode=1, duration_seconds=0.01
+        )
 
     with patch.dict(audit_run._ALL_CHECKS, {"ruff": fail_check}, clear=True):
         rc = audit_run.main(["--only", "ruff"])

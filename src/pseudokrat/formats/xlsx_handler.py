@@ -90,8 +90,12 @@ def _transform_headers_footers(sheet: object, transform: TextTransform) -> int:
     """
     changed = 0
     for hf_name in (
-        "oddHeader", "oddFooter", "evenHeader", "evenFooter",
-        "firstHeader", "firstFooter",
+        "oddHeader",
+        "oddFooter",
+        "evenHeader",
+        "evenFooter",
+        "firstHeader",
+        "firstFooter",
     ):
         hf = getattr(sheet, hf_name, None)
         if hf is None:

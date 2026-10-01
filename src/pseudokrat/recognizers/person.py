@@ -204,9 +204,7 @@ class PersonRecognizer:
         return hits
 
     @staticmethod
-    def _second_pass(
-        text: str, known: str, first_pass: list[_PersonHit]
-    ) -> list[_PersonHit]:
+    def _second_pass(text: str, known: str, first_pass: list[_PersonHit]) -> list[_PersonHit]:
         """Exakte Vorkommen des bekannten Namens ausserhalb der bereits
         gefundenen Spans."""
         existing_ranges = {(hit.start, hit.end) for hit in first_pass}

@@ -141,8 +141,7 @@ def _require_pymupdf() -> Any:
         import pymupdf  # type: ignore[import-untyped]
     except ImportError as exc:  # pragma: no cover - abh. von Optional-Install
         raise RuntimeError(
-            "PDF-Verarbeitung benoetigt PyMuPDF. Installation: "
-            "pip install 'pseudokrat[watcher]'"
+            "PDF-Verarbeitung benoetigt PyMuPDF. Installation: pip install 'pseudokrat[watcher]'"
         ) from exc
     return pymupdf
 
@@ -265,9 +264,7 @@ def redact_pdf(
                         counts[cat] = counts.get(cat, 0) + num
                 pairs: dict[str, str] = {}
                 for span in result.spans:
-                    pairs[span.text] = store.get_or_create(
-                        span.text, span.category
-                    ).placeholder
+                    pairs[span.text] = store.get_or_create(span.text, span.category).placeholder
                 for original in sorted(pairs, key=len, reverse=True):
                     placeholder = pairs[original]
                     groups = _pii_rect_groups(page, original, pymupdf)
@@ -536,7 +533,7 @@ def strip_office_metadata(path: Path) -> None:
     neutral = {
         "docProps/core.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<cp:coreProperties '
+            "<cp:coreProperties "
             'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
             'xmlns:dc="http://purl.org/dc/elements/1.1/" '
             'xmlns:dcterms="http://purl.org/dc/terms/" '
@@ -545,14 +542,14 @@ def strip_office_metadata(path: Path) -> None:
         ),
         "docProps/app.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Properties '
+            "<Properties "
             'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
             "</Properties>"
         ),
         # Benutzerdefinierte Eigenschaften (oft Mandant/Projekt/Ersteller).
         "docProps/custom.xml": (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Properties '
+            "<Properties "
             'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
             'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
             "</Properties>"
@@ -565,9 +562,7 @@ def strip_office_metadata(path: Path) -> None:
     custom_item_re = re.compile(r"^customXml/item\d+\.xml$")
 
     tmp = path.with_suffix(path.suffix + ".tmp")
-    with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(
-        tmp, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
+    with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
         for item in zin.infolist():
             fname = item.filename
             data = neutral.get(fname)
@@ -582,11 +577,24 @@ def strip_office_metadata(path: Path) -> None:
 
 #: PII-Kategorie -> deutsches Label für den Ergebnis-Bericht.
 _CATEGORY_LABELS: dict[str, str] = {
-    "IBAN": "IBAN", "CREDITCARD": "Kreditkarte", "UID": "UID", "SVNR": "SVNR",
-    "STEUERNR": "Steuernr", "FN": "Firmenbuch", "TAX_ID": "Steuer-ID",
-    "AHV": "AHV", "BIC": "BIC", "COMPANY": "Firma", "PERSON": "Person",
-    "ADDRESS": "Adresse", "EMAIL": "E-Mail", "PHONE": "Telefon", "URL": "URL",
-    "SECRET": "Schluessel", "BEGRIFF": "Begriff", "MANDANT_NR": "Mandantennr",
+    "IBAN": "IBAN",
+    "CREDITCARD": "Kreditkarte",
+    "UID": "UID",
+    "SVNR": "SVNR",
+    "STEUERNR": "Steuernr",
+    "FN": "Firmenbuch",
+    "TAX_ID": "Steuer-ID",
+    "AHV": "AHV",
+    "BIC": "BIC",
+    "COMPANY": "Firma",
+    "PERSON": "Person",
+    "ADDRESS": "Adresse",
+    "EMAIL": "E-Mail",
+    "PHONE": "Telefon",
+    "URL": "URL",
+    "SECRET": "Schluessel",
+    "BEGRIFF": "Begriff",
+    "MANDANT_NR": "Mandantennr",
     "BIRTHDATE": "Geburtsdatum",
 }
 
@@ -730,9 +738,7 @@ def run(
 
     # Sitzungs-Trenner ins Log (klarere Historie über mehrere Läufe).
     with contextlib.suppress(OSError), log_file.open("a", encoding="utf-8") as handle:
-        handle.write(
-            f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
-        )
+        handle.write(f"\n===== Neue Sitzung {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
 
     def log(message: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}"
@@ -783,6 +789,7 @@ def run(
 
     log("  Lade Profilverwaltung ...")
     from pseudokrat.store.profile import ProfileManager
+
     log("Erkennungsmodule geladen.")
 
     manager = ProfileManager()
@@ -813,9 +820,7 @@ def run(
 
     # Rest-PII-Gate: hochpraezise Erkenner (+ eigene Begriffe) fuer die
     # Nachpruefung der fertigen Ausgabe (Defense-in-Depth, fail-closed).
-    gate_recognizers = [
-        r for r in recognizers if getattr(r, "category", "") in _GATE_CATEGORIES
-    ]
+    gate_recognizers = [r for r in recognizers if getattr(r, "category", "") in _GATE_CATEGORIES]
     if terms:
         gate_recognizers.append(TermRecognizer(terms))
 
@@ -892,9 +897,7 @@ def run(
                         missing_ph.update(result.missing_placeholders)
                         return result.text
 
-                    res = handler_for(path).process(
-                        path, target, transform=_reverse_transform
-                    )
+                    res = handler_for(path).process(path, target, transform=_reverse_transform)
                     if missing_ph:
                         log(
                             f"  -> OK ({res.segments_processed} Segmente), ABER "
@@ -905,8 +908,14 @@ def run(
                         log(f"  -> OK ({res.segments_processed} Segmente) -> {target.name}")
                 elif is_pdf:
                     redact_pdf(
-                        path, target, anonymizer, store,
-                        remove_logos=remove_logos, ocr=ocr, log=log, counts=counts,
+                        path,
+                        target,
+                        anonymizer,
+                        store,
+                        remove_logos=remove_logos,
+                        ocr=ocr,
+                        log=log,
+                        counts=counts,
                     )
                     report_anon(counts, target)
                 else:
@@ -973,7 +982,8 @@ def run(
 def _scan(folder: Path) -> list[Path]:
     try:
         return [
-            f for f in folder.iterdir()
+            f
+            for f in folder.iterdir()
             if f.is_file()
             and f.suffix.lower() in SUPPORTED_EXTENSIONS
             and not f.name.startswith("_")  # Wegweiser-/Marker-Dateien überspringen

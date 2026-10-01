@@ -75,7 +75,9 @@ class KiProjectTab(QWidget):
         file_actions.addWidget(remove)
         layout.addLayout(file_actions)
         self.terms = QPlainTextEdit()
-        self.terms.setPlaceholderText("Zusätzliche Namen, Firmen, Kennungen oder Projekte – ein Begriff je Zeile (bleibt lokal).")
+        self.terms.setPlaceholderText(
+            "Zusätzliche Namen, Firmen, Kennungen oder Projekte – ein Begriff je Zeile (bleibt lokal)."
+        )
         self.terms.setMaximumHeight(90)
         layout.addWidget(self.terms)
         self.model_group = QGroupBox("Eigene KI zusätzlich verwenden (erhält Originaltext)")
@@ -86,9 +88,13 @@ class KiProjectTab(QWidget):
         self.model_endpoint.setPlaceholderText("Lokale API-Adresse, z. B. http://127.0.0.1:1234/v1")
         model_layout.addWidget(self.model_endpoint)
         self.model_name = QLineEdit()
-        self.model_name.setPlaceholderText("Exakte Modellkennung des eigenen Servers, z. B. GPT-OSS 120B")
+        self.model_name.setPlaceholderText(
+            "Exakte Modellkennung des eigenen Servers, z. B. GPT-OSS 120B"
+        )
         model_layout.addWidget(self.model_name)
-        self.allow_lan = QCheckBox("Der gewählte Spark im privaten Netz gehört mir und darf Originaltext erhalten.")
+        self.allow_lan = QCheckBox(
+            "Der gewählte Spark im privaten Netz gehört mir und darf Originaltext erhalten."
+        )
         model_layout.addWidget(self.allow_lan)
         layout.addWidget(self.model_group)
         folder_row = QHBoxLayout()
@@ -108,13 +114,19 @@ class KiProjectTab(QWidget):
         self.preview_button.clicked.connect(self._open_preview)
         actions.addWidget(self.preview_button)
         layout.addLayout(actions)
-        self.reviewed = QCheckBox("Ich habe alle Vorschau-Dateien lokal auf verbleibende Identifikatoren geprüft.")
-        self.numeric_risk = QCheckBox("Die unveränderten Zahlen und Merkmalskombinationen dürfen weitergegeben werden.")
+        self.reviewed = QCheckBox(
+            "Ich habe alle Vorschau-Dateien lokal auf verbleibende Identifikatoren geprüft."
+        )
+        self.numeric_risk = QCheckBox(
+            "Die unveränderten Zahlen und Merkmalskombinationen dürfen weitergegeben werden."
+        )
         self.reviewed.toggled.connect(self._refresh)
         self.numeric_risk.toggled.connect(self._refresh)
         layout.addWidget(self.reviewed)
         layout.addWidget(self.numeric_risk)
-        note = QLabel("Keine Anonymitätsgarantie: Echte Zahlen können eine Zuordnung ermöglichen. Bei verbleibender Zuordnung nur lokal arbeiten.")
+        note = QLabel(
+            "Keine Anonymitätsgarantie: Echte Zahlen können eine Zuordnung ermöglichen. Bei verbleibender Zuordnung nur lokal arbeiten."
+        )
         note.setWordWrap(True)
         layout.addWidget(note)
         self.publish_button = QPushButton("2. Geprüftes KI-Paket erstellen")
@@ -143,14 +155,18 @@ class KiProjectTab(QWidget):
         self.restore_button.setEnabled(ready)
         self.local_button.setEnabled(ready)
         self.preview_button.setEnabled(self.job is None)
-        self.publish_button.setEnabled(ready and self.reviewed.isChecked() and self.numeric_risk.isChecked())
+        self.publish_button.setEnabled(
+            ready and self.reviewed.isChecked() and self.numeric_risk.isChecked()
+        )
 
     def _reset_review(self) -> None:
         self.reviewed.setChecked(False)
         self.numeric_risk.setChecked(False)
 
     def _add_files(self) -> None:
-        files, _ = QFileDialog.getOpenFileNames(self, "Originaldateien auswählen", "", "Excel / Word (*.xlsx *.docx)")
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Originaldateien auswählen", "", "Excel / Word (*.xlsx *.docx)"
+        )
         existing = {self.files.item(i).text() for i in range(self.files.count())}
         for name in files:
             if name not in existing:
@@ -161,10 +177,14 @@ class KiProjectTab(QWidget):
             self.files.takeItem(self.files.row(item))
 
     def _choose_project(self) -> None:
-        name = QFileDialog.getExistingDirectory(self, "Projekt oder übergeordneten Ordner auswählen")
+        name = QFileDialog.getExistingDirectory(
+            self, "Projekt oder übergeordneten Ordner auswählen"
+        )
         if name:
             path = Path(name)
-            self.project_path.setText(str(path if (path / "zuordnung.enc").exists() else path / "KI-Projekt"))
+            self.project_path.setText(
+                str(path if (path / "zuordnung.enc").exists() else path / "KI-Projekt")
+            )
 
     def _project(self) -> Path:
         if not self.project_path.text().strip():
@@ -211,8 +231,11 @@ class KiProjectTab(QWidget):
             from pseudokrat.pii.local_project_detector import LocalProjectDetector
 
             try:
-                detector = LocalProjectDetector(self.model_endpoint.text(), self.model_name.text(),
-                                                allow_lan=self.allow_lan.isChecked())
+                detector = LocalProjectDetector(
+                    self.model_endpoint.text(),
+                    self.model_name.text(),
+                    allow_lan=self.allow_lan.isChecked(),
+                )
             except ProjectError as exc:
                 self.log.appendPlainText(str(exc))
                 return
@@ -230,7 +253,11 @@ class KiProjectTab(QWidget):
             return
         key = session.store.keys.fernet
         reviewed, risk = self.reviewed.isChecked(), self.numeric_risk.isChecked()
-        self._run(lambda: publish_project(project, key, reviewed=reviewed, accept_numeric_linkability=risk))
+        self._run(
+            lambda: publish_project(
+                project, key, reviewed=reviewed, accept_numeric_linkability=risk
+            )
+        )
 
     def _open_preview(self) -> None:
         try:
@@ -249,10 +276,14 @@ class KiProjectTab(QWidget):
         except ProjectError as exc:
             self.log.appendPlainText(str(exc))
             return
-        source, _ = QFileDialog.getOpenFileName(self, "Bearbeitete Datei mit Projekt-Platzhaltern", "", "Office (*.xlsx *.docx)")
+        source, _ = QFileDialog.getOpenFileName(
+            self, "Bearbeitete Datei mit Projekt-Platzhaltern", "", "Office (*.xlsx *.docx)"
+        )
         if not source:
             return
-        dest, _ = QFileDialog.getSaveFileName(self, "Neue Original-Ausgabe", "", "Office (*.xlsx *.docx)")
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Neue Original-Ausgabe", "", "Office (*.xlsx *.docx)"
+        )
         if dest:
             key = session.store.keys.fernet
             self._run(lambda: restore_file(project, key, Path(source), Path(dest)))
@@ -266,7 +297,9 @@ class KiProjectTab(QWidget):
         except ProjectError as exc:
             self.log.appendPlainText(str(exc))
             return
-        directory = QFileDialog.getExistingDirectory(self, "Vertraulichen lokalen Zielordner auswählen")
+        directory = QFileDialog.getExistingDirectory(
+            self, "Vertraulichen lokalen Zielordner auswählen"
+        )
         if directory:
             key = session.store.keys.fernet
             destination = Path(directory) / "originaldaten"

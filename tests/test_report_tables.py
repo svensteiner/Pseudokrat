@@ -30,11 +30,24 @@ def table_inputs(tmp_path):
     table.cell(1, 1).text = "{{ rows.amount }}"
     table.cell(2, 0).text = "Ende"
     doc.save(template)
-    spec = {"version": 2, "reviewed": True, "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
-            "headers": {"Daten": {"A1": "Name", "B1": "Betrag"}}, "fields": {},
-            "tables": {"rows": {"sheet": "Daten", "first_row": 2, "last_row": 4,
-                                "columns": {"name": {"column": "A", "format": "text"},
-                                            "amount": {"column": "B", "format": "decimal", "decimals": 2}}}}}
+    spec = {
+        "version": 2,
+        "reviewed": True,
+        "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
+        "headers": {"Daten": {"A1": "Name", "B1": "Betrag"}},
+        "fields": {},
+        "tables": {
+            "rows": {
+                "sheet": "Daten",
+                "first_row": 2,
+                "last_row": 4,
+                "columns": {
+                    "name": {"column": "A", "format": "text"},
+                    "amount": {"column": "B", "format": "decimal", "decimals": 2},
+                },
+            }
+        },
+    }
     mapping = tmp_path / "mapping.json"
     mapping.write_text(json.dumps(spec), encoding="utf-8")
     return excel, template, mapping
@@ -53,6 +66,7 @@ def test_rows_expand_between_existing_header_and_footer(tmp_path, table_inputs):
 
 def test_one_hundred_twenty_rows_preserve_order_and_provenance(tmp_path, table_inputs):
     from openpyxl import load_workbook
+
     excel, template, mapping = table_inputs
     book = load_workbook(excel)
     for i in range(3, 120):
@@ -73,13 +87,28 @@ def test_one_hundred_twenty_rows_preserve_order_and_provenance(tmp_path, table_i
 
 def test_table_internal_keys_do_not_collide():
     from pseudokrat.report_tables import compile_tables
-    spec = {"version": 2, "reviewed": True, "template_sha256": "0" * 64, "headers": {}, "fields": {},
-            "tables": {
-                "a_2": {"sheet": "Daten", "first_row": 3, "last_row": 3,
-                        "columns": {"b": {"column": "A", "format": "text"}}},
-                "a": {"sheet": "Daten", "first_row": 2, "last_row": 2,
-                      "columns": {"_3_b": {"column": "B", "format": "text"}}},
-            }}
+
+    spec = {
+        "version": 2,
+        "reviewed": True,
+        "template_sha256": "0" * 64,
+        "headers": {},
+        "fields": {},
+        "tables": {
+            "a_2": {
+                "sheet": "Daten",
+                "first_row": 3,
+                "last_row": 3,
+                "columns": {"b": {"column": "A", "format": "text"}},
+            },
+            "a": {
+                "sheet": "Daten",
+                "first_row": 2,
+                "last_row": 2,
+                "columns": {"_3_b": {"column": "B", "format": "text"}},
+            },
+        },
+    }
     compiled, groups = compile_tables(spec)
     assert len(compiled["fields"]) == 2
     assert groups["a_2"][0]["b"] != groups["a"][0]["_3_b"]
@@ -90,12 +119,14 @@ def test_ambiguous_rows_and_incomplete_sources_block(tmp_path, table_inputs, cas
     excel, template, mapping = table_inputs
     if case == "missing":
         from openpyxl import load_workbook
+
         book = load_workbook(excel)
         book.active["B3"] = None
         book.save(excel)
     else:
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
+
         doc = Document(template)
         if case == "outside":
             doc.add_paragraph("{{ rows.name }}")

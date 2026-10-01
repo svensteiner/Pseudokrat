@@ -98,15 +98,53 @@ class Document:
 # --------------------------------------------------------------------------
 
 _FIRST_NAMES: tuple[str, ...] = (
-    "Anna", "Markus", "Julia", "Stefan", "Katharina", "Thomas", "Eva",
-    "Michael", "Sabine", "Andreas", "Petra", "Christian", "Birgit",
-    "Wolfgang", "Claudia", "Bernhard", "Martina", "Florian", "Elisabeth",
-    "Johannes", "Barbara", "Patrick", "Verena", "Daniel", "Nicole",
+    "Anna",
+    "Markus",
+    "Julia",
+    "Stefan",
+    "Katharina",
+    "Thomas",
+    "Eva",
+    "Michael",
+    "Sabine",
+    "Andreas",
+    "Petra",
+    "Christian",
+    "Birgit",
+    "Wolfgang",
+    "Claudia",
+    "Bernhard",
+    "Martina",
+    "Florian",
+    "Elisabeth",
+    "Johannes",
+    "Barbara",
+    "Patrick",
+    "Verena",
+    "Daniel",
+    "Nicole",
 )
 _LAST_NAMES: tuple[str, ...] = (
-    "Hofer", "Gruber", "Huber", "Bauer", "Wagner", "Pichler", "Steiner",
-    "Moser", "Mayer", "Berger", "Fuchs", "Eder", "Fischer", "Schmid",
-    "Winkler", "Weber", "Schwarz", "Maier", "Reiter", "Lang",
+    "Hofer",
+    "Gruber",
+    "Huber",
+    "Bauer",
+    "Wagner",
+    "Pichler",
+    "Steiner",
+    "Moser",
+    "Mayer",
+    "Berger",
+    "Fuchs",
+    "Eder",
+    "Fischer",
+    "Schmid",
+    "Winkler",
+    "Weber",
+    "Schwarz",
+    "Maier",
+    "Reiter",
+    "Lang",
 )
 _NOBILIARY: tuple[str, ...] = ("von", "van der", "zu")
 _TITLES: tuple[str, ...] = ("Dr.", "Mag.", "DI", "BSc", "MMag.", "Dipl.-Ing.", "")
@@ -117,19 +155,37 @@ _SALUTATIONS: tuple[str, ...] = ("Herr", "Frau", "Herrn")
 #: prüft also genau die Lücke, die der Gazetteer (bekannter Vorname) nicht
 #: abdeckt.
 _FIRST_NAMES_RARE: tuple[str, ...] = (
-    "Aloisia", "Cäcilia", "Notburga", "Ottokar", "Vinzenz", "Roswita",
+    "Aloisia",
+    "Cäcilia",
+    "Notburga",
+    "Ottokar",
+    "Vinzenz",
+    "Roswita",
 )
 
 _COMPANY_CORE: tuple[str, ...] = (
-    "Hofer Bau", "Alpenland Logistik", "Donau Handels", "Bergblick Immobilien",
-    "Wiener Tech", "Tirol Consulting", "Steirische Metall", "Nordwald Möbel",
-    "Salzach Energie", "Kärnten Pharma",
+    "Hofer Bau",
+    "Alpenland Logistik",
+    "Donau Handels",
+    "Bergblick Immobilien",
+    "Wiener Tech",
+    "Tirol Consulting",
+    "Steirische Metall",
+    "Nordwald Möbel",
+    "Salzach Energie",
+    "Kärnten Pharma",
 )
 _LEGAL_FORMS: tuple[str, ...] = ("GmbH", "AG", "GmbH & Co. KG", "KG", "e.U.")
 
 _STREETS: tuple[str, ...] = (
-    "Mariahilfer Straße", "Industriestraße", "Bahnhofgasse", "Lindenweg",
-    "Hauptplatz", "Schillerstraße", "Königsallee", "Ringstraße",
+    "Mariahilfer Straße",
+    "Industriestraße",
+    "Bahnhofgasse",
+    "Lindenweg",
+    "Hauptplatz",
+    "Schillerstraße",
+    "Königsallee",
+    "Ringstraße",
 )
 _CITIES_AT = (("1010", "Wien"), ("4020", "Linz"), ("8010", "Graz"), ("5020", "Salzburg"))
 _CITIES_DE = (("10115", "Berlin"), ("80331", "München"), ("20095", "Hamburg"))
@@ -216,9 +272,7 @@ class DocBuilder:
         return addr
 
     def iban(self) -> str:
-        gen = {"AT": generate_at_iban, "DE": generate_de_iban, "CH": generate_ch_iban}[
-            self.country
-        ]
+        gen = {"AT": generate_at_iban, "DE": generate_de_iban, "CH": generate_ch_iban}[self.country]
         raw = gen(self.rng)
         self._register(raw, "IBAN")
         if self.mode in {"spacing", "table"}:
@@ -301,7 +355,9 @@ def _t_lohnabrechnung(b: DocBuilder) -> Document:
     b.field("Dienstnehmer", b.person())
     b.field("Anschrift", b.address())
     b.field("Geburtsdatum", b.birthdate())
-    b.field("AHV-Nr." if b.country == "CH" else "SV-Nummer", b.ahv() if b.country == "CH" else b.svnr())
+    b.field(
+        "AHV-Nr." if b.country == "CH" else "SV-Nummer", b.ahv() if b.country == "CH" else b.svnr()
+    )
     b.field("Gehaltskonto IBAN", b.iban())
     b.line("")
     b.field("Dienstgeber", b.company())
@@ -456,7 +512,5 @@ def generate_reflow_stress(count: int, seed: int = 1000) -> list[Document]:
         template = _TEMPLATES[i % len(_TEMPLATES)]
         # Land entkoppeln (s. generate_documents): sonst je Vorlage fixes Land.
         country = COUNTRIES[(i // len(_TEMPLATES)) % len(COUNTRIES)]
-        docs.append(
-            template(DocBuilder(rng, mode="clean", country=country, reflow=True))
-        )
+        docs.append(template(DocBuilder(rng, mode="clean", country=country, reflow=True)))
     return docs

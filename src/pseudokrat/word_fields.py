@@ -7,7 +7,10 @@ from typing import Any
 
 from pseudokrat.ki_office import ProjectError, W
 
-_PAGINATION = re.compile(r"\s*(PAGE|NUMPAGES|SECTION|SECTIONPAGES)(?:\s+\\\*\s+(?:MERGEFORMAT|CHARFORMAT|Arabic|ROMAN|ALPHABETIC)){0,3}\s*", re.IGNORECASE)
+_PAGINATION = re.compile(
+    r"\s*(PAGE|NUMPAGES|SECTION|SECTIONPAGES)(?:\s+\\\*\s+(?:MERGEFORMAT|CHARFORMAT|Arabic|ROMAN|ALPHABETIC)){0,3}\s*",
+    re.IGNORECASE,
+)
 
 
 def _code(text: str) -> str:
@@ -27,7 +30,10 @@ def inspect_fields(roots: dict[str, Any]) -> tuple[list[str], set[Any]]:
         separated = False
         for element in root.iter():
             if element.tag == f"{{{W}}}fldSimple":
-                if active is not None or any(child.tag in {f"{{{W}}}{tag}" for tag in ("fldSimple", "fldChar", "instrText")} for child in element.iterdescendants()):
+                if active is not None or any(
+                    child.tag in {f"{{{W}}}{tag}" for tag in ("fldSimple", "fldChar", "instrText")}
+                    for child in element.iterdescendants()
+                ):
                     raise ProjectError("Verschachtelte Word-Felder werden nicht unterstützt.")
                 codes.append(_code(element.get(f"{{{W}}}instr", "")))
                 protected.update(element.iter(f"{{{W}}}t"))
@@ -53,13 +59,17 @@ def inspect_fields(roots: dict[str, Any]) -> tuple[list[str], set[Any]]:
                     raise ProjectError("Word-Feldanweisung überschreitet die Begrenzung.")
             elif element.tag == f"{{{W}}}t" and active is not None:
                 if not separated:
-                    raise ProjectError("Nicht unterstützter Text innerhalb einer Word-Feldanweisung.")
+                    raise ProjectError(
+                        "Nicht unterstützter Text innerhalb einer Word-Feldanweisung."
+                    )
                 protected.add(element)
         if active is not None:
             raise ProjectError("Nicht abgeschlossenes Word-Feld.")
         cached = "".join(node.text or "" for node in root.iter(f"{{{W}}}t") if node in protected)
         if "{{" in cached or "}}" in cached:
-            raise ProjectError("Berichtsplatzhalter in überschreibbaren Word-Feldergebnissen sind nicht erlaubt.")
+            raise ProjectError(
+                "Berichtsplatzhalter in überschreibbaren Word-Feldergebnissen sind nicht erlaubt."
+            )
     return codes, protected
 
 
@@ -68,7 +78,9 @@ def text_segments(paragraph: Any, protected: set[Any]) -> list[list[Any]]:
     segments: list[list[Any]] = []
     nodes: list[Any] = []
     for element in paragraph.iter():
-        if element in protected or element.tag in {f"{{{W}}}{tag}" for tag in ("fldChar", "fldSimple", "instrText")}:
+        if element in protected or element.tag in {
+            f"{{{W}}}{tag}" for tag in ("fldChar", "fldSimple", "instrText")
+        }:
             if nodes:
                 segments.append(nodes)
                 nodes = []

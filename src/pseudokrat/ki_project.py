@@ -58,7 +58,13 @@ class _Mapping:
             if original not in self.reverse:
                 raise ProjectError("Eingabe enthält fremde Projekt-Platzhalter.")
             return original
-        entries = self.numeric_entries if numeric else self.contextual_entries if contextual else self.entries
+        entries = (
+            self.numeric_entries
+            if numeric
+            else self.contextual_entries
+            if contextual
+            else self.entries
+        )
         if original not in entries:
             token = f"[[PK_{self.project_id}_{len(self.reverse) + 1:05d}]]"
             entries[original] = token
@@ -89,7 +95,8 @@ class _Mapping:
         # One pass: replacement tokens never feed back into the replacement input.
         if self._pattern is None:
             self._pattern = re.compile(
-                r"(?<!\w)(?:" + "|".join(re.escape(s) for s in sorted(textual, key=len, reverse=True))
+                r"(?<!\w)(?:"
+                + "|".join(re.escape(s) for s in sorted(textual, key=len, reverse=True))
                 + r")(?!\w)"
             )
         pattern = self._pattern
@@ -108,9 +115,11 @@ def _text_segments(roots: dict[str, Any]) -> list[str]:
     for name, root in roots.items():
         if name.startswith("docProps/"):
             continue
-        containers = list(root.iter(f"{{{W}}}p")) if name.startswith("word/") else [
-            e for e in root.iter() if tag_local(e) in {"si", "is"}
-        ]
+        containers = (
+            list(root.iter(f"{{{W}}}p"))
+            if name.startswith("word/")
+            else [e for e in root.iter() if tag_local(e) in {"si", "is"}]
+        )
         for element in containers:
             result.append("".join(e.text or "" for e in element.iter() if tag_local(e) == "t"))
         for element in root.iter():
@@ -120,17 +129,39 @@ def _text_segments(roots: dict[str, Any]) -> list[str]:
                     result.append(value.text)
             for attribute, value in element.attrib.items():
                 if etree.QName(attribute).localname in {
-                    "name", "displayName", "prompt", "promptTitle", "error", "errorTitle",
-                    "title", "descr", "tooltip", "display", "text", "formatCode",
+                    "name",
+                    "displayName",
+                    "prompt",
+                    "promptTitle",
+                    "error",
+                    "errorTitle",
+                    "title",
+                    "descr",
+                    "tooltip",
+                    "display",
+                    "text",
+                    "formatCode",
                 }:
                     result.append(value)
-            if tag_local(element) in {"oddHeader", "oddFooter", "evenHeader", "evenFooter",
-                                      "firstHeader", "firstFooter"} and element.text:
+            if (
+                tag_local(element)
+                in {
+                    "oddHeader",
+                    "oddFooter",
+                    "evenHeader",
+                    "evenFooter",
+                    "firstHeader",
+                    "firstFooter",
+                }
+                and element.text
+            ):
                 result.append(element.text)
     return result
 
 
-def _identity_cells(roots: dict[str, Any], mapping: _Mapping) -> tuple[list[Any], list[dict[str, Any]]]:
+def _identity_cells(
+    roots: dict[str, Any], mapping: _Mapping
+) -> tuple[list[Any], list[dict[str, Any]]]:
     shared = shared_text(roots)
     identities, schema = [], []
     for name, root in roots.items():
@@ -158,8 +189,14 @@ def _identity_cells(roots: dict[str, Any], mapping: _Mapping) -> tuple[list[Any]
                     counts["numeric_cells"] += 1
                 if row is not header_row and columns.get(column) == "identity" and text:
                     if cell.find(f"{{{S}}}f") is not None:
-                        raise ProjectError("Berechnete Identifikatoren benötigen eine lokale Feldzuordnung.")
-                    token = mapping.token(text, numeric=is_number, contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)))
+                        raise ProjectError(
+                            "Berechnete Identifikatoren benötigen eine lokale Feldzuordnung."
+                        )
+                    token = mapping.token(
+                        text,
+                        numeric=is_number,
+                        contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)),
+                    )
                     if is_number:
                         mapping.numeric[token] = text
                     identities.append(cell)
@@ -172,7 +209,11 @@ def _replace_identity_cells(cells: list[Any], roots: dict[str, Any], mapping: _M
     shared = shared_text(roots)
     for cell in cells:
         text = cell_text(cell, shared)
-        token = mapping.token(text, numeric=cell.get("t", "n") == "n", contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)))
+        token = mapping.token(
+            text,
+            numeric=cell.get("t", "n") == "n",
+            contextual=bool(re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text)),
+        )
         for child in list(cell):
             cell.remove(child)
         cell.set("t", "inlineStr")
@@ -206,8 +247,12 @@ def _digest(data: bytes) -> str:
 
 
 def prepare_project(
-    inputs: Iterable[Path], destination: Path, key: Fernet, *,
-    terms: Iterable[str] = (), detector: Recognizer | None = None,
+    inputs: Iterable[Path],
+    destination: Path,
+    key: Fernet,
+    *,
+    terms: Iterable[str] = (),
+    detector: Recognizer | None = None,
 ) -> Path:
     """Create only a LOCAL preview and encrypted manifest; publishing is separate."""
     paths = [Path(p).resolve() for p in inputs]
@@ -223,10 +268,14 @@ def prepare_project(
     schemas = []
     for roots in documents:
         workbook = roots.get("xl/workbook.xml")
-        sheets = {
-            e.get("name"): f"Blatt_{i:03d}"
-            for i, e in enumerate(workbook.iter(f"{{{S}}}sheet"), 1)
-        } if workbook is not None else {}
+        sheets = (
+            {
+                e.get("name"): f"Blatt_{i:03d}"
+                for i, e in enumerate(workbook.iter(f"{{{S}}}sheet"), 1)
+            }
+            if workbook is not None
+            else {}
+        )
         sheet_maps.append(sheets)
         identities, schema = _identity_cells(roots, mapping)
         identities_by_file.append(identities)
@@ -236,7 +285,13 @@ def prepare_project(
         # Formula text literals also carry names (e.g. SUMIF criteria).
         for root in roots.values():
             for element in root.iter():
-                if tag_local(element) not in {"f", "definedName", "formula", "formula1", "formula2"}:
+                if tag_local(element) not in {
+                    "f",
+                    "definedName",
+                    "formula",
+                    "formula1",
+                    "formula2",
+                }:
                     continue
                 for literal in re.findall(r'"((?:[^"]|"")*)"', element.text or ""):
                     mapping.discover(literal.replace('""', '"'))
@@ -252,24 +307,46 @@ def prepare_project(
         for root in roots.values():
             for cell in root.iter(f"{{{S}}}c"):
                 value = cell.find(f"{{{S}}}v")
-                if (cell.get("t") == "str" and cell.find(f"{{{S}}}f") is not None
-                    and value is not None and value.text and mapping.transform(value.text) != value.text):
-                    raise ProjectError("Berechneter Identifikator könnte durch Neuberechnung wieder erscheinen. Export gesperrt.")
+                if (
+                    cell.get("t") == "str"
+                    and cell.find(f"{{{S}}}f") is not None
+                    and value is not None
+                    and value.text
+                    and mapping.transform(value.text) != value.text
+                ):
+                    raise ProjectError(
+                        "Berechneter Identifikator könnte durch Neuberechnung wieder erscheinen. Export gesperrt."
+                    )
         _replace_identity_cells(identities, roots, mapping)
         compact_shared_strings(roots)
         transform_office(roots, mapping.transform, sheets)
         if before != _numeric_snapshot(roots, excluded):
             raise ProjectError("Rechenwerte wurden verändert; Export gesperrt.")
-        filename = f"daten_{i:02d}.xlsx" if path.suffix.lower() == ".xlsx" else f"vorlage_{i:02d}.docx"
+        filename = (
+            f"daten_{i:02d}.xlsx" if path.suffix.lower() == ".xlsx" else f"vorlage_{i:02d}.docx"
+        )
         outputs[filename] = write_office(roots)
-        bindings.append({"file": filename, "original_path": str(path), "sheets": sheets,
-                         "original_sha256": _digest(path.read_bytes()), "schema": schema})
-    outputs["schema.json"] = _dump({
-        "version": _VERSION, "project_id": mapping.project_id,
-        "numbers_preserved": True, "identity_numbers_replaced": bool(mapping.numeric),
-        "files": [{"file": b["file"], "sheets": list(b["sheets"].values()), "schema": b["schema"]}
-                  for b in bindings],
-    })
+        bindings.append(
+            {
+                "file": filename,
+                "original_path": str(path),
+                "sheets": sheets,
+                "original_sha256": _digest(path.read_bytes()),
+                "schema": schema,
+            }
+        )
+    outputs["schema.json"] = _dump(
+        {
+            "version": _VERSION,
+            "project_id": mapping.project_id,
+            "numbers_preserved": True,
+            "identity_numbers_replaced": bool(mapping.numeric),
+            "files": [
+                {"file": b["file"], "sheets": list(b["sheets"].values()), "schema": b["schema"]}
+                for b in bindings
+            ],
+        }
+    )
     outputs["entwicklungsauftrag.md"] = (
         "# Berichtscode entwickeln\n\n"
         "Diese Excel-/Word-Dateien sind pseudonymisiert. Rechenwerte sind unverändert.\n"
@@ -283,17 +360,23 @@ def prepare_project(
         "Dieses Paket ist kein Nachweis vollständiger Anonymität.\n"
     ).encode()
     manifest = {
-        "version": _VERSION, "project_id": mapping.project_id, "mapping": mapping.reverse,
-        "numeric": mapping.numeric, "bindings": bindings,
+        "version": _VERSION,
+        "project_id": mapping.project_id,
+        "mapping": mapping.reverse,
+        "numeric": mapping.numeric,
+        "bindings": bindings,
         "hashes": {name: _digest(data) for name, data in outputs.items()},
     }
     review = {
-        "status": "local_review_required", "numbers_preserved": True,
+        "status": "local_review_required",
+        "numbers_preserved": True,
         "identity_replacements": len(mapping.reverse),
         "numeric_identifiers": len(mapping.numeric),
-        "quasi_identifier_columns": sum(s["quasi_identifier_columns"] for schema in schemas for s in schema),
+        "quasi_identifier_columns": sum(
+            s["quasi_identifier_columns"] for schema in schemas for s in schema
+        ),
         "message": "Vorschau lokal vollständig prüfen. Echte Zahlen können Zuordnung ermöglichen. "
-                   "Keine garantierte Anonymität; bei verbleibender Zuordnung nicht freigeben.",
+        "Keine garantierte Anonymität; bei verbleibender Zuordnung nicht freigeben.",
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     # All original processing is in memory. Staging contains only transformed
@@ -324,7 +407,10 @@ def _manifest(project: Path, key: Fernet) -> dict[str, Any]:
 
 
 def publish_project(
-    project: Path, key: Fernet, *, reviewed: bool = False,
+    project: Path,
+    key: Fernet,
+    *,
+    reviewed: bool = False,
     accept_numeric_linkability: bool = False,
 ) -> Path:
     """Publish only exactly the reviewed immutable preview, never the vault."""
@@ -367,6 +453,7 @@ def restore_file(project: Path, key: Fernet, source: Path, destination: Path) ->
             if match.group() not in manifest["mapping"]:
                 raise ProjectError("Unbekannter Projekt-Platzhalter; Rückwandlung gesperrt.")
             return str(manifest["mapping"][match.group()])
+
         result = _TOKEN.sub(replace, text)
         if "[[PK_" in result:
             raise ProjectError("Beschädigter Projekt-Platzhalter; Rückwandlung gesperrt.")
@@ -407,10 +494,10 @@ def restore_file(project: Path, key: Fernet, source: Path, destination: Path) ->
 def prepare_original_workspace(project: Path, key: Fernet, destination: Path) -> Path:
     """Explicit LOCAL handoff for a trusted coding model; never a cloud package.
 
-Keep real values, use the same neutral sheet names as the development files,
-and provide the exact project token mapping locally for template integration.
-No code or model is automatically executed, and nothing is uploaded.
-"""
+    Keep real values, use the same neutral sheet names as the development files,
+    and provide the exact project token mapping locally for template integration.
+    No code or model is automatically executed, and nothing is uploaded.
+    """
     destination = Path(destination).resolve()
     if destination.exists():
         raise ProjectError("Zielordner existiert bereits.")
@@ -419,7 +506,9 @@ No code or model is automatically executed, and nothing is uploaded.
     for binding in manifest["bindings"]:
         original = Path(binding["original_path"])
         if not original.is_file() or _digest(original.read_bytes()) != binding["original_sha256"]:
-            raise ProjectError("Originaldatei wurde verändert oder verschoben. Neues Projekt vorbereiten.")
+            raise ProjectError(
+                "Originaldatei wurde verändert oder verschoben. Neues Projekt vorbereiten."
+            )
         roots = read_office(original)
         transform_office(roots, lambda text: text, binding["sheets"])
         outputs[binding["file"]] = write_office(roots)
@@ -448,4 +537,10 @@ No code or model is automatically executed, and nothing is uploaded.
     return destination
 
 
-__all__ = ["ProjectError", "prepare_original_workspace", "prepare_project", "publish_project", "restore_file"]
+__all__ = [
+    "ProjectError",
+    "prepare_original_workspace",
+    "prepare_project",
+    "publish_project",
+    "restore_file",
+]

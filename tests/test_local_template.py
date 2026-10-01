@@ -33,7 +33,9 @@ def test_inventory_recognizes_local_images_without_privacy_approval(picture_temp
         read_office(picture_template)
 
 
-@pytest.mark.parametrize("damage", ["missing", "external", "duplicate_id", "drawing_type", "signature"])
+@pytest.mark.parametrize(
+    "damage", ["missing", "external", "duplicate_id", "drawing_type", "signature"]
+)
 def test_invalid_local_picture_blocks_template(picture_template, damage):
     with ZipFile(picture_template) as archive:
         parts = {name: archive.read(name) for name in archive.namelist()}
@@ -43,7 +45,9 @@ def test_invalid_local_picture_blocks_template(picture_template, damage):
     elif damage == "signature":
         parts[image_name] = b"not a picture"
     elif damage == "drawing_type":
-        parts["word/document.xml"] = parts["word/document.xml"].replace(b"/drawingml/2006/picture", b"/drawingml/2006/chart")
+        parts["word/document.xml"] = parts["word/document.xml"].replace(
+            b"/drawingml/2006/picture", b"/drawingml/2006/chart"
+        )
     else:
         key = "word/_rels/document.xml.rels"
         root = etree.fromstring(parts[key])

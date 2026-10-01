@@ -264,7 +264,9 @@ def build_rechnung_de(rng: random.Random) -> None:
     """
     b = FixtureBuilder()
     raw_steuer_id = generate_de_steuer_id(rng)
-    steuer_id = f"{raw_steuer_id[:2]} {raw_steuer_id[2:5]} {raw_steuer_id[5:8]} {raw_steuer_id[8:11]}"
+    steuer_id = (
+        f"{raw_steuer_id[:2]} {raw_steuer_id[2:5]} {raw_steuer_id[5:8]} {raw_steuer_id[8:11]}"
+    )
     raw_iban = generate_de_iban(rng)
     iban = f"{raw_iban[:4]} {raw_iban[4:8]} {raw_iban[8:12]} {raw_iban[12:16]} {raw_iban[16:20]} {raw_iban[20:]}"
     company = "Steuerkanzlei Mustermann GmbH"

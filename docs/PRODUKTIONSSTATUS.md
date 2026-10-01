@@ -8,13 +8,14 @@ vorhandenen Nachweis und dem noch fehlenden Abschlussnachweis zu.
 
 ## Durchgeführte Prüfungen
 
-- GitHub-CI für Commit `e0fd99d`: beide Linux-Jobs (Python 3.11/3.12) und
-  Sicherheitsprüfungen bestanden. Python 3.12: **962 Tests bestanden,
+- GitHub-CI für Commit `e0fd99d`: alle vier Plattformjobs (Windows/Linux,
+  Python 3.11/3.12) und Sicherheitsprüfungen bestanden. Linux/Python 3.12: **962 Tests bestanden,
   35 übersprungen, 6 langsame/ML-Tests nicht ausgewählt**, 80,4 Prozent
   Zeilenabdeckung. Die 80-Prozent-Grenze wurde nicht abgesenkt; die CI installiert
   nun auch die PDF-Abhängigkeit, sodass vorhandene Schwärzungstests tatsächlich
-  laufen. Native Office-Livetests bleiben gesondert zu prüfen. Windows-Jobs waren
-  bei dieser Dokumentation noch aktiv.
+  laufen. Windows/Python 3.11 und 3.12: jeweils **969 Tests bestanden,
+  28 übersprungen, 6 nicht ausgewählt**, 80,9 Prozent Zeilenabdeckung.
+  Native Office-Livetests bleiben gesondert zu prüfen.
   [CI-Lauf](https://github.com/svensteiner/Pseudokrat/actions/runs/36918146126).
 
 - Installationspaket nach Ergänzung des Spark-Selbsttests gebaut und in einen

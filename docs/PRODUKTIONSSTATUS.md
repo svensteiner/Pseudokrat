@@ -5,6 +5,25 @@ getestet; keine allgemeine Produktionsfreigabe und kein Nachweis der 95-%-Quote.
 
 ## Durchgeführte Prüfungen
 
+- GitHub-CI für Commit `e0fd99d`: beide Linux-Jobs (Python 3.11/3.12) und
+  Sicherheitsprüfungen bestanden. Python 3.12: **962 Tests bestanden,
+  35 übersprungen, 6 langsame/ML-Tests nicht ausgewählt**, 80,4 Prozent
+  Zeilenabdeckung. Die 80-Prozent-Grenze wurde nicht abgesenkt; die CI installiert
+  nun auch die PDF-Abhängigkeit, sodass vorhandene Schwärzungstests tatsächlich
+  laufen. Native Office-Livetests bleiben gesondert zu prüfen. Windows-Jobs waren
+  bei dieser Dokumentation noch aktiv.
+  [CI-Lauf](https://github.com/svensteiner/Pseudokrat/actions/runs/36918146126).
+
+- Installationspaket nach Ergänzung des Spark-Selbsttests gebaut und in einen
+  getrennten Linux-Ordner installiert (`--no-deps`, vorhandene Testabhängigkeiten).
+  Der Aufruf außerhalb des Quellordners bestand den vollständigen synthetischen
+  Calc→Word→PDF-Durchlauf: 65 Seiten, Sollbeträge, Textanzahl, Tabellenzeilen,
+  Seitenfelder und unveränderte Eingaben. Umgebung: Ubuntu/WSL x86_64,
+  Python 3.12.3. Das belegt die enthaltenen Module/Worker und diesen Ablauf,
+  keine frische Offline-Abhängigkeitsinstallation und keine Spark-ARM-Abnahme.
+  Geprüfte Wheel-SHA256:
+  `b6aefbefdd927f4f7427e4ca9317c26ca15857b5edb27225ed2046f316226b24`.
+
 - Aktueller gemeinsamer Windows-Regressionstest am 1. Oktober: **957 Tests
   bestanden, 26 optionale native Office-Tests übersprungen**, Laufzeit 498 Sekunden,
   Prozess-Exitcode 0. Die übersprungenen Tests benötigen explizite Excel- bzw.

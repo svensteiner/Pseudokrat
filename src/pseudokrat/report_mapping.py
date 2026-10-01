@@ -49,7 +49,7 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any
     _require(set(spec) == {"version", "reviewed", "template_sha256", "headers", "fields"})
     _require(type(spec["version"]) is int and spec["version"] == 1 and spec["reviewed"] is True)
     _require(spec["template_sha256"] == hashlib.sha256(template.read_bytes()).hexdigest())
-    _require(isinstance(spec["headers"], dict) and isinstance(spec["fields"], dict) and 1 <= len(spec["fields"]) <= 1000)
+    _require(isinstance(spec["headers"], dict) and isinstance(spec["fields"], dict) and 1 <= len(spec["fields"]) <= 10_000)
     roots = read_office(excel)
     read_office(template)
     strings = shared_text(roots)
@@ -78,12 +78,15 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any
             _require(cell is not None and cell.find(f"{{{S}}}f") is None)
             _require(cell_text(cell, strings) == expected)
     result = {}
+    referenced_cells = 0
     for name, field in spec["fields"].items():
         _require(isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,99}", name) is not None)
         _require(isinstance(field, dict) and set(field) <= {"sheet", "range", "operation", "format", "decimals"})
         sheet, reference, operation, formatting = (field[k] for k in ("sheet", "range", "operation", "format"))
         _require(sheet in spec["headers"] and operation in {"cell", "sum"} and formatting in {"text", "decimal", "integer", "percent"})
         addresses = _addresses(reference)
+        referenced_cells += len(addresses)
+        _require(referenced_cells <= 100_000)
         _require(operation != "cell" or len(addresses) == 1)
         numbers = []
         text = ""

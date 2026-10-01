@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,8 +13,8 @@ from typing import Any
 
 from pseudokrat.ki_office import ProjectError, W, read_office, rewrite_runs, write_office
 from pseudokrat.report_mapping import resolve_mapping
-
-_FIELD = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_.]{0,99})\s*\}\}")
+from pseudokrat.report_tables import FIELD_PATTERN as _FIELD
+from pseudokrat.report_tables import compile_tables, render_tables
 
 
 def _hash(path: Path) -> str:
@@ -44,8 +43,10 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path) -> 
         raise ProjectError("Neuen Zielordner und eine unterstützte Zuordnungsdatei verwenden.")
     hashes = {"excel": _hash(excel), "template": _hash(template), "mapping": _hash(mapping)}
     spec = json.loads(mapping.read_text("utf-8-sig"))
-    facts = resolve_mapping(excel, template, spec)
+    compiled, groups = compile_tables(spec)
+    facts = resolve_mapping(excel, template, compiled)
     roots = read_office(template)
+    tables = render_tables(roots, groups, facts)
     paragraphs: list[tuple[list[Any], str]] = []
     found: set[str] = set()
     for name, root in roots.items():
@@ -79,6 +80,7 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path) -> 
         "version": 1, "classification": "CONFIDENTIAL_LOCAL_ONLY", "status": "draft_requires_local_review",
         "production_approved": False, "layout_verified": False,
         "input_sha256": hashes, "output_sha256": hashlib.sha256(output).hexdigest(), "facts": facts,
+        "tables": tables,
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".pseudokrat-report-", dir=destination.parent) as staging:

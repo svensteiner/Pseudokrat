@@ -81,8 +81,8 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
 - Formelquellen bleiben gesperrt, bis ein nachweisbarer lokaler
   Neuberechnungsablauf angebunden ist. Ein Cache allein reicht nicht.
 - Tabellen mit fester Zeilenzahl können Feldplatzhalter enthalten. Dynamisch
-  wiederholte Tabellenzeilen, Fachfilter, freie KI-Texte und weitere Operationen
-  sind noch nicht implementiert.
+  wiederholte Tabellenzeilen werden mit Zuordnungsversion 2 unterstützt (unten).
+  Fachfilter, freie KI-Texte und weitere Operationen sind noch nicht implementiert.
 - Es gelten derzeit die Office-Funktionsgrenzen des KI-Projekt-Parsers, darunter
   gesperrte Bilder, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
   reale Vorlage noch gezielt erweitert werden; die Vorlage nicht still ändern.
@@ -91,3 +91,52 @@ Geprüft sind ein vollständiger CLI-Durchlauf, Textläufe, Tabellen, Kopfzeilen
 fehlende Zuordnungen und ein synthetischer Bericht mit 65 Abschnitten. Die
 tatsächliche Paginierung in Word und fachliche Richtigkeit echter Berichte
 bleiben lokal zu prüfen.
+
+## Dynamische Tabellen mit Version 2
+
+Eine Word-Tabelle enthält eine Musterzeile mit `{{ rows.name }}` und
+`{{ rows.amount }}` in den betreffenden Zellen. Der Generator ersetzt diese
+Musterzeile durch die zugeordneten Excel-Zeilen. Vorhandene Kopf- und
+Abschlusszeilen bleiben stehen; Zell- und Textformatierungen werden kopiert.
+
+```json
+{
+  "version": 2,
+  "reviewed": true,
+  "template_sha256": "HIER_DEN_LOKAL_BERECHNETEN_SHA256_DER_VORLAGE_EINTRAGEN",
+  "headers": {"Daten": {"A1": "Name", "B1": "Betrag EUR"}},
+  "fields": {},
+  "tables": {
+    "rows": {
+      "sheet": "Daten",
+      "first_row": 2,
+      "last_row": 121,
+      "columns": {
+        "name": {"column": "A", "format": "text"},
+        "amount": {"column": "B", "format": "decimal", "decimals": 2}
+      }
+    }
+  }
+}
+```
+
+`fields` kann weiterhin globale Felder enthalten, beispielsweise eine
+Gesamtsumme außerhalb der Musterzeile. Innerhalb einer Musterzeile sind nur die
+Felder der zugehörigen Tabelle zulässig. Jede Tabelle braucht genau eine
+vollständige Musterzeile. Tabellen- und Spaltenkennungen bestehen aus maximal
+24 ASCII-Buchstaben, Ziffern oder Unterstrichen; die erste Stelle ist keine Ziffer.
+
+Der Bereich ist inklusive beider Zeilengrenzen. Es gibt keine automatische
+Erkennung des Datenendes und kein stilles Überspringen leerer Datensätze.
+Fehlende Werte stoppen den Lauf. Der Quellennachweis enthält für jede erzeugte
+Berichtszeile die ursprünglichen Zellbezüge und Werte.
+
+Aktuelle Grenzen: 50 Tabellen, 1.000 Zeilen pro Tabelle, 50 Spalten pro Tabelle,
+10.000 Berichts-/Tabellenfelder insgesamt und 100.000 ausgewertete Zellbezüge.
+Überschreitungen werden gemeldet. Vertikale Zellverbünde, verschachtelte Tabellen,
+Textmarken sowie Fuß-/Endnotenverweise in der Musterzeile werden gesperrt, weil
+deren Verknüpfungen beim Kopieren gesondert behandelt werden müssen.
+
+Ein Test mit 120 Datenzeilen prüft Reihenfolge und Zellnachweise. Weitere Tests
+prüfen Nullwerte, negative Beträge, Formatierung und unzulässige Musterzeilen.
+Das ist kein Nachweis der späteren Seitenaufteilung in Microsoft Word.

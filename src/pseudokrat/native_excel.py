@@ -133,7 +133,7 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
                 capture_output=True,
                 timeout=timeout,
                 check=False,
-                creationflags=subprocess.CREATE_NO_WINDOW,
+                creationflags=subprocess.CREATE_NO_WINDOW,  # type: ignore[attr-defined]  # Windows-only adapter
             )
             if process.returncode != 0:
                 raise ProjectError("Excel-Neuberechnung fehlgeschlagen; keine Werte freigegeben.")

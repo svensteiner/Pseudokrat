@@ -466,7 +466,7 @@ def default_backend() -> RegistryBackend:
             "Auf macOS/Linux kannst du Pseudokrat direkt per CLI nutzen "
             "(pseudokrat anonymize ...)."
         )
-    return WinRegistryBackend()
+    return WinRegistryBackend()  # type: ignore[unreachable]  # Reachable on Windows only.
 
 
 # ---------- Pfad-Helpers (für CLI-Reports) ----------------------------------

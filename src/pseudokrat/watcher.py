@@ -762,7 +762,7 @@ def run(
         if os.name == "nt":
             import msvcrt
 
-            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]  # Windows-only API
         else:
             import fcntl
 

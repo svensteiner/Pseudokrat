@@ -91,7 +91,7 @@ pseudokrat-gui = "pseudokrat.gui.main_window:run"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pseudokrat = ["py.typed"]
+pseudokrat = ["py.typed", "*.ps1"]
 
 [tool.ruff]
 target-version = "py311"

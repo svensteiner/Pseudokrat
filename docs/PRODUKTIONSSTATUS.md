@@ -5,6 +5,10 @@ getestet; keine allgemeine Produktionsfreigabe und kein Nachweis der 95-%-Quote.
 
 ## Durchgeführte Prüfungen
 
+- Gesamtsuite des Stands vor dem neuen Linux-Adapter: **931 Tests bestanden,
+  6 optionale Excel-Livetests übersprungen**. Dieser Lauf ist keine Prüfung des
+  danach ergänzten Linux-Adapters; dessen Live-Abnahme erfolgt separat.
+
 - Lokaler Word-Generator mit festen Feldern, dynamischen Tabellen, bedingten
   Textbausteinen und vertraulichem Quellennachweis implementiert.
 - Microsoft-Excel-16.0-Livetests unter Windows: Neuberechnung, Fehlerzellen,

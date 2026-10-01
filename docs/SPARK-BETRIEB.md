@@ -65,8 +65,10 @@ damit auf einem Linux-Spark weiterhin eine offene Integrationslücke. Gespeicher
 Excel-Caches werden nicht ersatzweise freigegeben. Originalformeln nicht einfach
 durch Werte ersetzen, um die Prüfung zu umgehen.
 
-Für diese Fälle wird noch eine lokal verfügbare Berechnungsengine samt
-Kompatibilitätsprüfung benötigt. Ein installierter LibreOffice-Befehl allein
+Ein [experimenteller LibreOffice-Adapter](LOKALE-LIBREOFFICE-ENGINE.md) ist
+inzwischen vorhanden und separat unter Ubuntu/WSL getestet. Er ist noch nicht
+mit dem Berichtsbefehl verbunden. Dafür wird weiterhin eine lokal verfügbare
+Berechnungsengine samt Kompatibilitätsprüfung benötigt. Ein installierter LibreOffice-Befehl allein
 würde keine Gleichheit aller Excel-Ergebnisse beweisen. Die Windows-Live-Tests
 sind kein Nachweis für die Spark-Umgebung.
 

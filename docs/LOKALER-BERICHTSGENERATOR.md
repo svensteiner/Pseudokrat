@@ -78,8 +78,10 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
 - Dezimalrechnung mit expliziter kaufmännischer Rundung, auch bei negativen Werten.
 - Leere Quellen, boolesche Werte oder Datumswerte als Beträge werden abgewiesen.
   Unbekannte Zahlenformat-IDs werden nicht als normales Zahlenformat angenommen.
-- Formelquellen bleiben gesperrt, bis ein nachweisbarer lokaler
-  Neuberechnungsablauf angebunden ist. Ein Cache allein reicht nicht.
+- Formelquellen bleiben standardmäßig gesperrt. Mit `--recalculate-excel`
+  berechnet installiertes Microsoft Excel unter Windows eine geprüfte Kopie
+  neu. Ein Cache allein reicht nicht. Grenzen und Abnahme:
+  [Lokale Excel-Engine](LOKALE-EXCEL-ENGINE.md).
 - Tabellen mit fester Zeilenzahl können Feldplatzhalter enthalten. Dynamisch
   wiederholte Tabellenzeilen werden mit Zuordnungsversion 2 unterstützt (unten).
   Fachfilter, freie KI-Texte und weitere Operationen sind noch nicht implementiert.

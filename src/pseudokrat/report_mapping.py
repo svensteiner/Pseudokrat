@@ -13,6 +13,7 @@ from openpyxl.styles.numbers import BUILTIN_FORMATS, is_date_format
 from openpyxl.utils.cell import get_column_letter, range_boundaries
 
 from pseudokrat.ki_office import ProjectError, S, cell_text, read_office, shared_text
+from pseudokrat.native_excel import recalculate
 
 
 def _require(condition: bool) -> None:
@@ -28,8 +29,8 @@ def _addresses(reference: str) -> list[str]:
     return [f"{get_column_letter(c)}{r}" for r in range(r1, r2 + 1) for c in range(c1, c2 + 1)]
 
 
-def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any]:
-    """Resolve reviewed fields without executing Excel formulas or arbitrary code.
+def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalculate_excel: bool = False) -> dict[str, Any]:
+    """Resolve reviewed fields, optionally rebuilding formulas in local Excel.
 
     Results contain original facts and source references and must stay local.
     A reviewed mapping flag is a human assertion, not a production certificate.
@@ -37,19 +38,21 @@ def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any]) -> dict[s
     try:
         with localcontext() as context:
             context.prec = 320
-            return _resolve(excel, template, spec)
+            _require(type(recalculate_excel) is bool)
+            return _resolve(excel, template, spec, recalculate_excel)
     except ProjectError:
         raise
     except (OSError, KeyError, ValueError, TypeError, AttributeError, InvalidOperation, OverflowError) as exc:
         raise ProjectError("Berichtsquellen oder Zuordnung konnten nicht sicher ausgewertet werden.") from exc
 
 
-def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any]:
+def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_excel: bool) -> dict[str, Any]:
     _require(excel.suffix.lower() == ".xlsx" and template.suffix.lower() == ".docx")
     _require(set(spec) == {"version", "reviewed", "template_sha256", "headers", "fields"})
     _require(type(spec["version"]) is int and spec["version"] == 1 and spec["reviewed"] is True)
     _require(spec["template_sha256"] == hashlib.sha256(template.read_bytes()).hexdigest())
     _require(isinstance(spec["headers"], dict) and isinstance(spec["fields"], dict) and 1 <= len(spec["fields"]) <= 10_000)
+    source_hash = hashlib.sha256(excel.read_bytes()).hexdigest()
     roots = read_office(excel)
     read_office(template)
     strings = shared_text(roots)
@@ -78,6 +81,7 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any
             _require(cell is not None and cell.find(f"{{{S}}}f") is None)
             _require(cell_text(cell, strings) == expected)
     result = {}
+    calculation = None
     referenced_cells = 0
     for name, field in spec["fields"].items():
         _require(isinstance(name, str) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,99}", name) is not None)
@@ -89,20 +93,32 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any
         _require(referenced_cells <= 100_000)
         _require(operation != "cell" or len(addresses) == 1)
         numbers = []
+        formulas = {}
         text = ""
         for address in addresses:
             cell = sheets[sheet].get(address)
             if cell is None:
                 raise ProjectError("Pflichtquelle fehlt. Berichtszuordnung lokal prüfen.")
-            if cell.find(f"{{{S}}}f") is not None:
-                raise ProjectError("Formelquelle benötigt nachgewiesene lokale Neuberechnung; Cache allein wird nicht freigegeben.")
             value = cell_text(cell, strings)
+            cell_type = cell.get("t", "n")
+            formula = cell.find(f"{{{S}}}f")
+            if formula is not None:
+                if not recalculate_excel:
+                    raise ProjectError("Formelquelle benötigt nachgewiesene lokale Neuberechnung; Cache allein wird nicht freigegeben.")
+                if calculation is None:
+                    calculation = recalculate(excel)
+                    _require(calculation["source_sha256"] == source_hash)
+                fresh = calculation["cells"][sheet][address]["value"]
+                _require(type(fresh) in {str, int, float})
+                cell_type = "str" if type(fresh) is str else "n"
+                value = str(fresh)
+                formulas[address] = {"formula": "=" + (formula.text or ""), "value": value}
             _require(bool(value))
             if formatting == "text":
-                _require(operation == "cell" and cell.get("t") in {"s", "inlineStr", "str"} and "decimals" not in field)
+                _require(operation == "cell" and cell_type in {"s", "inlineStr", "str"} and "decimals" not in field)
                 text = value
             else:
-                _require(cell.get("t", "n") == "n" and len(value) <= 64)
+                _require(cell_type == "n" and len(value) <= 64)
                 style = int(cell.get("s", "0"))
                 _require(style >= 0 and (style < len(xfs) or (style == 0 and not xfs)))
                 format_id = int(xfs[style].get("numFmtId", "0")) if xfs else 0
@@ -127,4 +143,8 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any]) -> dict[str, Any
                 text = format(rounded, f".{decimals}f").replace(".", ",") + (" %" if formatting == "percent" else "")
         result[name] = {"text": text, "exact_value": exact,
                         "source": {"sheet": sheet, "range": reference, "operation": operation}}
+        if formulas and calculation is not None:
+            result[name]["calculation"] = {"engine": calculation["engine"], "version": calculation["version"],
+                                           "source_sha256": source_hash, "formulas": formulas}
+    _require(hashlib.sha256(excel.read_bytes()).hexdigest() == source_hash)
     return result

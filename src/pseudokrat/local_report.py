@@ -27,24 +27,24 @@ def _write_private(path: Path, content: bytes) -> None:
         handle.write(content)
 
 
-def generate_report(excel: Path, template: Path, mapping: Path, destination: Path) -> Path:
+def generate_report(excel: Path, template: Path, mapping: Path, destination: Path, *, recalculate_excel: bool = False) -> Path:
     """Create a confidential draft plus provenance, never a production approval."""
     try:
-        return _generate(excel, template, mapping, destination)
+        return _generate(excel, template, mapping, destination, recalculate_excel)
     except ProjectError:
         raise
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         raise ProjectError("Bericht konnte nicht sicher erzeugt werden. Eingaben lokal prüfen.") from exc
 
 
-def _generate(excel: Path, template: Path, mapping: Path, destination: Path) -> Path:
+def _generate(excel: Path, template: Path, mapping: Path, destination: Path, recalculate_excel: bool) -> Path:
     destination = destination.resolve()
     if destination.exists() or mapping.stat().st_size > 1024 * 1024:
         raise ProjectError("Neuen Zielordner und eine unterstützte Zuordnungsdatei verwenden.")
     hashes = {"excel": _hash(excel), "template": _hash(template), "mapping": _hash(mapping)}
     spec = json.loads(mapping.read_text("utf-8-sig"))
     compiled, groups = compile_tables(spec)
-    facts = resolve_mapping(excel, template, compiled)
+    facts = resolve_mapping(excel, template, compiled, recalculate_excel=recalculate_excel)
     roots = read_office(template)
     tables = render_tables(roots, groups, facts)
     paragraphs: list[tuple[list[Any], str]] = []
@@ -98,9 +98,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Vertraulichen Word-Berichtsentwurf lokal erzeugen.")
     for name in ("excel", "template", "mapping", "output"):
         parser.add_argument("--" + name, required=True, type=Path)
+    parser.add_argument("--recalculate-excel", action="store_true", help="Formeln mit installiertem lokalem Microsoft Excel neu berechnen (Windows).")
     args = parser.parse_args(argv)
     try:
-        generate_report(args.excel, args.template, args.mapping, args.output)
+        generate_report(args.excel, args.template, args.mapping, args.output, recalculate_excel=args.recalculate_excel)
         print("Vertraulicher Berichtsentwurf mit Quellennachweis erstellt. Layout und Fachinhalt lokal prüfen.")
         return 0
     except ProjectError:

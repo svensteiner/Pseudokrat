@@ -6,8 +6,10 @@ unter Windows neu. Er gibt Formelwerte, Engine-Version und Eingabe-SHA-256
 zurück. Diese Ergebnisse sind vertraulich und bleiben lokal.
 
 Die Originaldatei wird nicht in Excel geöffnet oder verändert. Der bestehende
-Berichtsgenerator verwendet diesen Baustein **noch nicht** und blockiert weiterhin
-Formelquellen. Ein zurückgegebenes Ergebnis ist keine Produktionsfreigabe.
+Berichtsgenerator verwendet diesen Baustein nur mit dem ausdrücklichen
+CLI-Schalter `--recalculate-excel` (Python: `recalculate_excel=True`). Ohne
+diesen Schalter bleiben Formelquellen gesperrt. Ein zurückgegebenes Ergebnis
+ist keine Produktionsfreigabe.
 
 Vor Excel werden die strengen OOXML-Grenzen und alle zugelassenen Formelcontainer
 geprüft, einschließlich bedingter Formatierungen und Datenvalidierung. Externe
@@ -33,7 +35,7 @@ Ohne diese Freigabe überspringen die Tests den tatsächlichen Excel-Start.
 Die Engine arbeitet mit Excels Zahlenpräzision; eine fachliche Prüfung der
 Rundung und Eingabegenauigkeit bleibt notwendig. Der Baustein ist noch nicht
 für die automatische Berichtsfreigabe zugelassen. Insbesondere fehlen dafür
-Integration, Lastabnahme und Prüfung mit repräsentativen Originalen.
+Lastabnahme und Prüfung mit repräsentativen Originalen.
 Eine verfügbare Windows-Engine beweist keine Verfügbarkeit auf dem Spark.
 
 Leere Formelergebnisse werden derzeit als fehlende Pflichtwerte abgewiesen,
@@ -55,3 +57,13 @@ Die Eingabe wird begrenzt eingelesen; Parser, Arbeitskopie und Ergebnis-Hash
 beziehen sich auf denselben Byte-Snapshot. Ändert sich die Originaldatei während
 des Laufs, wird das Ergebnis verworfen. Fehlende, strukturierte, leere oder
 nicht endliche Formelwerte werden ebenfalls abgewiesen.
+
+Der Berichtsgenerator startet bei der ersten benötigten Formel einen echten
+Berechnungslauf und verwendet dessen Ergebnisse für weitere Felder desselben
+Berichts. Er akzeptiert keine extern gelieferte Ergebnis-JSON als Ersatz.
+Engine, Version, Eingabe-Hash, verwendete Formeln und deren Werte stehen bei
+den jeweiligen Fakten im vertraulichen `nachweis.json`. Die bisherigen
+Typ-, Datumsformat-, Rundungs- und Pflichtwertprüfungen gelten weiter.
+Ein Formelwert vom Typ Text oder Boolean wird nicht als Zahl umgedeutet.
+Auch Berichte mit erfolgreich berechneten Formeln bleiben Entwürfe zur
+lokalen fachlichen und visuellen Abnahme.

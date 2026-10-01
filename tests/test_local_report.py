@@ -2,14 +2,67 @@
 
 import hashlib
 import json
+import os
 from zipfile import ZipFile
 
 import pytest
 from docx import Document
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from pseudokrat.ki_office import ProjectError
 from pseudokrat.local_report import generate_report, main
+
+
+@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Explicit Excel opt-in")
+def test_real_recalculation_reaches_word_with_provenance(tmp_path, report_inputs):
+    excel, template, mapping = report_inputs
+    book = load_workbook(excel)
+    book.active["B2"] = "=ROUND(12.345*2,2)"
+    book.save(excel)
+    originals = [p.read_bytes() for p in report_inputs]
+    with pytest.raises(ProjectError):
+        generate_report(excel, template, mapping, tmp_path / "blocked")
+    assert not (tmp_path / "blocked").exists()
+    output = generate_report(excel, template, mapping, tmp_path / "calculated", recalculate_excel=True)
+    assert Document(output / "bericht.docx").tables[0].cell(0, 1).text == "24,69 EUR"
+    evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
+    calc = evidence["facts"]["amount"]["calculation"]
+    assert calc["engine"] == "Microsoft Excel"
+    assert calc["source_sha256"] == hashlib.sha256(excel.read_bytes()).hexdigest()
+    assert calc["formulas"]["B2"] == {"formula": "=ROUND(12.345*2,2)", "value": "24.69"}
+    assert evidence["production_approved"] is False
+    assert [p.read_bytes() for p in report_inputs] == originals
+
+
+def test_failed_recalculation_never_creates_report(tmp_path, report_inputs, monkeypatch):
+    excel, template, mapping = report_inputs
+    book = load_workbook(excel)
+    book.active["B2"] = "=1+2"
+    book.save(excel)
+
+    def failed(*args, **kwargs):
+        raise ProjectError("Calculation unavailable")
+
+    monkeypatch.setattr("pseudokrat.report_mapping.recalculate", failed)
+    with pytest.raises(ProjectError):
+        generate_report(excel, template, mapping, tmp_path / "blocked", recalculate_excel=True)
+    assert not (tmp_path / "blocked").exists()
+
+
+@pytest.mark.parametrize("value,changed_hash", [(True, False), ("3", False), (3, True)])
+def test_invalid_calculated_number_or_binding_stops_report(tmp_path, report_inputs, monkeypatch, value, changed_hash):
+    excel, template, mapping = report_inputs
+    book = load_workbook(excel)
+    book.active["B2"] = "=1+2"
+    book.save(excel)
+    digest = "0" * 64 if changed_hash else hashlib.sha256(excel.read_bytes()).hexdigest()
+    monkeypatch.setattr("pseudokrat.report_mapping.recalculate", lambda path: {
+        "engine": "Microsoft Excel", "version": "test", "source_sha256": digest,
+        "cells": {"Daten": {"B2": {"value": value}}},
+    })
+    with pytest.raises(ProjectError):
+        generate_report(excel, template, mapping, tmp_path / "blocked", recalculate_excel=True)
+    assert not (tmp_path / "blocked").exists()
 
 
 @pytest.fixture

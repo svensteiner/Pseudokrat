@@ -3,6 +3,10 @@
 Die Verarbeitung bleibt beim Anwender. Die zentrale Entwicklungs-KI erhält
 weder Originaldateien noch lokale Inventare oder Berichtsbelege.
 
+Für die zentrale Entwicklungs-KI gibt es einen kopierbaren
+[Baumeister-Prompt](BAUMEISTER-PROMPT.md) mit Arbeitsauftrag, Datenverteilung
+und Abnahmekriterien.
+
 ## Vor der Verarbeitung
 
 Die folgenden Befehle setzen eine Linux-Shell, Python ab 3.11 und ein lokales

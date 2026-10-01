@@ -43,6 +43,23 @@ Dateien, keine Originaldaten oder Zuordnungen.
 
 ## Berichtscode auf dem Spark
 
+Für Excel-zu-Word-Arbeitsfälle bedeutet „automatisch erledigt“ zusätzlich:
+alle benötigten Tabellen, Kennzahlen und Texte wurden vollständig erzeugt,
+fachlich gegen die lokal festgelegten Sollwerte geprüft und im gerenderten
+Gesamtbericht kontrolliert. Ein erfolgreicher Pseudonymisierungs-Rückweg allein
+zählt nicht als erfolgreicher Berichtsfall. Fehlende Zuordnungen, blockierte
+Vorlagenfunktionen und notwendige manuelle Inhaltskorrekturen zählen als nicht
+automatisch erledigt; reine Prüfzeit wird separat erfasst.
+
+Die Sollwerte und erwarteten Textaussagen werden vor dem Lauf lokal festgelegt,
+unabhängig vom Generator. Pro Fall werden außerdem Eingabe-, Mapping- und
+Ausgabehashes, Codeversion, Berechnungsengine samt Version, Ergebnis der
+Layoutprüfung und offene Abweichungen festgehalten. Ein neuer Eingabestand oder
+eine Änderung am Mapping macht eine erneute Prüfung erforderlich.
+
+Die [Baumeister-Übergabe](BAUMEISTER-PROMPT.md) beschreibt die Zusammenarbeit mit
+einer zentralen Entwicklungs-KI ohne Zugriff auf diese vertraulichen Belege.
+
 Den extern entwickelten Code mit Qwen3-Coder-Next im vertraulichen Arbeitsordner
 prüfen: keine externen Dienste, keine festen Beispielwerte, Eingaben nur aus dem
 vorgesehenen Ordner und Ausgabe in eine neue Datei. GPT-OSS 120B kann belegte

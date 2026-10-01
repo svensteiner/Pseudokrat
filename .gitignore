@@ -87,3 +87,6 @@ lokale-zuordnung.json
 KI-Paket.zip
 vorschau/
 originaldaten/
+
+# Local installation verification artifacts
+work-release-wheel/

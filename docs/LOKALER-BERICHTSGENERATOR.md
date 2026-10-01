@@ -105,8 +105,9 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
   Platzhalter innerhalb eines Feldes oder über Feldgrenzen hinweg sind nicht
   erlaubt. Die gespeicherten Feldwerte werden nicht als aktuell bestätigt:
   `word_fields.updated` im Nachweis bleibt `false`. Nach Fertigstellung muss
-  eine lokale Word-/Layout-Engine die Felder aktualisieren und das Layout geprüft
-  werden; dieser Schritt wird noch nicht automatisch ausgeführt.
+  das Layout lokal geprüft werden. Die [lokale PDF-Vorschau](LOKALE-PDF-VORSCHAU.md)
+  aktualisiert Seitenfelder beim Rendern einer Arbeitskopie mit Writer.
+  Die gespeicherten Feldwerte der DOCX-Ausgabe bleiben dabei unverändert.
 - Weitere Office-Funktionsgrenzen bleiben bestehen, darunter gesperrte
   VML-/SVG-/EMF-Bilder, Diagramme, Inhaltssteuerelemente und andere Word-Felder
   (auch Inhaltsverzeichnisse). Diese müssen für die

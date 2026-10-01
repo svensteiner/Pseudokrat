@@ -3,6 +3,9 @@
 Stand: 1. Oktober 2026. **Für einen kontrollierten lokalen Pilotbetrieb
 getestet; keine allgemeine Produktionsfreigabe und kein Nachweis der 95-%-Quote.**
 
+Die [Abnahmematrix](ABNAHMEMATRIX.md) ordnet jede wesentliche Anforderung dem
+vorhandenen Nachweis und dem noch fehlenden Abschlussnachweis zu.
+
 ## Durchgeführte Prüfungen
 
 - GitHub-CI für Commit `e0fd99d`: beide Linux-Jobs (Python 3.11/3.12) und

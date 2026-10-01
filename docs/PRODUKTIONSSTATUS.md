@@ -18,6 +18,13 @@ getestet; keine allgemeine Produktionsfreigabe und kein Nachweis der 95-%-Quote.
 - Wheel gebaut und in einem temporären Installationsordner geprüft: neue
   Berichtsmodule und PowerShell-Worker sind enthalten und importierbar.
   Das prüft weder eine frische Linux-Installation noch Spark-Abhängigkeiten.
+- Ubuntu/WSL-Testumgebung mit LibreOffice Calc 24.2.7.2 und `python3-uno`
+  eingerichtet. Ein synthetischer UNO-Probelauf mit getrenntem Profil und
+  explizitem `calculateAll()` berechnete `12.35 + (-2.15) = 10.2` und
+  `ROUND(-0.125, 2) = -0.13` korrekt. Dies ist ein Engine-Probeversuch,
+  noch kein XLSX-Adapter, keine Spark-Abnahme und kein vollständiger
+  Kompatibilitätsnachweis. API-Grundlage:
+  [LibreOffice XCalculatable](https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1sun_1_1star_1_1sheet_1_1XCalculatable.html).
 
 - Gesamtsuite vor der letzten Härtung: 863 Tests bestanden; zusätzliche Fälle
   für große Word-Vorlagen und sensible Excel-Zahlenformate ebenfalls bestanden.

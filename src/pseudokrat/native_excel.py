@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import posixpath
 import re
@@ -14,7 +15,14 @@ from typing import Any
 
 from openpyxl.utils.cell import coordinate_to_tuple
 
-from pseudokrat.ki_office import ProjectError, S, read_office, transform_formula, write_office
+from pseudokrat.ki_office import (
+    MAX_BYTES,
+    ProjectError,
+    S,
+    read_office,
+    transform_formula,
+    write_office,
+)
 
 
 def _validated(path: Path) -> tuple[dict[str, Any], dict[str, list[str]]]:
@@ -78,10 +86,21 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
     try:
         if os.name != "nt" or type(timeout) is not int or not 1 <= timeout <= 600:
             raise ProjectError("Lokale Excel-Neuberechnung benötigt Windows und ein gültiges Zeitlimit.")
-        before = hashlib.sha256(path.read_bytes()).hexdigest()
-        roots, requests = _validated(path)
+        if path.suffix.lower() != ".xlsx":
+            raise ProjectError("Neuberechnung unterstützt nur geprüfte XLSX-Dateien.")
+        with path.open("rb") as source:
+            snapshot = source.read(MAX_BYTES + 1)
+        if len(snapshot) > MAX_BYTES:
+            raise ProjectError("Datei überschreitet die unterstützte Größenbegrenzung.")
+        before = hashlib.sha256(snapshot).hexdigest()
         with tempfile.TemporaryDirectory(prefix="pseudokrat-calc-") as directory:
             folder = Path(directory)
+            # Parse exactly the bytes whose hash will bind the result, rather
+            # than independently reopening a potentially changing source.
+            snapshot_path = folder / "source.xlsx"
+            snapshot_path.write_bytes(snapshot)
+            roots, requests = _validated(snapshot_path)
+            snapshot_path.unlink()
             (folder / "input.xlsx").write_bytes(write_office(roots))
             (folder / "request.json").write_text(json.dumps(requests), encoding="utf-8")
             shell = Path(os.environ["SYSTEMROOT"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
@@ -101,6 +120,14 @@ def recalculate(path: Path, *, timeout: int = 120) -> dict[str, Any]:
         for sheet, addresses in requests.items():
             if set(result["cells"][sheet]) != set(addresses):
                 raise ProjectError("Unvollständiger Berechnungsnachweis.")
+            for cell in result["cells"][sheet].values():
+                if not isinstance(cell, dict) or set(cell) != {"value"}:
+                    raise ProjectError("Ungültiges Berechnungsergebnis.")
+                value = cell["value"]
+                if type(value) not in {str, int, float, bool} or value == "":
+                    raise ProjectError("Ungültiges Berechnungsergebnis.")
+                if type(value) is float and not math.isfinite(value):
+                    raise ProjectError("Ungültiges Berechnungsergebnis.")
         result["source_sha256"] = before
         return result
     except ProjectError:

@@ -33,7 +33,7 @@ Ohne diese Freigabe überspringen die Tests den tatsächlichen Excel-Start.
 Die Engine arbeitet mit Excels Zahlenpräzision; eine fachliche Prüfung der
 Rundung und Eingabegenauigkeit bleibt notwendig. Der Baustein ist noch nicht
 für die automatische Berichtsfreigabe zugelassen. Insbesondere fehlen dafür
-Integration, Last-/Timeout-Abnahme und Prüfung mit repräsentativen Originalen.
+Integration, Lastabnahme und Prüfung mit repräsentativen Originalen.
 Eine verfügbare Windows-Engine beweist keine Verfügbarkeit auf dem Spark.
 
 Leere Formelergebnisse werden derzeit als fehlende Pflichtwerte abgewiesen,
@@ -42,3 +42,16 @@ unter Excel 16.0 umfasst Summe, negative Rundung, Text, versteckte Blätter,
 Fehlerzellen sowie direkte und indirekte Zirkelbezüge. Zusammen mit den
 Mapping-, Tabellen- und Berichtstests bestanden am 01.10.2026 34 Tests.
 Dies deckt weder sämtliche Excel-Funktionen noch sämtliche Zirkelvarianten ab.
+
+Ein zusätzlicher Live-Test erzwingt einen Timeout, nachdem die eigene
+Excel-Instanz die Arbeitskopie geöffnet hat. Er prüft, dass die konkrete
+Prozess-ID verschwunden ist, das temporäre Arbeitsverzeichnis entfernt wurde
+und die Originalbytes unverändert bleiben. Der Test verwendet ausschließlich
+einen instrumentierten Test-Worker; im ausgelieferten Worker gibt es keinen
+Schlaf- oder Debug-Schalter. Das Verhalten bei einem Hänger während der
+COM-Aktivierung vor der Job-Zuordnung ist damit noch nicht abgenommen.
+
+Die Eingabe wird begrenzt eingelesen; Parser, Arbeitskopie und Ergebnis-Hash
+beziehen sich auf denselben Byte-Snapshot. Ändert sich die Originaldatei während
+des Laufs, wird das Ergebnis verworfen. Fehlende, strukturierte, leere oder
+nicht endliche Formelwerte werden ebenfalls abgewiesen.

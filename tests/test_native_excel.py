@@ -1,11 +1,15 @@
 """Real Excel tests are explicit opt-in; input gates run without Excel."""
 
+import json
 import os
+import subprocess
+from pathlib import Path
 
 import pytest
 from openpyxl import Workbook
 from openpyxl.formatting.rule import FormulaRule
 
+from pseudokrat import native_excel
 from pseudokrat.ki_office import ProjectError
 from pseudokrat.native_excel import recalculate, validate_source
 
@@ -82,5 +86,75 @@ def test_real_excel_circular_reference_stops_result(tmp_path, formula):
     book.active["A1"] = formula
     book.active["B1"] = "=A1+1"
     book.save(source)
+    with pytest.raises(ProjectError):
+        recalculate(source)
+
+
+@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Requires explicit local Excel opt-in")
+def test_timeout_kills_owned_excel_and_removes_working_copy(tmp_path, monkeypatch):
+    source = tmp_path / "timeout.xlsx"
+    book = Workbook()
+    book.active["A1"] = "=1+2"
+    book.save(source)
+    original = source.read_bytes()
+    worker = Path(native_excel.__file__).with_suffix(".ps1").read_text()
+    # Instrument a test-only worker after its owned Excel process opened the copy.
+    marker = tmp_path / "owned.json"
+    literal = str(marker).replace("'", "''")
+    worker = worker.replace(
+        " $excel.CalculateFullRebuild()",
+        f" @{{ pid = $excelPid; directory = $Directory }} | ConvertTo-Json | Set-Content -LiteralPath '{literal}'\n Start-Sleep -Seconds 60\n $excel.CalculateFullRebuild()",
+    )
+    (tmp_path / "native_excel.ps1").write_text(worker)
+    monkeypatch.setattr(native_excel, "__file__", str(tmp_path / "native_excel.py"))
+    with pytest.raises(ProjectError):
+        recalculate(source, timeout=15)
+    ownership = json.loads(marker.read_text())
+    probe = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+         f"if (Get-Process -Id {int(ownership['pid'])} -ErrorAction SilentlyContinue) {{ exit 1 }}"],
+        capture_output=True, timeout=10,
+    )
+    assert probe.returncode == 0
+    assert not Path(ownership["directory"]).exists()
+    assert source.read_bytes() == original
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows adapter")
+@pytest.mark.parametrize("invalid", [None, [], {}, "", float("nan"), float("inf")])
+def test_invalid_worker_values_are_never_released(tmp_path, monkeypatch, invalid):
+    source = tmp_path / "input.xlsx"
+    book = Workbook()
+    book.active["A1"] = "=1+2"
+    book.save(source)
+
+    def worker(command, **kwargs):
+        folder = Path(command[-1])
+        (folder / "result.json").write_text(json.dumps({
+            "engine": "Microsoft Excel", "cells": {"Sheet": {"A1": {"value": invalid}}},
+        }))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(native_excel.subprocess, "run", worker)
+    with pytest.raises(ProjectError):
+        recalculate(source)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows adapter")
+def test_source_change_discards_worker_result(tmp_path, monkeypatch):
+    source = tmp_path / "input.xlsx"
+    book = Workbook()
+    book.active["A1"] = "=1+2"
+    book.save(source)
+
+    def worker(command, **kwargs):
+        (Path(command[-1]) / "result.json").write_text(json.dumps({
+            "engine": "Microsoft Excel", "cells": {"Sheet": {"A1": {"value": 3}}},
+        }))
+        book.active["A1"] = "=10+20"
+        book.save(source)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(native_excel.subprocess, "run", worker)
     with pytest.raises(ProjectError):
         recalculate(source)

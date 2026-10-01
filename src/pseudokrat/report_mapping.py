@@ -12,7 +12,14 @@ from typing import Any
 from openpyxl.styles.numbers import BUILTIN_FORMATS, is_date_format
 from openpyxl.utils.cell import get_column_letter, range_boundaries
 
-from pseudokrat.ki_office import ProjectError, S, cell_text, read_office, shared_text
+from pseudokrat.ki_office import (
+    ProjectError,
+    S,
+    cell_text,
+    read_local_template,
+    read_office,
+    shared_text,
+)
 from pseudokrat.native_excel import recalculate
 from pseudokrat.native_libreoffice import recalculate as recalculate_with_libreoffice
 
@@ -56,7 +63,7 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
     _require(isinstance(spec["headers"], dict) and isinstance(spec["fields"], dict) and 1 <= len(spec["fields"]) <= 10_000)
     source_hash = hashlib.sha256(excel.read_bytes()).hexdigest()
     roots = read_office(excel)
-    read_office(template)
+    read_local_template(template)
     strings = shared_text(roots)
     rels = roots["xl/_rels/workbook.xml.rels"]
     targets = {r.get("Id"): posixpath.normpath(posixpath.join("xl", r.get("Target", ""))).lstrip("/") for r in rels}

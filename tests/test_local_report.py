@@ -1,6 +1,7 @@
 """First complete local Excel-to-Word journey, including split runs and tables."""
 
 import hashlib
+import io
 import json
 import os
 from zipfile import ZipFile
@@ -8,8 +9,10 @@ from zipfile import ZipFile
 import pytest
 from docx import Document
 from openpyxl import Workbook, load_workbook
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 
-from pseudokrat.ki_office import ProjectError
+from pseudokrat.ki_office import ProjectError, read_office
 from pseudokrat.local_report import generate_report, main
 
 
@@ -41,6 +44,63 @@ def test_conflicting_engines_never_create_report(tmp_path, report_inputs):
     with pytest.raises(ProjectError):
         generate_report(*report_inputs, tmp_path / "blocked", recalculate_excel=True, recalculate_libreoffice=True)
     assert not (tmp_path / "blocked").exists()
+
+
+@pytest.mark.parametrize("image_format", ["PNG", "JPEG"])
+def test_local_report_preserves_logo_and_keeps_export_parser_strict(tmp_path, report_inputs, image_format):
+    excel, template, mapping = report_inputs
+    image = io.BytesIO()
+    metadata = PngInfo()
+    metadata.add_text("Author", "SyntheticPrivateArtist")
+    Image.new("RGB", (8, 8), "blue").save(image, format=image_format, **({"pnginfo": metadata} if image_format == "PNG" else {}))
+    original_image = image.getvalue()
+    doc = Document(template)
+    doc.add_picture(io.BytesIO(original_image))
+    doc.sections[0].header.paragraphs[0].add_run().add_picture(io.BytesIO(original_image))
+    doc.save(template)
+    spec = json.loads(mapping.read_text("utf-8"))
+    spec["template_sha256"] = hashlib.sha256(template.read_bytes()).hexdigest()
+    mapping.write_text(json.dumps(spec), encoding="utf-8")
+    original_template = template.read_bytes()
+    with pytest.raises(ProjectError):
+        read_office(template)
+    output = generate_report(excel, template, mapping, tmp_path / "result")
+    doc = Document(output / "bericht.docx")
+    assert len(doc.inline_shapes) == 1
+    assert doc.tables[0].cell(0, 1).text == "123,45 EUR"
+    with ZipFile(output / "bericht.docx") as archive:
+        pictures = {name: archive.read(name) for name in archive.namelist() if name.startswith("word/media/")}
+    assert list(pictures.values()) == [original_image]
+    evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
+    assert evidence["embedded_media_sha256"] == {name: hashlib.sha256(data).hexdigest() for name, data in pictures.items()}
+    assert template.read_bytes() == original_template
+    with pytest.raises(ProjectError):
+        read_office(output / "bericht.docx")
+
+
+def test_dynamic_table_images_receive_unique_ids(tmp_path, report_inputs):
+    excel, template, mapping = report_inputs
+    book = load_workbook(excel)
+    book.active["A3"] = "Zweiter Testfall"
+    book.save(excel)
+    picture = io.BytesIO()
+    Image.new("RGB", (8, 8), "blue").save(picture, format="PNG")
+    doc = Document(template)
+    cell = doc.add_table(rows=1, cols=1).cell(0, 0)
+    cell.text = "{{ rows.name }}"
+    cell.paragraphs[0].add_run().add_picture(io.BytesIO(picture.getvalue()))
+    doc.save(template)
+    spec = json.loads(mapping.read_text("utf-8"))
+    spec.update({"version": 2, "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
+                 "tables": {"rows": {"sheet": "Daten", "first_row": 2, "last_row": 3,
+                                     "columns": {"name": {"column": "A", "format": "text"}}}}})
+    mapping.write_text(json.dumps(spec), encoding="utf-8")
+    output = generate_report(excel, template, mapping, tmp_path / "result")
+    result = Document(output / "bericht.docx")
+    assert len(result.inline_shapes) == 2
+    ids = [shape._inline.docPr.id for shape in result.inline_shapes]
+    assert len(set(ids)) == 2
+    assert [row.cells[0].text for row in result.tables[1].rows] == ["Originalname", "Zweiter Testfall"]
 
 
 @pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1", reason="Explicit LibreOffice opt-in")

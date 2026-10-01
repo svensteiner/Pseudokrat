@@ -72,6 +72,11 @@ def compile_tables(spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, list
 def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]], facts: dict[str, Any]) -> dict[str, Any]:
     """Require one complete prototype row per table; never silently drop rows."""
     evidence = {}
+    drawing_ids = [e.get("id", "") for root in roots.values() for e in root.iter()
+                   if etree.QName(e).localname in {"docPr", "cNvPr"}]
+    if any(not identifier.isdecimal() for identifier in drawing_ids):
+        raise ProjectError("Ungültige Bildkennung in der Word-Vorlage.")
+    next_drawing_id = max((int(identifier) for identifier in drawing_ids), default=0) + 1
     for name, rows in groups.items():
         expected = {name + "." + column for column in rows[0]}
         candidates = []
@@ -105,6 +110,11 @@ def render_tables(roots: dict[str, Any], groups: dict[str, list[dict[str, str]]]
                 raise ProjectError("Tabellenquelle enthält reservierte Platzhalterzeichen.")
             clone = deepcopy(prototype)
             for element in clone.iter():
+                if etree.QName(element).localname in {"docPr", "cNvPr"}:
+                    if next_drawing_id > 4294967295:
+                        raise ProjectError("Zu viele Bildkennungen in der Word-Vorlage.")
+                    element.set("id", str(next_drawing_id))
+                    next_drawing_id += 1
                 for attribute in list(element.attrib):
                     if etree.QName(attribute).localname in {"paraId", "textId"}:
                         del element.attrib[attribute]

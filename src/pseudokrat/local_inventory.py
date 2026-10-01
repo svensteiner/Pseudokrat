@@ -11,7 +11,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from pseudokrat.ki_office import ProjectError, S, W, cell_text, read_office, shared_text
+from pseudokrat.ki_office import (
+    ProjectError,
+    S,
+    W,
+    cell_text,
+    read_local_template,
+    read_office,
+    shared_text,
+)
 
 
 def inspect_documents(paths: list[Path]) -> dict[str, Any]:
@@ -23,7 +31,11 @@ def inspect_documents(paths: list[Path]) -> dict[str, Any]:
         item: dict[str, Any] = {"path": str(path.resolve()), "status": "inspected"}
         files.append(item)
         try:
-            roots = read_office(path)
+            media: dict[str, bytes] = {}
+            if path.suffix.lower() == ".docx":
+                roots, media = read_local_template(path)
+            else:
+                roots = read_office(path)
             workbook = roots.get("xl/workbook.xml")
             if workbook is not None:
                 rels = roots.get("xl/_rels/workbook.xml.rels")
@@ -65,6 +77,7 @@ def inspect_documents(paths: list[Path]) -> dict[str, Any]:
                     "placeholders": sorted({m for p in paragraphs for m in re.findall(r"\{\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}", p)}),
                     "placeholder_syntax": "{{ field_name }} only; other target types require local mapping",
                     "mapping_confirmed": False, "layout_verified": False,
+                    "embedded_image_count": len(media), "image_contents_reviewed": False,
                 })
         except ProjectError as exc:
             item.clear()

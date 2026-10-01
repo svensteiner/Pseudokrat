@@ -94,14 +94,27 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
   Fachfilter, freie KI-Texte und weitere Operationen sind noch nicht implementiert.
 - Geprüfte Textbausteine mit Zahlenbedingungen werden mit Version 3 unterstützt:
   [Automatische Berichtstexte](BERICHTSTEXTE.md).
-- Es gelten derzeit die Office-Funktionsgrenzen des KI-Projekt-Parsers, darunter
-  gesperrte Bilder, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
+- Eingebettete PNG- und JPEG-Bilder bleiben in lokalen DOCX-Berichten erhalten,
+  einschließlich Kopfzeilen und dynamischer Tabellenzeilen. Bei wiederholten
+  Zeilen werden neue interne Bildkennungen vergeben. Bildbytes und Metadaten
+  bleiben unverändert; der Bild-Hash wird im Nachweis gespeichert. Der Bericht
+  ist deshalb ausdrücklich kein anonymisiertes Exportpaket.
+- Weitere Office-Funktionsgrenzen bleiben bestehen, darunter gesperrte
+  VML-/SVG-/EMF-Bilder, Diagramme, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
   reale Vorlage noch gezielt erweitert werden; die Vorlage nicht still ändern.
 
 Geprüft sind ein vollständiger CLI-Durchlauf, Textläufe, Tabellen, Kopfzeilen,
 fehlende Zuordnungen und ein synthetischer Bericht mit 65 Abschnitten. Die
 tatsächliche Paginierung in Word und fachliche Richtigkeit echter Berichte
 bleiben lokal zu prüfen.
+
+Der strikte Parser für exportierbare KI-Projekte unterstützt weiterhin keine
+Bilder. Nur `read_local_template` und die lokale Berichtsverarbeitung erhalten
+die genannten Bildformate. Externe Bildverknüpfungen, fehlende Bildteile,
+unbekannte Zeichnungstypen und doppelte Beziehungskennungen stoppen den Lauf.
+Die Prüfung von Bildsignaturen ist keine vollständige Bilddecodierung,
+Schadsoftwareprüfung oder Erkennung vertraulicher Bildinhalte. Sichtprüfung
+und gegebenenfalls OCR bleiben Teil der lokalen fachlichen Abnahme.
 
 ## Dynamische Tabellen mit Version 2
 

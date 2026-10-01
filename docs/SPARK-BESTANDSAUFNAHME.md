@@ -32,6 +32,9 @@ und Originaldateien werden nicht überschrieben.
    ein zusätzlicher Adapter entwickelt wird. Originale nicht zur Fehleranalyse
    an die zentrale KI schicken.
 
+Lokal eingebettete PNG-/JPEG-Bilder werden gezählt; deren Inhalte und
+Metadaten werden nicht als anonymisiert oder geprüft gekennzeichnet.
+
 Exitcode 0 bedeutet, dass die Dateien im derzeit unterstützten Umfang untersucht
 wurden. Exitcode 20 bedeutet einen Fehler oder mindestens eine blockierte Datei.
 Auch bei blockierten Dateien kann ein lokaler Bericht mit Gründen vorliegen.

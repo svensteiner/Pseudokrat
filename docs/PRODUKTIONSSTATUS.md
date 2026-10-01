@@ -79,7 +79,9 @@ beschrieben.
    vergleichen, besonders bei Textkriterien und numerischen Kennungen.
 3. Echte Word-Vorlage einschließlich Formatierung und fachlicher Feldzuordnung
    lokal prüfen. Der Generator besteht, unterstützt aber noch nicht sämtliche
-   Office-Funktionen wie Bilder, Inhaltssteuerelemente und Word-Felder.
+   Office-Funktionen wie Diagramme, Inhaltssteuerelemente und Word-Felder.
+   PNG-/JPEG-Bilder werden in lokalen Berichten inzwischen erhalten; dies
+   gilt ausdrücklich nicht für exportierbare KI-Pakete.
 4. Spark-Betriebssystem, Endpunkt und tatsächliche Modellkennungen lokal prüfen.
    Der Linux-Berichtsweg mit LibreOffice ist inzwischen integriert und unter
    Ubuntu/WSL getestet. Spark-Installation, Architektur und reale Dateikompatibilität

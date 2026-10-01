@@ -11,7 +11,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from pseudokrat.ki_office import ProjectError, W, read_office, rewrite_runs, write_office
+from pseudokrat.ki_office import (
+    ProjectError,
+    W,
+    read_local_template,
+    rewrite_runs,
+    write_local_template,
+)
 from pseudokrat.report_mapping import resolve_mapping
 from pseudokrat.report_narratives import compile_narratives, render_narratives
 from pseudokrat.report_tables import FIELD_PATTERN as _FIELD
@@ -47,7 +53,7 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
     spec, narrative_rules = compile_narratives(spec)
     compiled, groups = compile_tables(spec)
     facts = resolve_mapping(excel, template, compiled, recalculate_excel=recalculate_excel, recalculate_libreoffice=recalculate_libreoffice)
-    roots = read_office(template)
+    roots, media = read_local_template(template)
     tables = render_tables(roots, groups, facts)
     narratives, narrative_inputs = render_narratives(narrative_rules, facts)
     render_values = {**facts, **narratives}
@@ -80,13 +86,14 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
     current = {"excel": _hash(excel), "template": _hash(template), "mapping": _hash(mapping)}
     if hashes != current:
         raise ProjectError("Eingaben wurden während der Verarbeitung verändert. Erneut starten.")
-    output = write_office(roots)
+    output = write_local_template(roots, media)
     evidence = {
         "version": 1, "classification": "CONFIDENTIAL_LOCAL_ONLY", "status": "draft_requires_local_review",
         "production_approved": False, "layout_verified": False,
         "input_sha256": hashes, "output_sha256": hashlib.sha256(output).hexdigest(), "facts": facts,
         "tables": tables,
         "narratives": narratives,
+        "embedded_media_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in media.items()},
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".pseudokrat-report-", dir=destination.parent) as staging:

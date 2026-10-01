@@ -46,6 +46,45 @@ def tag_local(element: Any) -> str:
 
 
 def read_office(path: Path) -> dict[str, Any]:
+    """Strict parser for exportable development packages; images remain blocked."""
+    return _read_office(path)
+
+
+def read_local_template(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """Read a confidential local DOCX, preserving supported pictures verbatim."""
+    if path.suffix.lower() != ".docx":
+        raise ProjectError("Lokale Berichtsvorlagen müssen DOCX-Dateien sein.")
+    media: dict[str, bytes] = {}
+    roots = _read_office(path, media)
+    image_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+    for name, root in roots.items():
+        if not name.startswith("word/") or name.endswith(".rels"):
+            continue
+        relationships = roots.get(posixpath.join(posixpath.dirname(name), "_rels", posixpath.basename(name) + ".rels"))
+        images = {}
+        if relationships is not None:
+            identifiers = [rel.get("Id") for rel in relationships]
+            if any(not identifier for identifier in identifiers) or len(set(identifiers)) != len(identifiers):
+                raise ProjectError("Fehlende oder doppelte Word-Verknüpfungskennung.")
+            for rel in relationships:
+                if rel.get("Type") == image_type:
+                    target = posixpath.normpath(posixpath.join(posixpath.dirname(name), rel.get("Target", ""))).lstrip("/")
+                    if target not in media:
+                        raise ProjectError("Bildverweis fehlt oder verwendet ein nicht unterstütztes Format.")
+                    images[rel.get("Id")] = target
+        for element in root.iter():
+            if tag_local(element) == "drawing" and sum(tag_local(e) == "graphicData" for e in element.iter()) != 1:
+                raise ProjectError("Nicht unterstützter Word-Zeichnungsbereich.")
+            if tag_local(element) == "graphicData" and element.get("uri") != "http://schemas.openxmlformats.org/drawingml/2006/picture":
+                raise ProjectError("Nur eingebettete Bilder werden in lokalen Zeichnungsbereichen unterstützt.")
+            if tag_local(element) == "blip":
+                reference = element.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
+                if not reference or reference not in images or element.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link") is not None:
+                    raise ProjectError("Bildverweis ist nicht vollständig lokal eingebettet.")
+    return roots, media
+
+
+def _read_office(path: Path, local_media: dict[str, bytes] | None = None) -> dict[str, Any]:
     if path.suffix.lower() not in {".xlsx", ".docx"}:
         raise ProjectError("Nur XLSX und DOCX werden im KI-Projekt unterstützt.")
     try:
@@ -62,6 +101,16 @@ def read_office(path: Path) -> dict[str, Any]:
                 # Non-rendered custom data and original-page previews are never
                 # needed by the development copy. Remove their links below too.
                 if info.filename.startswith(("customXml/", "docProps/")):
+                    continue
+                if local_media is not None and re.fullmatch(r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", info.filename):
+                    if info.file_size > MAX_PART:
+                        raise ProjectError("Bild überschreitet die Größenbegrenzung.")
+                    data = archive.read(info)
+                    png = info.filename.endswith(".png") and data.startswith(b"\x89PNG\r\n\x1a\n")
+                    jpeg = info.filename.endswith((".jpg", ".jpeg")) and data.startswith(b"\xff\xd8\xff")
+                    if not (png or jpeg):
+                        raise ProjectError("Bildformat und Bildinhalt stimmen nicht überein.")
+                    local_media[info.filename] = data
                     continue
                 if not _ALLOWED.fullmatch(info.filename):
                     raise ProjectError(
@@ -99,10 +148,13 @@ def read_office(path: Path) -> dict[str, Any]:
                     element.attrib.pop("codeName", None)
                 if local == "Relationship" and element.get("TargetMode") == "External":
                     raise ProjectError("Externe Office-Verknüpfungen werden nicht unterstützt.")
-                if local in {"oleObject", "object", "altChunk", "drawing", "pict", "extLst",
+                blocked = {"oleObject", "object", "altChunk", "drawing", "pict", "extLst",
                              "hyperlink", "customXml", "sdt", "smartTag", "ins", "del",
                              "moveFrom", "moveTo", "fldSimple", "instrText",
-                             "customWorkbookViews", "customSheetViews"}:
+                             "customWorkbookViews", "customSheetViews"}
+                if local_media is not None:
+                    blocked.remove("drawing")
+                if local in blocked:
                     raise ProjectError("Nicht unterstütztes Office-Element: " + local + ".")
                 if local == "definedName" and not element.get("name", "").startswith("_xlnm."):
                     raise ProjectError("Benutzerdefinierte Excel-Bereichsnamen werden noch nicht unterstützt.")
@@ -118,6 +170,17 @@ def write_office(roots: dict[str, Any]) -> bytes:
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:
         for name, root in roots.items():
             archive.writestr(name, etree.tostring(root, xml_declaration=True, encoding="UTF-8"))
+    return output.getvalue()
+
+
+def write_local_template(roots: dict[str, Any], media: dict[str, bytes]) -> bytes:
+    """Serialize local report parts and untouched images; not an export sanitizer."""
+    output = io.BytesIO(write_office(roots))
+    with ZipFile(output, "a", ZIP_DEFLATED) as archive:
+        for name, data in media.items():
+            if name in roots or not re.fullmatch(r"word/media/[A-Za-z0-9_.-]+\.(?:png|jpg|jpeg)", name):
+                raise ProjectError("Ungültiger lokaler Bildbestandteil.")
+            archive.writestr(name, data)
     return output.getvalue()
 
 

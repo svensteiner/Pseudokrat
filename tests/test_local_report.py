@@ -65,6 +65,26 @@ def test_invalid_calculated_number_or_binding_stops_report(tmp_path, report_inpu
     assert not (tmp_path / "blocked").exists()
 
 
+def test_reviewed_narrative_uses_facts_without_separate_word_fields(tmp_path, report_inputs):
+    excel, template, mapping = report_inputs
+    doc = Document()
+    doc.add_paragraph("{{ assessment }}")
+    doc.save(template)
+    spec = json.loads(mapping.read_text("utf-8"))
+    spec.update({"version": 3, "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
+                 "narratives": {"assessment": {"cases": [
+                     {"field": "amount", "op": "gt", "value": "0", "template": "Für {{ name }} beträgt der positive Saldo {{ amount }} EUR."}
+                 ], "otherwise": "Für {{ name }} beträgt der Saldo {{ amount }} EUR."}}})
+    mapping.write_text(json.dumps(spec), encoding="utf-8")
+    output = generate_report(excel, template, mapping, tmp_path / "result")
+    assert Document(output / "bericht.docx").paragraphs[0].text == "Für Originalname beträgt der positive Saldo 123,45 EUR."
+    evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
+    assert evidence["narratives"]["assessment"]["selected_branch"] == 0
+    assert evidence["narratives"]["assessment"]["inputs"] == ["amount", "name"]
+    assert evidence["facts"]["amount"]["source"]["range"] == "B2"
+    assert evidence["production_approved"] is False
+
+
 @pytest.fixture
 def report_inputs(tmp_path):
     excel = tmp_path / "original.xlsx"

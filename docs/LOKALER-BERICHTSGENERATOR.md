@@ -1,7 +1,9 @@
 # Lokaler Excel-zu-Word-Entwurf
 
-Dieser erste ausführbare Durchlauf liest fest zugeordnete Excel-Quellen und
-befüllt Word-Platzhalter ohne Modellaufruf oder Netzwerkzugriff. Er erzeugt einen
+Dieser Durchlauf liest fest zugeordnete Excel-Quellen und
+befüllt Word-Platzhalter ohne Modellaufruf. Der Python-Verarbeitungspfad nutzt
+keine Netzwerkverbindung; eine optional gestartete Office-Engine benötigt
+separate Netzwerkisolation. Er erzeugt einen
 **vertraulichen Entwurf**, keine automatische Produktionsfreigabe.
 
 ## Vorlage und geprüfte Zuordnung
@@ -35,7 +37,8 @@ Eine lokale `mapping.json` beschreibt Quellen und Ausgabeformat:
 ```
 
 Die Feldnamen müssen genau den in der Vorlage verwendeten Platzhaltern
-entsprechen. `reviewed: true` erst nach lokaler fachlicher Prüfung setzen:
+entsprechen. Bei Version 3 können Felder auch ausschließlich als Eingaben
+von Textregeln dienen. `reviewed: true` erst nach lokaler fachlicher Prüfung setzen:
 Zeilenumfang, Zeitraum, Einheit/Währung, Filter und Bedeutung jeder Kennzahl.
 Das Kennzeichen ist eine Bestätigung des Anwenders, kein unabhängiger Nachweis.
 
@@ -85,6 +88,8 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
 - Tabellen mit fester Zeilenzahl können Feldplatzhalter enthalten. Dynamisch
   wiederholte Tabellenzeilen werden mit Zuordnungsversion 2 unterstützt (unten).
   Fachfilter, freie KI-Texte und weitere Operationen sind noch nicht implementiert.
+- Geprüfte Textbausteine mit Zahlenbedingungen werden mit Version 3 unterstützt:
+  [Automatische Berichtstexte](BERICHTSTEXTE.md).
 - Es gelten derzeit die Office-Funktionsgrenzen des KI-Projekt-Parsers, darunter
   gesperrte Bilder, Inhaltssteuerelemente und Word-Felder. Diese müssen für die
   reale Vorlage noch gezielt erweitert werden; die Vorlage nicht still ändern.

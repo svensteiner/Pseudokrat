@@ -13,6 +13,7 @@ from typing import Any
 
 from pseudokrat.ki_office import ProjectError, W, read_office, rewrite_runs, write_office
 from pseudokrat.report_mapping import resolve_mapping
+from pseudokrat.report_narratives import compile_narratives, render_narratives
 from pseudokrat.report_tables import FIELD_PATTERN as _FIELD
 from pseudokrat.report_tables import compile_tables, render_tables
 
@@ -43,10 +44,13 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
         raise ProjectError("Neuen Zielordner und eine unterstützte Zuordnungsdatei verwenden.")
     hashes = {"excel": _hash(excel), "template": _hash(template), "mapping": _hash(mapping)}
     spec = json.loads(mapping.read_text("utf-8-sig"))
+    spec, narrative_rules = compile_narratives(spec)
     compiled, groups = compile_tables(spec)
     facts = resolve_mapping(excel, template, compiled, recalculate_excel=recalculate_excel)
     roots = read_office(template)
     tables = render_tables(roots, groups, facts)
+    narratives, narrative_inputs = render_narratives(narrative_rules, facts)
+    render_values = {**facts, **narratives}
     paragraphs: list[tuple[list[Any], str]] = []
     found: set[str] = set()
     for name, root in roots.items():
@@ -60,13 +64,14 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
                 raise ProjectError("Nicht unterstützte oder beschädigte Word-Platzhalter.")
             found.update(_FIELD.findall(text))
             paragraphs.append((nodes, text))
-    if found != set(facts):
+    if (not found <= set(render_values) or not set(narratives) <= found
+        or not set(facts) <= found | narrative_inputs):
         raise ProjectError("Word-Platzhalter und geprüfte Zuordnung stimmen nicht vollständig überein.")
-    if any("{{" in f["text"] or "}}" in f["text"] for f in facts.values()):
+    if any("{{" in f["text"] or "}}" in f["text"] for f in render_values.values()):
         raise ProjectError("Quelldaten enthalten reservierte Platzhalterzeichen; lokale Zuordnung prüfen.")
     for nodes, _ in paragraphs:
         if nodes:
-            rewrite_runs(nodes, lambda text: _FIELD.sub(lambda match: facts[match[1]]["text"], text))
+            rewrite_runs(nodes, lambda text: _FIELD.sub(lambda match: render_values[match[1]]["text"], text))
     for root in roots.values():
         for element in root.iter():
             values = [element.text or "", *element.attrib.values()]
@@ -81,6 +86,7 @@ def _generate(excel: Path, template: Path, mapping: Path, destination: Path, rec
         "production_approved": False, "layout_verified": False,
         "input_sha256": hashes, "output_sha256": hashlib.sha256(output).hexdigest(), "facts": facts,
         "tables": tables,
+        "narratives": narratives,
     }
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".pseudokrat-report-", dir=destination.parent) as staging:

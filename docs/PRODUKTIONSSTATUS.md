@@ -5,6 +5,25 @@ getestet; keine allgemeine Produktionsfreigabe und kein Nachweis der 95-%-Quote.
 
 ## Durchgeführte Prüfungen
 
+- Aktueller gemeinsamer Windows-Regressionstest am 1. Oktober: **957 Tests
+  bestanden, 26 optionale native Office-Tests übersprungen**, Laufzeit 498 Sekunden,
+  Prozess-Exitcode 0. Die übersprungenen Tests benötigen explizite Excel- bzw.
+  Linux-LibreOffice-Freigabe und werden damit nicht durch diesen Lauf abgenommen.
+  Nach Testende meldete pytest einen Berechtigungsfehler beim Aufräumen seines
+  temporären `pytest-current`-Ordners; das Testergebnis blieb erfolgreich.
+- GitHub-CI-Härtung: vorgeschriebene Ruff-Formatierung hergestellt;
+  unabhängiger Syntaxbaumvergleich bestätigte unveränderte Programmlogik.
+  Linux-Typfehler an Windows-spezifischen APIs gezielt gekennzeichnet und fehlende
+  Qt-Systembibliotheken für die Linux-GUI-Tests im Workflow ergänzt.
+  Lokaler Ruff-Check und mypy für Windows und Linux über 84 Quellmodule bestanden.
+  GitHub-Linux-Tests bestehen nach diesen Korrekturen; die Abdeckungsgrenze bleibt
+  zunächst rot (Windows-Python-3.12-Lauf: 77,8 Prozent Zeilenabdeckung bei
+  geforderten 80 Prozent). Zusätzliche 20 Tests prüfen jetzt die Worker-Grenze
+  ohne Office: ungültige Rechenergebnisse, manipulierte Quellen, defekte,
+  verschlüsselte oder leere PDFs sowie Veröffentlichung und Arbeitskopie-Bereinigung.
+  Diese Tests bestanden unter Windows und Ubuntu/WSL und ersetzen keine nativen Engine-Tests.
+  Eine vollständige grüne GitHub-CI ist erst mit Abschluss aller Jobs nachgewiesen.
+
 - Gesamtsuite des Stands vor dem neuen Linux-Adapter: **931 Tests bestanden,
   6 optionale Excel-Livetests übersprungen**. Dieser Lauf ist keine Prüfung des
   danach ergänzten Linux-Adapters; dessen Live-Abnahme erfolgt separat.

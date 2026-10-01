@@ -14,6 +14,7 @@ from openpyxl.utils.cell import get_column_letter, range_boundaries
 
 from pseudokrat.ki_office import ProjectError, S, cell_text, read_office, shared_text
 from pseudokrat.native_excel import recalculate
+from pseudokrat.native_libreoffice import recalculate as recalculate_with_libreoffice
 
 
 def _require(condition: bool) -> None:
@@ -29,7 +30,7 @@ def _addresses(reference: str) -> list[str]:
     return [f"{get_column_letter(c)}{r}" for r in range(r1, r2 + 1) for c in range(c1, c2 + 1)]
 
 
-def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalculate_excel: bool = False) -> dict[str, Any]:
+def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalculate_excel: bool = False, recalculate_libreoffice: bool = False) -> dict[str, Any]:
     """Resolve reviewed fields, optionally rebuilding formulas in local Excel.
 
     Results contain original facts and source references and must stay local.
@@ -38,15 +39,16 @@ def resolve_mapping(excel: Path, template: Path, spec: dict[str, Any], *, recalc
     try:
         with localcontext() as context:
             context.prec = 320
-            _require(type(recalculate_excel) is bool)
-            return _resolve(excel, template, spec, recalculate_excel)
+            _require(type(recalculate_excel) is bool and type(recalculate_libreoffice) is bool)
+            _require(not (recalculate_excel and recalculate_libreoffice))
+            return _resolve(excel, template, spec, recalculate_excel, recalculate_libreoffice)
     except ProjectError:
         raise
     except (OSError, KeyError, ValueError, TypeError, AttributeError, InvalidOperation, OverflowError) as exc:
         raise ProjectError("Berichtsquellen oder Zuordnung konnten nicht sicher ausgewertet werden.") from exc
 
 
-def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_excel: bool) -> dict[str, Any]:
+def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_excel: bool, recalculate_libreoffice: bool) -> dict[str, Any]:
     _require(excel.suffix.lower() == ".xlsx" and template.suffix.lower() == ".docx")
     _require(set(spec) == {"version", "reviewed", "template_sha256", "headers", "fields"})
     _require(type(spec["version"]) is int and spec["version"] == 1 and spec["reviewed"] is True)
@@ -103,10 +105,10 @@ def _resolve(excel: Path, template: Path, spec: dict[str, Any], recalculate_exce
             cell_type = cell.get("t", "n")
             formula = cell.find(f"{{{S}}}f")
             if formula is not None:
-                if not recalculate_excel:
+                if not (recalculate_excel or recalculate_libreoffice):
                     raise ProjectError("Formelquelle benötigt nachgewiesene lokale Neuberechnung; Cache allein wird nicht freigegeben.")
                 if calculation is None:
-                    calculation = recalculate(excel)
+                    calculation = recalculate(excel) if recalculate_excel else recalculate_with_libreoffice(excel)
                     _require(calculation["source_sha256"] == source_hash)
                 fresh = calculation["cells"][sheet][address]["value"]
                 _require(type(fresh) in {str, int, float})

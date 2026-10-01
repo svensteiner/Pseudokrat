@@ -59,16 +59,16 @@ auf Modellaufrufe ersetzt keine Netzwerkisolation des Betriebssystems.
 
 ## Wichtige Funktionsgrenze auf Linux
 
-Der vorhandene Neuberechnungsadapter benötigt **Windows mit Microsoft Excel**.
-`--recalculate-excel` funktioniert auf Linux nicht. Für Formelquellen besteht
-damit auf einem Linux-Spark weiterhin eine offene Integrationslücke. Gespeicherte
+`--recalculate-excel` benötigt **Windows mit Microsoft Excel** und funktioniert
+auf Linux nicht. Unter Linux kann stattdessen ausdrücklich
+`--recalculate-libreoffice` an den Berichtsbefehl angehängt werden. Gespeicherte
 Excel-Caches werden nicht ersatzweise freigegeben. Originalformeln nicht einfach
 durch Werte ersetzen, um die Prüfung zu umgehen.
 
 Ein [experimenteller LibreOffice-Adapter](LOKALE-LIBREOFFICE-ENGINE.md) ist
-inzwischen vorhanden und separat unter Ubuntu/WSL getestet. Er ist noch nicht
-mit dem Berichtsbefehl verbunden. Dafür wird weiterhin eine lokal verfügbare
-Berechnungsengine samt Kompatibilitätsprüfung benötigt. Ein installierter LibreOffice-Befehl allein
+inzwischen mit dem Berichtsbefehl verbunden und unter Ubuntu/WSL getestet.
+Auf dem Spark werden weiterhin eine lokal verfügbare Berechnungsengine samt
+UNO-Anbindung und Kompatibilitätsprüfung benötigt. Ein installierter LibreOffice-Befehl allein
 würde keine Gleichheit aller Excel-Ergebnisse beweisen. Die Windows-Live-Tests
 sind kein Nachweis für die Spark-Umgebung.
 

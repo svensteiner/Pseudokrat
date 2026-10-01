@@ -85,6 +85,10 @@ Exitcode 20 bedeutet Abbruch ohne fertigen Ergebnisordner.
   berechnet installiertes Microsoft Excel unter Windows eine geprüfte Kopie
   neu. Ein Cache allein reicht nicht. Grenzen und Abnahme:
   [Lokale Excel-Engine](LOKALE-EXCEL-ENGINE.md).
+- Unter Linux steht ausdrücklich `--recalculate-libreoffice` zur Verfügung.
+  Beide Engine-Optionen sind gegenseitig exklusiv. Es gibt keinen automatischen
+  Ersatz durch eine andere Engine. Die Einschränkungen stehen beim
+  [LibreOffice-Adapter](LOKALE-LIBREOFFICE-ENGINE.md).
 - Tabellen mit fester Zeilenzahl können Feldplatzhalter enthalten. Dynamisch
   wiederholte Tabellenzeilen werden mit Zuordnungsversion 2 unterstützt (unten).
   Fachfilter, freie KI-Texte und weitere Operationen sind noch nicht implementiert.

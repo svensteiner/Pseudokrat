@@ -1,13 +1,26 @@
 # Experimenteller Linux-Adapter für LibreOffice Calc
 
 `pseudokrat.native_libreoffice.recalculate(Path(...))` berechnet eine geprüfte
-XLSX-Arbeitskopie unter Linux neu. Der Adapter ist noch nicht an die CLI des
-Berichtsgenerators angebunden und bedeutet keine Produktionsfreigabe.
+XLSX-Arbeitskopie unter Linux neu. Der Berichtsgenerator verwendet ihn ausdrücklich
+mit `--recalculate-libreoffice` (Python: `recalculate_libreoffice=True`).
+Dies bedeutet keine Produktionsfreigabe.
 
 Voraussetzungen im getesteten Ubuntu-System: `/usr/bin/python3` mit
 `python3-uno` und `/usr/bin/libreoffice` mit Calc. Getestete Engine:
 LibreOffice 24.2.7.2 unter Ubuntu/WSL auf x86-64. Dies ist kein Nachweis für
 die tatsächliche Spark-Hardware oder deren CPU-Architektur.
+
+Beispiel im installierten Linux-Projekt:
+
+```bash
+python -m pseudokrat.local_report --excel daten.xlsx --template vorlage.docx --mapping mapping.json --output neuer-bericht --recalculate-libreoffice
+```
+
+Die Optionen `--recalculate-excel` und `--recalculate-libreoffice` schließen
+sich gegenseitig aus. Bei Fehlern erfolgt weder ein Wechsel zur anderen Engine
+noch eine Übernahme alter Formel-Caches. Ohne Engine-Auswahl bleiben
+Formelquellen gesperrt. Engine, Version, Eingabehash und verwendete Formeln
+werden bei den betreffenden Feldern im vertraulichen Berichtsnachweis erfasst.
 
 Die Originaldatei wird begrenzt eingelesen und gehasht. Die identischen Bytes
 durchlaufen die gemeinsame OOXML- und Formelprüfung. Erst die daraus neu

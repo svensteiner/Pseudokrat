@@ -81,8 +81,9 @@ beschrieben.
    lokal prüfen. Der Generator besteht, unterstützt aber noch nicht sämtliche
    Office-Funktionen wie Bilder, Inhaltssteuerelemente und Word-Felder.
 4. Spark-Betriebssystem, Endpunkt und tatsächliche Modellkennungen lokal prüfen.
-   Eine Linux-Berechnungsengine ist noch nicht integriert; der Windows-Adapter
-   genügt dafür nicht. Freie Modelltexte sind noch nicht angebunden.
+   Der Linux-Berichtsweg mit LibreOffice ist inzwischen integriert und unter
+   Ubuntu/WSL getestet. Spark-Installation, Architektur und reale Dateikompatibilität
+   bleiben zu prüfen. Freie Modelltexte sind noch nicht angebunden.
 5. Wiederherstellung mit gesichertem Profil testen und Zugriffsrechte auf
    vertrauliche Arbeitsordner gemäß lokaler Umgebung prüfen.
 

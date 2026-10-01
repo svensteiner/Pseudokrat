@@ -13,8 +13,11 @@ from pseudokrat.ki_office import ProjectError
 from pseudokrat.local_report import generate_report, main
 
 
-@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Explicit Excel opt-in")
-def test_real_recalculation_reaches_word_with_provenance(tmp_path, report_inputs):
+@pytest.mark.parametrize("engine,flag", [
+    pytest.param("Microsoft Excel", "recalculate_excel", marks=pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_EXCEL") != "1", reason="Explicit Excel opt-in")),
+    pytest.param("LibreOffice Calc", "recalculate_libreoffice", marks=pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1", reason="Explicit LibreOffice opt-in")),
+])
+def test_real_recalculation_reaches_word_with_provenance(tmp_path, report_inputs, engine, flag):
     excel, template, mapping = report_inputs
     book = load_workbook(excel)
     book.active["B2"] = "=ROUND(12.345*2,2)"
@@ -23,15 +26,58 @@ def test_real_recalculation_reaches_word_with_provenance(tmp_path, report_inputs
     with pytest.raises(ProjectError):
         generate_report(excel, template, mapping, tmp_path / "blocked")
     assert not (tmp_path / "blocked").exists()
-    output = generate_report(excel, template, mapping, tmp_path / "calculated", recalculate_excel=True)
+    output = generate_report(excel, template, mapping, tmp_path / "calculated", **{flag: True})
     assert Document(output / "bericht.docx").tables[0].cell(0, 1).text == "24,69 EUR"
     evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
     calc = evidence["facts"]["amount"]["calculation"]
-    assert calc["engine"] == "Microsoft Excel"
+    assert calc["engine"] == engine
     assert calc["source_sha256"] == hashlib.sha256(excel.read_bytes()).hexdigest()
     assert calc["formulas"]["B2"] == {"formula": "=ROUND(12.345*2,2)", "value": "24.69"}
     assert evidence["production_approved"] is False
     assert [p.read_bytes() for p in report_inputs] == originals
+
+
+def test_conflicting_engines_never_create_report(tmp_path, report_inputs):
+    with pytest.raises(ProjectError):
+        generate_report(*report_inputs, tmp_path / "blocked", recalculate_excel=True, recalculate_libreoffice=True)
+    assert not (tmp_path / "blocked").exists()
+
+
+@pytest.mark.skipif(os.environ.get("PSEUDOKRAT_TEST_LIBREOFFICE") != "1", reason="Explicit LibreOffice opt-in")
+def test_linux_formulas_tables_and_narratives_in_large_report(tmp_path, report_inputs):
+    excel, template, mapping = report_inputs
+    book = load_workbook(excel)
+    book.active["B2"] = "=ROUND(12.345*2,2)"
+    book.active["A3"] = "Zweiter Testfall"
+    book.active["B3"] = "=-B2"
+    book.save(excel)
+    doc = Document()
+    for index in range(65):
+        if index:
+            doc.add_page_break()
+        doc.add_heading(f"Abschnitt {index + 1}", level=1)
+        doc.add_paragraph("{{ assessment }}")
+    row = doc.add_table(rows=1, cols=2).rows[0]
+    row.cells[0].text = "{{ rows.name }}"
+    row.cells[1].text = "{{ rows.amount }} EUR"
+    doc.save(template)
+    spec = json.loads(mapping.read_text("utf-8"))
+    spec["fields"]["amount"].update({"range": "B2:B3", "operation": "sum"})
+    spec.update({"version": 3, "template_sha256": hashlib.sha256(template.read_bytes()).hexdigest(),
+                 "narratives": {"assessment": {"template": "Für {{ name }} beträgt der Gesamtsaldo {{ amount }} EUR."}},
+                 "tables": {"rows": {"sheet": "Daten", "first_row": 2, "last_row": 3,
+                     "columns": {"name": {"column": "A", "format": "text"},
+                                 "amount": {"column": "B", "format": "decimal", "decimals": 2}}}}})
+    mapping.write_text(json.dumps(spec), encoding="utf-8")
+    originals = [path.read_bytes() for path in report_inputs]
+    output = generate_report(excel, template, mapping, tmp_path / "result", recalculate_libreoffice=True)
+    result = Document(output / "bericht.docx")
+    assert sum(p.text == "Für Originalname beträgt der Gesamtsaldo 0,00 EUR." for p in result.paragraphs) == 65
+    assert [row.cells[1].text for row in result.tables[0].rows] == ["24,69 EUR", "-24,69 EUR"]
+    evidence = json.loads((output / "nachweis.json").read_text("utf-8"))
+    assert evidence["tables"]["rows"][1]["amount"]["calculation"]["engine"] == "LibreOffice Calc"
+    assert evidence["narratives"]["assessment"]["inputs"] == ["amount", "name"]
+    assert [path.read_bytes() for path in report_inputs] == originals
 
 
 def test_failed_recalculation_never_creates_report(tmp_path, report_inputs, monkeypatch):
